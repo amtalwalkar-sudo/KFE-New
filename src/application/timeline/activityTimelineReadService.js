@@ -31,8 +31,12 @@ export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offlin
   const longitude = Number(snapshot.longitude)
   const hasAccuracy = snapshot.accuracy !== null && snapshot.accuracy !== undefined && snapshot.accuracy !== ''
   const accuracy = hasAccuracy ? Number(snapshot.accuracy) : NaN
-  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || (hasAccuracy && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 75))) return 'Location unavailable'
-  const saved = localityBySnapshotId.get(snapshot.id)?.placeName
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180
+    || (hasAccuracy && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 75))) return 'Location unavailable'
+  // Never display a locality label unless the source fix has a recorded,
+  // acceptable accuracy. Older labels created without accuracy are not trusted.
+  const localityEligible = hasAccuracy && Number.isFinite(accuracy) && accuracy <= 75
+  const saved = localityEligible ? localityBySnapshotId.get(snapshot.id)?.placeName : null
   if (typeof saved === 'string' && saved.trim()) return saved.trim()
   return offline ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Location unavailable'
 }
