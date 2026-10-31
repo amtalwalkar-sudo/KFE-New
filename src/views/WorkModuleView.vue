@@ -26,7 +26,6 @@ let workflowTimerReady = false
 
 const startOdo = ref('')
 const startAck = ref(false)
-const gapChoice = ref('')
 const startBusy = ref(false)
 const startOpen = ref(false)
 
@@ -132,9 +131,9 @@ const saveDraftBeforeCommit = async (identity, values) => {
 }
 const clearCommittedDraft = draftController.clearCommitted
 
-watch([startOdo, startAck, gapChoice], () => {
+watch([startOdo, startAck], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
-  saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
+  saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value })
 })
 watch([fare, tripToll, tripParking], () => {
   // Persist only against the trip explicitly opened in the fare form; never
@@ -166,7 +165,6 @@ watch([closingOdo, endStage, largeDistanceConfirmation], () => {
 })
 
 const gap = computed(() => store.calculateGap(startOdo.value))
-const gapKm = computed(() => Number(gap.value?.gapKm || 0))
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
 const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
@@ -322,13 +320,11 @@ async function openStart() {
   startOpen.value = true
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
-  gapChoice.value = ''
   startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
   const draft = await restoreDraft(startDraftIdentity())
   if (draft?.values) {
     startOdo.value = String(draft.values.startOdo ?? startOdo.value)
     startAck.value = Boolean(draft.values.startAck)
-    gapChoice.value = String(draft.values.gapChoice ?? '')
   }
   restoringDrafts = false
   error.value = ''
@@ -336,23 +332,17 @@ async function openStart() {
   // Let the driver's tap focus the field so Android reliably opens its numeric keyboard.
 }
 
-function setStartGapChoice(choice) {
-  gapChoice.value = choice
-}
-
-
 async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
   if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
   if (!gap.value.valid) return fail(gap.value.reason || 'Enter a valid odometer.')
-  if (gapKm.value && !gapChoice.value) return fail('Choose Personal KM or Dead KM for the full odometer gap.')
 
   startBusy.value = true
   try {
     // Persist the workflow token before any native write so a process restart can retry the same create intent.
-    await saveDraftBeforeCommit(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
-    const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
+    await saveDraftBeforeCommit(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, createIntentKey: startWorkflowId.value })
+    const result = await store.startShift(startOdo.value, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
     startWorkflowId.value = draftController.newWorkflowId()
@@ -1017,15 +1007,11 @@ onBeforeUnmount(() => {
     <WorkContextForm
       v-show="!store.isOnline && startOpen"
       type="start"
-      :gap="gap"
-      :gap-km="gapKm"
       :start-busy="startBusy"
       :start-odo="startOdo"
       :start-ack="startAck"
-      :gap-choice="gapChoice"
       @update:start-odo="startOdo=$event"
       @update:start-ack="startAck=$event"
-      @update:gap-choice="setStartGapChoice"
       @action="handleContextAction"
     />
 
