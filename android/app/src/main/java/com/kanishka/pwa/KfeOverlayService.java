@@ -926,7 +926,10 @@ public class KfeOverlayService extends Service {
     if(!hasPendingEventLocations())return;
     // Permission is a hard gate: never start a background location request until
     // both precise and background location permissions are granted.
-    if(!hasBackgroundLocationPermission())return;
+    if(!hasBackgroundLocationPermission()){
+      if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+      return;
+    }
     try{
       long now=System.currentTimeMillis();
       JSONObject earliest=gpsJournal().earliestPending(gpsCaptureInFlight,now);
@@ -996,7 +999,9 @@ public class KfeOverlayService extends Service {
       recordPendingGpsFailure(entityType,entityId,eventType);if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}return;
     }
     if(!hasBackgroundLocationPermission()){
-      Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");return;
+      Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");
+      if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+      return;
     }
     String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
     if(!gpsCaptureInFlight.add(key))return;
