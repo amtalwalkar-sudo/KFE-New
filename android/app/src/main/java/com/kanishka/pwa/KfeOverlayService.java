@@ -939,7 +939,7 @@ public class KfeOverlayService extends Service {
     gpsCaptureInFlight.remove(KfeGpsEventPolicy.key(entityType,entityId,eventType));
     if(saved){
       removePendingEventLocation(entityType,entityId,eventType);
-      else if(overlay==null&&!hasPersistedOverlayState(this)){
+      if(overlay==null&&!hasPersistedOverlayState(this)){
         stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
       }
     }else{
