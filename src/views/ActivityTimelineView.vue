@@ -66,7 +66,7 @@ const refreshLocationNames = async () => {
   try {
     const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
     const visibleRideById = new Map(snapshot.value.rides.map(ride => [ride.id, ride]))
-    const locations = await EventLocationService.forEntities('TRIP', rideIds)
+    const locations = await EventLocationService.forEntities('TRIP', rideIds, ['PICKUP_START', 'TRIP_END'])
     const eligible = locations.filter(location => visibleRideById.has(location.entityId))
     const results = await EventLocalityService.resolveSnapshots(eligible)
     const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
