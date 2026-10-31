@@ -239,7 +239,6 @@ public class KfeOverlayService extends Service {
 
   @Override public int onStartCommand(Intent intent,int flags,int startId){
     if(intent==null){
-      if(hasPendingEventLocations() && hasBackgroundLocationPermission()){retryPendingEventLocations();return START_STICKY;}
       if(Settings.canDrawOverlays(this)&&restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
       removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
@@ -260,7 +259,7 @@ public class KfeOverlayService extends Service {
       if(restorePersistedOverlayIfCanonicalShiftActive())return START_STICKY;
       removeOverlay(true);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;
     }
-    if(ACTION_HIDE.equals(action)){clearPersistedOverlayState(this);removeOverlay();if(hasPendingEventLocations()&&hasBackgroundLocationPermission()){retryPendingEventLocations();return START_STICKY;}stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+    if(ACTION_HIDE.equals(action)){clearPersistedOverlayState(this);removeOverlay();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
     if(ACTION_MINIMIZE.equals(action)){minimizeToBubble();return START_STICKY;}
     if(ACTION_FARE_SAVED.equals(action)){onFareSaved();return START_NOT_STICKY;}
     if(ACTION_CANCEL_SAVED.equals(action)){onCancelSaved();return START_NOT_STICKY;}
