@@ -515,7 +515,7 @@ async function saveCancel(fromNative = false, operationId = '') {
     const cancellationReason = cancelReason.value.trim()
     const result = await store.cancelTrip({
       reason: cancellationReason,
-      revenue: cancelFare.value
+      cancelledRevenue: cancelFare.value
     }, operationId)
     if (!result?.ok) { fail(result?.reason || 'Cancellation could not be saved.'); return false }
 
@@ -819,7 +819,7 @@ const handleNativeAction = async event => {
     try {
       const payload = event?.input ? JSON.parse(String(event.input)) : {}
       cancelReason.value = payload.reason === 'PASSENGER' ? 'PASSENGER' : 'DRIVER'
-      cancelFare.value = payload.revenue === '' || payload.revenue == null ? '' : String(payload.revenue)
+      cancelFare.value = (payload.cancelledRevenue ?? payload.revenue) === '' || (payload.cancelledRevenue ?? payload.revenue) == null ? '' : String(payload.cancelledRevenue ?? payload.revenue)
       return Boolean(await saveCancel(true, String(event?.eventId || '')))
     } catch (e) {
       fail(e?.message || 'Cancellation failed.')
