@@ -6,9 +6,11 @@
 
 ## Active phase
 
-**PHASE 11 — CONTROLLED REAL-WORLD / PHYSICAL-DEVICE PILOT**
+**PHASE 11 — CONTROLLED REAL-WORLD PILOT**
 
-Status: **ACTIVE — physical-device acceptance is pending.**
+Status: **ACTIVE**
+
+Physical-device acceptance is pending; this is the current work within Phase 11.
 
 ## Phase state
 
@@ -25,7 +27,7 @@ Status: **ACTIVE — physical-device acceptance is pending.**
 | 8 — Security / Permissions Gate | **AUTOMATED CHECKS PASSED ON PRIOR HEAD; rerun required for latest head** |
 | 9 — Production Configuration Gate | **AUTOMATED CHECKS PASSED ON PRIOR HEAD; rerun required for latest head** |
 | 10 — Release Candidate Freeze | **PENDING FINAL DOCUMENTATION-CLEANUP HEAD** |
-| 11 — Controlled Real-World / Physical-Device Pilot | **ACTIVE — phone verification pending** |
+| 11 — Controlled Real-World Pilot | **ACTIVE** |
 | 12 — Pilot Reconciliation | **LOCKED / PENDING** |
 | 13 — Final Release Gate | **LOCKED / PENDING** |
 | Launch | **LOCKED / PENDING** |
