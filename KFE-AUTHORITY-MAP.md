@@ -46,6 +46,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ### Current UI and basic Performance evidence
 - docs/ADMIN-ARCHITECTURE-AUDIT-2026-10-31.md — Admin implementation audit evidence; subordinate to the architecture and universal form contracts.
+- docs/ADMIN-EXTENSIBILITY-AND-STABILITY-CONTRACT.md — current Admin source-form and stability mechanics; does not authorize new workflows.
 - docs/KFE-WHOLE-APP-ARCHITECTURE-AUDIT-2026-10-31.md — whole-app implementation audit evidence; does not create new product scope.
 
 ### Data / persistence / operational evidence
