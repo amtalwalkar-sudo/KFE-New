@@ -7,7 +7,7 @@ This document defines architecture and ownership boundaries. Product scope and b
 
 ## 1. Governing architecture rule
 
-> **ONE RESPONSIBILITY → ONE OWNER → ONE AUTHORITATIVE SOURCE → ONE IMPLEMENTATION PATH**
+> **ONE BUSINESS RESPONSIBILITY → ONE SEMANTIC OWNER → ONE CANONICAL AUTHORITY → ONLY NECESSARY PLATFORM ADAPTERS**
 
 KFE must not accumulate parallel implementations merely because historical versions contained them.
 
@@ -232,7 +232,7 @@ Presentation contracts define presentation behavior; historical UI documents are
 
 ## 11. Repository and service rules
 
-- No duplicate repository for the same authoritative record type.
+- No competing repository authority for the same canonical record type. Browser IndexedDB and Android SQLite adapters may both exist only to implement the same canonical model and must preserve identical business meaning.
 - No direct infrastructure access from domain calculations.
 - No browser/native/provider lifecycle code inside domain logic.
 - No UI-owned persistence authority.
