@@ -17,7 +17,7 @@ A snapshot preserves the provider fix timestamp (`capturedAt`) separately from t
 
 Locality resolution is owned by the PWA and is separate from native GPS capture.
 
-- Resolve all four GPS event types asynchronously after a snapshot is durably captured, without blocking ride actions.
+- All four GPS event types may be resolved only after an explicit user-initiated Timeline pull-to-refresh. Lookup is asynchronous and never blocks ride actions; saving a GPS snapshot never starts a locality request.
 - New reverse geocoding is permitted only for event timestamps within the most recent seven days.
 - Save successful locality names permanently in PWA IndexedDB, keyed by canonical snapshot ID. Never use a coordinate-only cache or an arbitrary entry cap.
 - A locality label may be displayed only when its canonical GPS snapshot has recorded accuracy of 75 metres or better. If the PWA is offline, show an eligible saved locality where available; otherwise show the stored coordinates. While online, unresolved names remain unavailable until an explicit manual pull-to-refresh succeeds.
