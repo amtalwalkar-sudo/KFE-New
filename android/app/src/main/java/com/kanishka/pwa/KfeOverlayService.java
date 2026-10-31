@@ -971,10 +971,24 @@ public class KfeOverlayService extends Service {
     }catch(Exception error){Log.w("KFE-GPS","Unable to check prior event-location snapshot",error);}
     try{
       JSONObject canonicalRecord=KfeCanonicalWorkStore.get(this).getRecord(entityType,entityId);
-      if(!canonicalRecord.optBoolean("found",false)||canonicalRecord.optJSONObject("record")==null){
+      JSONObject parent=canonicalRecord.optJSONObject("record");
+      if(!canonicalRecord.optBoolean("found",false)||parent==null){
         removePendingEventLocation(entityType,entityId,eventType);scheduleNextPendingGpsSoon();
         if("TRIP".equals(entityType))Log.w("KFE-GPS","Discarded pending GPS request for missing trip "+entityId+"; no orphan snapshot will be written.");
         else Log.w("KFE-GPS","Discarded pending GPS request for missing "+entityType+" record "+entityId+"; no orphan snapshot will be written.");
+        return;
+      }
+      if(eventAt==null||eventAt.trim().isEmpty()){
+        if("TRIP".equals(entityType)){
+          if("PICKUP_START".equals(eventType))eventAt=parent.optString("createdAt",parent.optString("tripStartAt",""));
+          else if("TRIP_START".equals(eventType))eventAt=parent.optString("tripStartAt","");
+          else eventAt=parent.optString("tripEndAt","");
+        }
+      }
+      if(eventAt==null||eventAt.trim().isEmpty()){
+        Log.w("KFE-GPS","Event GPS request has no authoritative event timestamp; it remains pending.");
+        recordPendingGpsFailure(entityType,entityId,eventType);
+        if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
         return;
       }
     }catch(Exception error){
