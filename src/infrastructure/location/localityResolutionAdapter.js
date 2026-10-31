@@ -3,10 +3,11 @@ const gateway = () => { try { return globalThis.__KFE_MAPPLS_GEOCODER_GATEWAY__ 
 const photonEndpoint = () => { try { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || import.meta.env?.VITE_REVERSE_GEOCODER_ENDPOINT || PHOTON } catch { return globalThis.__KFE_REVERSE_GEOCODER_ENDPOINT__ || PHOTON } }
 const MAX_LOCALITY_ACCURACY_METERS = 150
 const hasReliableAccuracy = location => {
-  const accuracy = Number(location?.accuracy)
+  if (location?.accuracy == null || location.accuracy === '') return false
+  const accuracy = Number(location.accuracy)
   return Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= MAX_LOCALITY_ACCURACY_METERS
 }
-const keyFor = l => { const lat=Number(l?.latitude), lon=Number(l?.longitude); return Number.isFinite(lat)&&Math.abs(lat)<=90&&Number.isFinite(lon)&&Math.abs(lon)<=180 ? lat.toFixed(5)+':'+lon.toFixed(5) : null }
+const keyFor = l => { if (l?.latitude == null || l.latitude === '' || l?.longitude == null || l.longitude === '') return null; const lat=Number(l.latitude), lon=Number(l.longitude); return Number.isFinite(lat)&&Math.abs(lat)<=90&&Number.isFinite(lon)&&Math.abs(lon)<=180 ? lat.toFixed(5)+':'+lon.toFixed(5) : null }
 const formatProperties = p => {
   if (!p || typeof p !== 'object') return null
   // Display only locality/sub-locality fields, never a POI, street or broad district.
