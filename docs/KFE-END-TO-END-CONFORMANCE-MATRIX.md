@@ -100,7 +100,7 @@ The scenario verifies:
 - locality correctness using trusted location references;
 - exact release APK on the target phone.
 
-A passing repository or emulator gate does not substitute for Level C evidence.
+A passing repository or emulator gate does **not** substitute for Level C evidence.
 
 ## Failure rule
 
