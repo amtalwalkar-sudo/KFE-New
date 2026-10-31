@@ -58,10 +58,6 @@ const load = async () => {
 const refreshLocationNames = async () => {
   if (refreshing.value) return
   refreshMessage.value = ''
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    refreshMessage.value = 'Offline — saved GPS snapshots are retained. Pull down again when online.'
-    return
-  }
   refreshing.value = true
   try {
     const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
@@ -72,9 +68,11 @@ const refreshLocationNames = async () => {
     const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
     const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state) && !result?.cacheHit).length
     await load()
-    refreshMessage.value = attemptedCount === 0
-      ? 'No unresolved GPS snapshots from the last seven days are ready for locality lookup.'
-      : resolvedCount > 0
+    refreshMessage.value = results.some(result => result?.state === 'OFFLINE')
+      ? 'Offline — saved GPS snapshots are retained. Pull down again when online.'
+      : attemptedCount === 0
+        ? 'No unresolved GPS snapshots from the last seven days are ready for locality lookup.'
+        : resolvedCount > 0
         ? `Saved ${resolvedCount} new locality name${resolvedCount === 1 ? '' : 's'} permanently. Other unresolved snapshots remain available for another manual refresh.`
         : 'No new locality names could be verified. GPS coordinates remain unchanged; try again with a reliable connection.'
   } catch (cause) {
