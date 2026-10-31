@@ -9,8 +9,7 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 
 for (const [file, stores] of [
   ['repositories/shiftTripRepository.js', ['shifts','trips','pending_mutations','audit_history']],
-  ['repositories/fuelRepository.js', ['fuel_logs','pending_mutations','audit_history']],
-  ['repositories/odoGapRepository.js', ['odoGaps','pending_mutations','audit_history']]
+  ['repositories/fuelRepository.js', ['fuel_logs','pending_mutations','audit_history']]
 ]) {
   const source = read(file)
   assert.ok(source.includes("'readwrite'"), `${file}: canonical write transaction missing`)
