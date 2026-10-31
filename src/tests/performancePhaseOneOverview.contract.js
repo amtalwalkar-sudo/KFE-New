@@ -10,7 +10,7 @@ const snapshot = {
     { id: 'cancel-fee', shiftId: 'today', status: 'CANCELLED', tripStartAt: '2026-10-26T10:00:00+05:30', cancelledAt: '2026-10-26T10:02:00+05:30', cancelledRevenue: 250 },
   ],
 }
-const metrics = { fuelCost: 300, fuelCostPerKm: 2.5, fuelCostPerKmSource: 'FULL_TANK_INTERVAL', authority: { revenue: 'SAVED_SHIFT_REVENUE' } }
+const metrics = { fuelCost: 300, fuelCostPerKm: 2.5, fuelCostPerKmSource: 'FULL_TANK_INTERVAL' }
 const result = derivePhaseOnePerformanceOverview(snapshot, range, metrics)
 assert.equal(result.completedRides, 1)
 assert.equal(result.cancellationFees, 250)
@@ -22,6 +22,7 @@ assert.equal(result.fareIncome, 1000)
 assert.equal(result.fuelSpending, 300)
 assert.equal(result.fuelCostPerKm, 2.5)
 assert.equal(result.incomeAfterFuel, 950, 'income after fuel includes cancellation fees')
+assert.equal(Object.hasOwn(result, 'revenueAuthority'), false, 'The basic Performance view model must not expose retired revenue-authority metadata.')
 const noInterval = derivePhaseOnePerformanceOverview(snapshot, range, { fuelCost: 0, fuelCostPerKm: null, fuelCostPerKmSource: null })
 assert.equal(noInterval.fuelCostPerKm, null, 'fuel cost/km is unavailable without a valid full-tank interval')
 assert.throws(() => derivePhaseOnePerformanceOverview(snapshot, { from: new Date('2026-10-27'), to: new Date('2026-10-26') }, metrics), /invalid/i)
