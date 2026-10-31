@@ -113,18 +113,18 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return true
   }
 
-  const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', revenue = '' } = {}) => {
+  const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', revenue = '' } = {}, operationId = '') => {
     if (!isTripActive.value) return false
     if (!String(reason || '').trim()) return { ok: false, reason: 'Cancellation reason is required.' }
     const tripId = trip.value.id
-    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue })
+    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue }, operationId)
     if (result?.ok === false) return result
     await refresh()
     return { ok: true }
   }
 
-  const updateTrip = async data => {
-    const result = await WorkService.updateTrip(data)
+  const updateTrip = async (data, operationId = '') => {
+    const result = await WorkService.updateTrip(data, operationId)
     if (result?.ok === false) return result
     await refresh()
     return { ok: true }
