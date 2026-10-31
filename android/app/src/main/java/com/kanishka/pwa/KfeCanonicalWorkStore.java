@@ -513,11 +513,16 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       throw new IllegalArgumentException("Native Trip lifecycle version changed before commit.");
     }
     if ("CANCEL_RIDE".equals(action)) {
+      Object fee = incoming.opt("cancelledRevenue");
       if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
           || !"CANCELLED".equals(incomingStatus)
           || !currentStage.equals(incomingStage)
-          || empty(incoming.optString("tripEndAt", ""))) {
-        throw new IllegalArgumentException("CANCEL_RIDE is allowed only before START_RIDE and must preserve the pickup stage.");
+          || empty(incoming.optString("tripEndAt", ""))
+          || empty(incoming.optString("cancelReason", ""))
+          || !(fee instanceof Number)
+          || !Double.isFinite(((Number) fee).doubleValue())
+          || ((Number) fee).doubleValue() < 0d) {
+        throw new IllegalArgumentException("CANCEL_RIDE requires a pre-ride Trip, unchanged pickup stage, event time, reason and non-negative cancellation fee.");
       }
       return;
     }
