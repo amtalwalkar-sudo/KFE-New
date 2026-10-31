@@ -43,7 +43,7 @@ Capture a one-shot GPS snapshot for these four ride events:
 
 Rules:
 - GPS capture must work offline and must not require continuous tracking.
-- Each event requests fresh fixes immediately and retries at approximately three-second intervals for no more than 30 seconds. Accept a valid, post-event fix with accuracy of 75 metres or better; ignore less accurate or missing-accuracy fixes during the window, then retain the durable pending event for a later eligible trigger without keeping an idle foreground service running.
+- Each event requests fresh fixes immediately and retries at approximately three-second intervals for no more than 30 seconds. Accept a valid, post-event fix; when accuracy is supplied it must be 75 metres or better. If accuracy is missing, preserve the coordinate as an unverified fix but do not reverse geocode it. Ignore supplied accuracy worse than 75 metres during the window, then retain the durable pending event for a later eligible trigger without keeping an idle foreground service running.
 - Preserve provider capture timestamp (capturedAt) separately from ride event timestamp (eventAt); do not change established ride timestamp behavior.
 - Missing permissions or an unavailable fix must not block the ride action or fabricate coordinates.
 - Persist event snapshots independently from ride business facts.
