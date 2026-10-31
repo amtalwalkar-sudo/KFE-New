@@ -61,7 +61,7 @@ PWA START SHIFT (opening odometer)
 ```
 
 The scenario verifies:
-- one stable Trip ID from pickup through terminal state and fare/cancellation entry;
+- one stable Trip ID from pickup through completion and fare; cancellation remains terminal on that same canonical Trip ID;
 - cancellation is terminal and cannot become completion;
 - native overlay commits durably before acknowledging the visible action;
 - PWA replay is idempotent synchronization, not a second business commit;
@@ -74,7 +74,7 @@ The scenario verifies:
 
 ## Proof levels
 
-### Level A — Repository / CI
+### Level A — Repository/CI
 
 - domain transition and calculation rules;
 - PWA application/repository path;
