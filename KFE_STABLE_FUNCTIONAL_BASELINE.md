@@ -20,7 +20,7 @@ KFE consists only of these capabilities:
 - GPS capture must work offline. No continuous location tracking, route tracing, or distance calculation.
 - Preserve `capturedAt` separately from the ride event timestamp `eventAt`.
 - GPS capture must not block a ride action or invent a location.
-- After each durable snapshot, the PWA starts one asynchronous locality lookup when online. New lookup is limited to the most recent seven days; successful names are saved permanently by snapshot ID. Timeline pull-to-refresh is a fallback for unresolved eligible snapshots. No locality retry loop, polling, background connectivity checks, or queued geocoding jobs.
+- GPS capture never starts locality lookup. The only locality-resolution entry point is explicit Timeline pull-to-refresh while online. New lookup is limited to the most recent seven days; successful names are saved permanently by snapshot ID. No automatic lookup, retry loop, polling, background connectivity checks, or queued geocoding jobs.
 - GPS fix acquisition is separately bounded to 30 seconds, then remains durably pending for a later eligible trigger; it must not keep an idle foreground service alive.
 - Timeline never mutates business facts. Unreliable or unresolved locality is shown as `Location unavailable`.
 
