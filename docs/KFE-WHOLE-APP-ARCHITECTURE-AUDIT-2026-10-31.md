@@ -188,6 +188,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Native form commits now compare the submitted record with the canonical Trip after removing only fields owned by that form. Fare forms can update only fare/toll/parking/skipped-fare facts and update time. Cancellation forms can update only status, cancellation reason/fee, cancellation event time and update time. The old per-Trip revenue-authority marker is removed on form write. Android instrumentation verifies a fare form cannot change a completed Trip's lifecycle stage.
 
+### 22. PWA-originated Android ride transitions bypassed the native lifecycle guard
+
+**Finding:** The Android overlay used the dedicated SQLite lifecycle transaction, but PWA-originated START_RIDE, END_RIDE and CANCEL_RIDE still reached generic native `putRecord`. Domain validation and compare-and-set reduced risk, but the two Android entry points did not share one persistence-level transition boundary.
+
+**Change:** Exposed `commitTripLifecycle` through the Capacitor plugin, infrastructure adapter and application boundary. PWA-originated Android ride transitions now use the same SQLite transaction as overlay transitions. The native store rejects lifecycle-field changes through generic Trip writes, preventing future callers from bypassing the guard. Regression coverage verifies PWA wiring, valid pre-ride cancellation, post-start cancellation rejection and generic-write bypass rejection.
+
 ## Verification
 
 The following are enforced by regression contracts:
