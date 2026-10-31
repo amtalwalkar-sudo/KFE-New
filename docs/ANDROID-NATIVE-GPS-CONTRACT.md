@@ -11,7 +11,7 @@ KFE captures one GPS snapshot at exactly four ride workflow events:
 
 Each snapshot records latitude, longitude, provider accuracy, the provider's actual fix timestamp (`capturedAt`), and the separate business-event timestamp (`eventAt`). Never substitute one timestamp for the other.
 
-GPS capture is local and does not require internet. Android durably queues each event and makes repeated fresh location requests for up to 30 seconds, using enabled GPS and network location providers. Requests are spaced at approximately three-second intervals. A fix at 75 metres accuracy or better is accepted; less accurate fixes are ignored while the bounded window remains. If no acceptable fix is obtained, active requests stop and the durable event remains pending for a later eligible retry. The ride transition never waits for GPS and no business timestamp changes. There is no continuous tracking, route matching, or GPS-based distance calculation.
+GPS capture is local and does not require internet. Android durably queues each event and makes repeated fresh location requests for up to 30 seconds, using enabled GPS and network location providers. Requests are spaced at approximately three-second intervals. A fix with supplied accuracy at 75 metres or better is accepted; less accurate fixes are ignored while the bounded window remains. If the provider omits accuracy metadata, preserve the valid coordinate as unverified but do not reverse geocode it. If no acceptable fix is obtained, active requests stop and the durable event remains pending for a later eligible retry. The ride transition never waits for GPS and no business timestamp changes. There is no continuous tracking, route matching, or GPS-based distance calculation.
 
 ## Locality display boundary
 
