@@ -4,7 +4,7 @@ import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
 import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
-import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripDetails } from '../../domain/work/trip.js'
+import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripDetails, applyTripDetails } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { EventLocationService } from '../location/eventLocationService.js'
@@ -178,15 +178,6 @@ const createNativeShiftRecord = data => createCanonicalShiftRecord(data, {
 const createNativeTripRecord = data => createCanonicalTripRecord(data, {
   createId: () => CanonicalWorkBoundary.createOperationId(),
 })
-const applyTripDetails = (trip, data, now) => {
-  const normalized = normalizeTripInput(data)
-  const next = { ...trip }
-  if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY' }
-  for (const field of ['toll', 'parking', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
-  next.updatedAt = now
-  return next
-}
-
 const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
 
 
