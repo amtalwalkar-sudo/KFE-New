@@ -37,7 +37,7 @@ assertHas(workRepo, /async cancelTrip\(data\)/, 'Cancellation must persist throu
 assertHas(work, /WorkService\.recordFuel\(\{/, 'Fuel form must commit through the Work application service')
 assertHas(fuelService, /FuelRepository\.create\(\{ \.\.\.validation/, 'Fuel entry must persist the validated record in the canonical fuel repository')
 assertHas(fuelRepo, /tx\.objectStore\('fuel_logs'\)/, 'Fuel persistence must target fuel_logs')
-assertHas(fuelForm, /class="work-fuel-form"[\s\S]*@submit\.prevent/, 'Fuel must use the Work-owned native submit surface')
+assertHas(fuelForm, /class="work-fuel-form[^"]*"[^>]*@submit\.prevent/, 'Fuel must use the Work-owned native submit surface')
 
 assertHas(work, /await store\.endShift\(\{/, 'End Shift form must commit through the shift store')
 assertHas(endShift, /await ShiftTripRepository\.completeShift\(/, 'End Shift must persist through the canonical shift repository')
