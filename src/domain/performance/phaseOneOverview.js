@@ -44,6 +44,5 @@ export function derivePhaseOnePerformanceOverview(snapshot, range, metrics) {
     fuelCostPerKmSource: metrics?.fuelCostPerKmSource || null,
     incomeAfterFuel: recordedRevenue - fuelSpending,
     range: { from: range.from.toISOString(), to: range.to.toISOString() },
-    revenueAuthority: metrics?.authority?.revenue || 'SHIFT_END_REVENUE',
   }
 }
