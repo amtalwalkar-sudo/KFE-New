@@ -13,7 +13,8 @@ assert.throws(() => BackupService.validateBackup({ ...valid, format: 'OTHER' }),
 const missingStore = structuredClone(emptyStores); delete missingStore.settings; assert.throws(() => BackupService.validateBackup({ ...valid, stores: missingStore }), /store set does not exactly match/)
 const duplicate = structuredClone(valid); duplicate.stores.vehicles = [{ id: 'x' }, { id: 'x' }]; assert.throws(() => BackupService.validateBackup(duplicate), /duplicate id/)
 const badId = structuredClone(valid); badId.stores.vehicles = [{ id: '' }]; assert.throws(() => BackupService.validateBackup(badId), /invalid record/)
-const oldV4Stores = { ...emptyStores }; delete oldV4Stores.locality_labels; const oldV4 = { ...valid, formatVersion: 4, source: { ...valid.source, dbVersion: 16 }, stores: oldV4Stores }; assert.equal(BackupService.validateBackup(oldV4).formatVersion, BACKUP_FORMAT_VERSION, 'older v4 backups migrate without losing compatibility');\nassert.equal(typeof BackupService.serializeBackup(withRecord), 'string'); assert.deepEqual(BackupService.validateBackup(BackupService.serializeBackup(withRecord)), withRecord)
+const oldV4Stores = { ...emptyStores }; delete oldV4Stores.locality_labels; const oldV4 = { ...valid, formatVersion: 4, source: { ...valid.source, dbVersion: 16 }, stores: oldV4Stores }; assert.equal(BackupService.validateBackup(oldV4).formatVersion, BACKUP_FORMAT_VERSION, 'older v4 backups migrate without losing compatibility');
+assert.equal(typeof BackupService.serializeBackup(withRecord), 'string'); assert.deepEqual(BackupService.validateBackup(BackupService.serializeBackup(withRecord)), withRecord)
 
 const currentMergeSnapshot = structuredClone(emptyStores)
 currentMergeSnapshot.shifts = [
