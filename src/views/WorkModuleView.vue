@@ -448,7 +448,7 @@ async function saveFare(fromNative = false, operationId = '') {
       parking: tripParking.value === '' ? 0 : Number(tripParking.value),
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
-    const result = await store.updateTrip(details, operationId)
+    const result = await store.saveTripDetails(details, operationId)
     if (!result?.ok) { fail(result?.reason || 'Trip details could not be saved.'); return false }
 
     await clearCommittedDraft(fareDraft)
