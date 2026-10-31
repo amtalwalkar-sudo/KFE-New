@@ -1,29 +1,25 @@
-import { evaluateShiftStartRule } from './shiftStartRuleInterpreter.js'
-
-const reasonMessages = {
-  INVALID_CURRENT_ODOMETER: 'Enter a valid current odometer.',
-  BELOW_PREVIOUS_ODOMETER: 'Current odometer cannot be lower than the last recorded odometer.',
-  BELOW_BUSINESS_START_ODOMETER: 'Current odometer cannot be lower than the business start odometer.',
-}
-
-function preservePwaResult(result) {
-  if (!result.reasonCode) return result
-  const { reasonCode, ...fields } = result
-  const message = reasonMessages[reasonCode]
-  if (message) return { ...fields, reason: message }
-  return fields
-}
+const numeric = value => value == null || (typeof value === 'string' && value.trim() === '') ? Number.NaN : Number(value)
 
 export function validateShiftStartOdometer(currentOdometer, previousOdometer = null) {
-  return preservePwaResult(evaluateShiftStartRule('validateShiftStartOdometer', {
-    currentOdometer,
-    previousOdometer
-  }))
+  const current = numeric(currentOdometer)
+  if (!Number.isFinite(current) || current <= 0) {
+    return { valid: false, reason: 'Enter a valid current odometer.' }
+  }
+  const previous = numeric(previousOdometer)
+  if (Number.isFinite(previous) && current < previous) {
+    return { valid: false, reason: 'Current odometer cannot be lower than the last recorded odometer.' }
+  }
+  return { valid: true }
 }
 
 export function validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer = null) {
-  return preservePwaResult(evaluateShiftStartRule('validateFirstDayShiftStartOdometer', {
-    currentOdometer,
-    businessStartOdometer
-  }))
+  const current = numeric(currentOdometer)
+  if (!Number.isFinite(current) || current <= 0) {
+    return { valid: false, reason: 'Enter a valid current odometer.' }
+  }
+  const baseline = numeric(businessStartOdometer)
+  if (Number.isFinite(baseline) && current < baseline) {
+    return { valid: false, reason: 'Current odometer cannot be lower than the business start odometer.' }
+  }
+  return { valid: true }
 }
