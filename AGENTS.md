@@ -83,7 +83,7 @@ In particular, do not silently alter:
 - Work Session and Break handling;
 - permanent exclusion of the Tax Reserve sub-account concept.
 
-Future capabilities such as GPS, cloud sync, multi-vehicle fleet management, advanced analytics, ML, recommendations, and KFE Advisor remain future scope unless explicitly authorized.
+Future capabilities such as cloud sync, multi-vehicle fleet management, advanced analytics, ML, recommendations, and KFE Advisor remain future scope unless explicitly authorized. Four-event GPS snapshots and seven-day asynchronous locality enrichment are active Timeline requirements governed by `KFE_BUSINESS_RULES_REGISTER.md` and `docs/ANDROID-NATIVE-GPS-CONTRACT.md`.
 
 ## 8. CI and deployment
 For CI/deployment work, inspect the current workflows and recent failures before modifying them. Prefer a clean, understandable primary path and preserve meaningful critical protections.
