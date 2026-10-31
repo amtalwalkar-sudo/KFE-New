@@ -1236,7 +1236,7 @@ public class KfeOverlayService extends Service {
       String revenueValue=input.has("cancelledRevenue")?input.optString("cancelledRevenue",""):input.optString("revenue","");
       trip.put("cancelledRevenue",revenueValue.trim().isEmpty()?0d:Double.parseDouble(revenueValue));
     }else throw new IllegalArgumentException("Unsupported native form mode.");
-    if(trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",now);
+    if("CANCEL".equals(mode)&&(trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty()))trip.put("tripEndAt",now);
     trip.put("updatedAt",now);
     KfeCanonicalWorkStore.Outcome outcome=canonical.commitTripForm(operationId,mode,trip);
     if(!outcome.accepted)throw new IllegalStateException("Canonical trip form was not accepted.");
