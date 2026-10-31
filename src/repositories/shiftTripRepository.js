@@ -5,6 +5,7 @@ import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNorm
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { createCanonicalShiftRecord, createCanonicalTripRecord } from '../domain/work/canonicalWorkRecords.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
+import { applyTripDetails } from '../domain/work/trip.js'
 
 const TERMINAL_STATES = new Set([TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED])
 const atomic = async (stores, writer) => {
@@ -17,7 +18,6 @@ const atomic = async (stores, writer) => {
 }
 const saveMutation = (mutationStore, auditStore, entityId, entityType, action, payload, createdAt) => writeMutationAndAudit(mutationStore, auditStore, { entityId, entityType, action, payload, createdAt })
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const tx = db.transaction([storeName], 'readonly'); const request = tx.objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`${storeName} query failed.`)) }) }
-const applyTripDetails = (trip, data, now) => { const normalized = normalizeTripInput(data); if (normalized.revenue !== undefined) { trip.revenue = normalized.revenue; trip.revenueAuthority = 'SUPPORTING_ONLY' }; if (normalized.toll !== undefined) trip.toll = normalized.toll; if (normalized.parking !== undefined) trip.parking = normalized.parking; if (normalized.fareDetailsSkipped !== undefined) trip.fareDetailsSkipped = normalized.fareDetailsSkipped; trip.updatedAt = now; return trip }
 const requireFinite = (value, field) => { const result = Number(value); if (!Number.isFinite(result)) throw new Error(`${field} must be a finite number.`); return result }
 const stableRecordValue = value => {
   if (Array.isArray(value)) return value.map(stableRecordValue)
