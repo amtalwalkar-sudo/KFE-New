@@ -19,7 +19,7 @@ assert.ok(!workForm.includes('function nextField('),'Work must not maintain a co
 assert.ok(!adminForm.includes('function handleEnter('),'Admin must not maintain a competing keyboard navigation implementation')
 assert.ok(/<form[^>]*@submit\.prevent/.test(workForm),'Each extracted Work form must use native form submission')
 assert.ok(!workForm.includes('document.querySelector'), 'Work form state must not read DOM controls as state')
-assert.ok(fuelForm.includes('class="work-fuel-form"') && fuelForm.includes('@submit.prevent'),'Fuel must use the active Work-owned native form surface')
+assert.ok(fuelForm.includes('class="work-fuel-form') && fuelForm.includes('@submit.prevent'),'Fuel must use the active Work-owned native form surface')
 assert.ok(adminForm.includes(':enterkeyhint="enterKeyHint(field)"'),'The active Admin form must expose native Enter/Next/Done hints')
 assert.ok(form.includes('const options = field =>'),'Admin native form must support value/label select options')
 assert.ok(form.includes('label: o'),'Admin native form must render human-readable select labels')
