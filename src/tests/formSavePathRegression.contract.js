@@ -36,7 +36,7 @@ assert.match(adminRepo, /writeMutationAndAudit/, 'Admin persistence must retain 
 
 // Work form inventory -> store/application service -> canonical repository.
 assert.match(workView, /await store\.startShift\(/, 'Start Shift must use the shift store')
-assert.match(workView, /await store\.saveTripDetails\(details\)/, 'Trip details must use the shift store')
+assert.match(workView, /await store\.saveTripDetails\(details, operationId\)/, 'Trip details must use the shift store')
 assert.match(workView, /await store\.cancelTrip\(/, 'Cancellation must use the shift store')
 assert.match(workView, /WorkService\.recordFuel\(/, 'Fuel must use WorkService')
 assert.match(workView, /await store\.endShift\(/, 'End Shift must use the shift store')
