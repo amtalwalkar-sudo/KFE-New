@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { canTransitionTrip, canTransitionTripStage, TRIP_STATES, transitionTrip, transitionTripStage } from '../domain/work/tripLifecycle.js'
+import { applyTripDetails } from '../domain/work/trip.js'
 
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -19,8 +20,13 @@ assert(completed.status === 'COMPLETED', 'END_RIDE must produce one COMPLETED ca
 assert(completed.id === active.id, 'Trip ID must remain stable across END_RIDE')
 assert(completed.tripKm === undefined, 'Ride lifecycle must not calculate or capture trip distance')
 
-const priced = { ...completed, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
+const priced = applyTripDetails({ ...completed, revenueAuthority: 'SUPPORTING_ONLY' }, { id: active.id, revenue: 250, toll: 10, parking: 5, fareDetailsSkipped: false }, '2026-09-24T12:01:00.000Z')
 assert(priced.id === active.id && priced.status === 'COMPLETED', 'Fare must update the same completed Trip, not create another record')
+assert.equal(priced.revenue, 250)
+assert.equal(priced.toll, 10)
+assert.equal(priced.parking, 5)
+assert.equal(priced.updatedAt, '2026-09-24T12:01:00.000Z')
+assert.equal(priced.revenueAuthority, undefined, 'Trip fare remains a supporting fact; obsolete per-Trip revenue authority metadata is not persisted.')
 
 const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLED canonical Trip')
@@ -47,6 +53,11 @@ assert(!canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), 'A comp
 assert(!canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), 'A cancelled Trip must not be completed into a second terminal record')
 
 assert(repository.includes("import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'"), 'Canonical repository must use the shared Trip lifecycle')
+assert(repository.includes("import { applyTripDetails } from '../domain/work/trip.js'"), 'Browser repository must use the shared domain Trip detail mutation.')
+assert(workService.includes("applyTripDetails(trip, details, nextCanonicalTimestamp(trip.updatedAt))"), 'Native-first Work service must use the same domain Trip detail mutation.')
+assert(!repository.includes("const applyTripDetails ="), 'Browser repository must not keep a duplicate Trip detail mutation.')
+assert(!workService.includes("const applyTripDetails ="), 'Work service must not keep a duplicate Trip detail mutation.')
+assert(!repository.includes("revenueAuthority = 'SUPPORTING_ONLY'") && !workService.includes("revenueAuthority = 'SUPPORTING_ONLY'"), 'The retired Trip-level revenue-authority marker must not be written.')
 assert(repository.includes('transitionTrip(record, status, data)'), 'Trip completion/cancellation must use the shared transition function')
 assert(repository.includes("shift.revenue = deriveLiveRevenue(shiftTrips)"), 'Canonical Shift.revenue must be projected from eligible completed-trip fares and cancellation fees.')
 assert(repository.includes("db.transaction(['shifts', 'trips', 'pending_mutations', 'audit_history'], 'readwrite')"), 'Shift completion must project revenue from trips atomically with the canonical shift close.')
