@@ -46,6 +46,7 @@ if (/querySelector\(\s*['\"]\.content-scroll-area/.test(adminViewForShell)) viol
 const appPath = path.join(root, 'App.vue')
 if (fs.existsSync(appPath)) {
   const app = fs.readFileSync(appPath, 'utf8')
+  if (/<style\\b|\\sstyle\\s*=/.test(app)) violations.push('App.vue must use shared presentation styles rather than inline styling.')
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
 }
 
