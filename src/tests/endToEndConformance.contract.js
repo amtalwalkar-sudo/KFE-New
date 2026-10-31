@@ -53,6 +53,7 @@ assertIncludes(overlayLifecycle, 'WorkService.getActiveState', 'Overlay reconstr
 assertIncludes(overlayBridge, 'NativePlugins.overlay', 'PWA overlay bridge must use the shared native KfeOverlay plugin registration.')
 assertIncludes(nativeOverlay, 'persistLifecycleAction("GO_TO_PICKUP","GOING_TO_PICKUP",false)', 'Native GO TO PICKUP must commit through the native command adapter.')
 assertIncludes(nativeOverlay, 'store.commitTripLifecycle(', 'Native lifecycle writes must use the transactionally guarded native command boundary.')
+assertIncludes(dataContract, 'Cancellation fee', 'Canonical data rules must keep cancellation fees distinct from Trip fares.')
 assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must publish its durable event for PWA synchronization.')
 assertIncludes(nativeOverlay, 'persistLifecycleAction("START_RIDE","RIDE_STARTED",true)', 'Native START RIDE must commit through the native command adapter.')
 assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START RIDE must publish its durable event for PWA synchronization.')
