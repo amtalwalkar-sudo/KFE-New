@@ -1,158 +1,72 @@
 # KFE Universal Form & Action Recovery Rules
 
-**Status: FROZEN**  
-**Scope: Entire KFE PWA**  
-**Authority: Architectural invariant**
+**Status:** FROZEN — current shared interaction and recovery contract.
+**Scope:** Current KFE forms, ride actions, gestures, and destructive recovery operations.
+**Authority:** Subordinate to the business-rule and canonical-data authorities for domain meaning.
 
-These rules govern every form, form-like interaction, gesture, committed action, and recovery workflow in KFE.
-
-Domain-specific KFE rules may further define how recovery works for a particular record type, but they must not weaken, bypass, or contradict these rules.
-
-Where a conflict exists, these Universal Rules are authoritative.
+These rules define safe interaction and recovery mechanics. They do not add product features or define domain-specific calculations.
 
 ## 1. Cancel before commitment
 
-Any form or pending action must have a safe way to abandon it without changing authoritative state.
+Any form or pending action must be abandonable without changing authoritative state. Close, Back and navigation must not silently commit. A temporary draft is not authoritative business data.
 
-```text
-START
- ↓
-EDIT / ENTER
- ↓
-CANCEL
- ↓
-NO AUTHORITATIVE CHANGE
-```
+## 2. Commit is the authority boundary
 
-Cancel means the operation did not happen. Close, back, and navigation must not silently commit the form. If there are unsaved changes, KFE may ask for confirmation. Temporary drafts may exist, but a draft is not authoritative data.
+A form becomes authoritative only through its intended application command and durable repository/native commit. UI state, optimistic display and queue acceptance alone are not proof of success.
 
-## 2. Save/commit is the point of no longer being a draft
+## 3. Confirmed outcomes
 
-A form becomes authoritative only through its intended commit operation.
+The UI must distinguish confirmed success, confirmed failure and uncertain outcomes. Show success only after the authoritative persistence boundary confirms commitment. A retry must reuse the stable operation identity where the command contract requires it.
 
-```text
-DRAFT
- ↓
-VALIDATE
- ↓
-COMMIT
- ↓
-AUTHORITATIVE RECORD
-```
+## 4. Undo and correction
 
-UI controls must not bypass the authoritative application/business path.
+Undo may be offered only when the complete operation can be safely reversed without invalidating later authoritative activity. When downstream records depend on the committed event, preserve history and use the applicable correction path rather than silently deleting or rewriting it.
 
-## 3. Undo immediately after commitment
+Recovery must use the same application/domain and persistence boundaries as the original operation. A component must not manipulate a database directly to implement Undo or correction.
 
-After a successful commit, KFE should offer Undo when the complete operation can still be safely reversed.
+## 5. Navigation never commits
 
-Undo must reverse the whole logical action, use the application/domain layer, not merely hide/delete a UI record, not bypass business rules, and not corrupt dependent records.
+Navigation must not save a form, start/end a shift, change a ride state, create a fuel/Admin record, discard committed data, or terminate an operational action accidentally. Navigation and domain commitment remain separate.
 
-There must be no fake UI-only Undo.
+## 6. Parent-scoped draft recovery
 
-## 4. Undo has a safety boundary
+Uncommitted input may be persisted as a temporary, non-authoritative draft across application restart.
 
-Undo is allowed only while reversing the action cannot invalidate subsequent authoritative operations. If later authoritative activity makes reversal unsafe, KFE moves to Correction.
+Draft identity must include the form identity and, when applicable, the canonical parent entity type and ID. Restore a draft only when the active form and parent identity match. Failed validation or commitment preserves the draft. Remove it only after successful authoritative commitment or explicit confirmed discard.
 
-## 5. Correction after downstream consequences
+Draft recovery must remain separate from canonical business records and pending mutation recovery. Restoring a draft must never replay a committed mutation.
 
-When an already-committed record has become part of subsequent authoritative history:
+## 7. Destructive actions
 
-> Correct it; do not silently erase history.
+Data reset, destructive deletion and restore require explicit confirmation and the governed recovery policy. Restore is not ordinary Undo. Existing recovery checkpoints and backup safeguards must not be bypassed.
 
-```text
-ORIGINAL RECORD
-      ↓
-CORRECTION
-      ↓
-CORRECTED AUTHORITATIVE STATE
-```
+## 8. Swipe and gesture actions
 
-Correction must preserve the necessary historical/audit information.
+A swipe is an action mechanism, not a separate business authority. It follows the same validation, durable commit, outcome and recovery requirements as an equivalent button/form command.
 
-This applies especially to odometer, trips/rides, work sessions, fuel, revenue, maintenance, financial records, loan/EMI records, and compliance records.
+## 9. Error handling
 
-## 6. Recovery must preserve business invariants
+A failed or interrupted commit must not be presented as success. The application layer must determine whether the authoritative operation committed, remains pending, or failed, and must expose a safe retry/recovery outcome without duplicate side effects.
 
-Cancel, Undo, and Correction must never bypass KFE's existing business rules. Recovery itself is an authoritative operation and must pass through the same application/business boundaries as normal operations.
+## 10. Current domain examples
 
-No component should directly manipulate the database merely to implement Undo or Correction.
+- **Ride actions:** pickup, trip start, trip end and cancellation use the canonical ride lifecycle. A retry must not create a duplicate trip or financial outcome.
+- **Shift odometers:** opening and closing readings are saved through the PWA-owned shift workflow and validated by the current Work rules. There is no Personal KM/Dead KM allocation or odometer-gap classification workflow.
+- **Fuel and Admin forms:** saved facts use their single application/repository paths. A draft or form display is not a saved record.
+- **GPS evidence:** GPS capture does not change ride state or business timestamps and never blocks the ride action.
+- **Backup/reset:** destructive actions preserve the explicit confirmation and recovery safeguards.
 
-## 7. Navigation must never commit domain state
+## 11. Universal interaction checklist
 
-Navigation must not save a form, start/end a trip, change an odometer, create a financial record, discard committed data, or terminate an operational action accidentally. Navigation and domain commitment remain separate.
-
-## 8. Mandatory parent-scoped draft recovery
-
-Every rebuilt form must preserve uncommitted input across application restart. Drafts are temporary and non-authoritative.
-
-Draft identity must include the form identity, workflow step, parent entity type, and canonical parent ID when one exists. Trip drafts must remain scoped to that Trip and its owning Shift; shift-closure drafts must remain scoped to that Shift.
-
-A workflow that has not yet created a canonical parent must use a unique temporary workflow identity. It must not reuse a previous Trip or Shift's draft identity.
-
-Restore a draft only when the active form and parent identity match. Failed validation or failed commitment preserves the draft. Remove it only after successful authoritative commitment or explicit confirmed discard. Navigation, restart, and parent changes must not silently commit or destroy it.
-
-Drafts must use non-authoritative persistence separate from canonical business records and pending mutation recovery. Restoring a draft must never replay a committed mutation.
-
-## 9. Destructive actions require stronger protection
-
-Actions such as data reset, destructive deletion, irreversible cleanup, and destructive restoration must not behave like ordinary Save/Undo.
-
-```text
-REQUEST
- ↓
-EXPLICIT CONFIRMATION
- ↓
-COMMIT
- ↓
-RECOVERY / RESTORE POLICY
-```
-
-The stronger the consequence, the stronger the confirmation/recovery requirement. Restore is not ordinary Undo.
-
-## 10. Swipe actions follow the same contract
-
-A swipe is another form/action mechanism. Before completion, there is no domain action. At completion, the action is committed, followed by Undo if safely reversible or Correction otherwise. A swipe never receives weaker safety rules because it is a gesture.
-
-## 11. Errors never create ambiguous state
-
-If a commit fails, the UI must not assume it committed or falsely display success. The application layer remains responsible for determining the authoritative outcome.
-
-## 12. Domain recovery examples
-
-### Odometer
-Odometer entry remains editable before confirmation. If the delta requires allocation, Business and Personal KM are classified before commitment. Once an operation has started, its odometer becomes authoritative operational history. Later mistakes are corrected rather than silently deleted or rewritten. The continuous-odometer invariant remains mandatory.
-
-### Trips / rides
-Trip start may be immediately undone while no downstream operation depends on it. Trip end is a completion workflow: capture required completion details, then commit. Immediate safe mistakes may be undone; once downstream activity exists, use correction rather than rewriting history.
-
-### Financial records
-An immediate safe reversal may use Undo. Once a transaction participates in reports or other downstream records, use correction/reversal and preserve the original event.
-
-## 13. Universal design checklist
-
-Every new driver-facing tab, form, button, swipe, or workflow must answer:
-
-1. What can the driver accidentally do?
-2. Can they cancel before commitment?
-3. Can they undo immediately afterward?
-4. When does Undo become unsafe?
-5. What correction mechanism exists afterward?
-6. Does recovery preserve authoritative history?
-7. Can navigation ever accidentally change domain state?
+For every form, button, swipe or workflow, verify:
+1. What authoritative action does it request?
+2. Can the user cancel before commitment?
+3. Is success shown only after durable confirmation?
+4. Can a retry duplicate the action?
+5. Is draft recovery separate from committed data?
+6. Does Back/navigation avoid accidental commitment?
+7. Does recovery preserve authoritative history?
 
 ## Governing principle
 
-> **The easiest recovery should always be the safest recovery.**
-
-## Authority rule
-
-These Universal Form & Action Recovery Rules govern every form, form-like interaction, gesture, committed action, and recovery workflow in KFE.
-
-Domain-specific rules may further define how recovery works for a particular record type, but they must not weaken, bypass, or contradict these rules.
-
-Where a conflict exists, these Universal Rules are authoritative.
-
-Any conflict with these rules is:
-
-**🔴 DESIGN DRIFT / CONFLICT WARNING**
+> The easiest recovery should always be the safest recovery.
