@@ -57,7 +57,6 @@ export const createCanonicalTripRecord = (data, { createId, now = new Date().toI
     toll: normalized.toll ?? 0,
     parking: normalized.parking ?? 0,
     revenue: normalized.revenue ?? null,
-    revenueAuthority: 'SUPPORTING_ONLY',
     revenueProvenance: normalized.revenueProvenance ?? null,
     fareDetailsSkipped: false,
     cancelledRevenue: null,
