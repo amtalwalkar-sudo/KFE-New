@@ -15,14 +15,20 @@ A snapshot preserves the provider fix timestamp (`capturedAt`) separately from t
 
 ## Locality labels
 
-Locality lookup is a separate presentation-only operation. It may run only when the user explicitly pulls down Timeline to refresh while online. There are no automatic locality retries, polling, background connectivity checks, or queued locality-resolution jobs.
+Locality resolution is owned by the PWA and is separate from native GPS capture.
 
-- Show only a locality label returned by the resolver for the saved coordinates.
-- If no reliable label is returned, show `Location unavailable`.
-- Never use raw coordinates, legacy trip-level location fields, or guessed/fabricated names as a locality label.
-- A failed manual refresh must not leave a stale cached label appearing verified.
-- A cancellation snapshot is not a passenger drop-off location.
-- Locality lookup must not mutate ride records, GPS snapshots, fares, or timestamps.
+- Resolve all four GPS event types asynchronously after a snapshot is durably captured, without blocking ride actions.
+- New reverse geocoding is permitted only for event timestamps within the most recent seven days.
+- Save successful locality names permanently in PWA IndexedDB, keyed by canonical snapshot ID. Never use a coordinate-only cache or an arbitrary entry cap.
+- If the PWA is offline, show a saved locality where available; otherwise show the stored coordinates. While online, unresolved names remain unavailable until their asynchronous capture-time request or an explicit manual pull-to-refresh succeeds.
+- Manual pull-to-refresh retries only unresolved eligible snapshots; it must not overwrite successful saved names.
+- No continuous polling, automatic connectivity monitoring, or background locality retry queue.
+- A failed lookup never changes GPS coordinates, ride records, fares, or timestamps and never creates a guessed locality.
+- Cancellation snapshots are not passenger drop-off locations.
+
+## GPS history retrieval
+
+The native canonical database is the durable source for GPS snapshots. Native record listing is paginated; Timeline requests snapshots only for rides in its selected reporting period and must not rely on a fixed 1,000-record window.
 
 ## Scope guard
 
