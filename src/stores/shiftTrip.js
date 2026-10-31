@@ -140,5 +140,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, validateStartOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
 })
