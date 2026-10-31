@@ -20,7 +20,7 @@ The PWA owns reverse geocoding and permanent locality persistence. Native Androi
 - Saving any of the four event snapshots never starts reverse geocoding. No automatic or capture-triggered lookup is performed.
 - All four event types are eligible for locality resolution.
 - New geocoding is limited to events whose `eventAt` is within the most recent seven days.
-- If the PWA is offline, show the saved locality if one exists; otherwise show the saved coordinates. Only a user-initiated Timeline pull-to-refresh may request locality resolution when online.
+- A saved locality may be displayed only when the canonical snapshot has recorded accuracy of 75 metres or better; labels created without accuracy metadata are not trusted. If the PWA is offline, show an eligible saved locality if one exists; otherwise show the saved coordinates. Only a user-initiated Timeline pull-to-refresh may request locality resolution when online.
 - Successful locality names are saved permanently in PWA IndexedDB, keyed by canonical GPS snapshot ID. They are not keyed only by coordinates and are not subject to a 500-entry cache cap.
 - Existing successful locality names are not silently overwritten by ordinary retries.
 - No continuous network polling, automatic connectivity monitoring, or unbounded retry loop is permitted.
