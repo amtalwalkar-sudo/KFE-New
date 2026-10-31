@@ -198,7 +198,7 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Finding:** Timeline reads Trips through `ShiftTripRepository`, which triggers the canonical read boundary. Basic Performance instead read shifts and trips directly through `PerformanceRepository`. If Android overlay commits existed in native SQLite while IndexedDB was stale, opening Performance directly after restart could calculate from the older projection without first reconciling native records.
 
-**Change:** Exposed `WorkService.ensureCanonicalReadModel()` as the application-owned reconciliation use case and made `PhaseOnePerformanceService` call it before reading the Performance snapshot. Browser-only PWA operation remains a no-op at this boundary. A regression contract verifies reconciliation precedes the snapshot read.
+**Change:** Exposed `WorkService.ensureCanonicalReadModel()` as the application-owned reconciliation use case and made `PhaseOnePerformanceService` call it before reading the Performance snapshot. The shared read boundary also fails closed on Android if SQLite is unavailable, rather than serving stale IndexedDB data; browser-only PWA operation remains IndexedDB-authoritative. A regression contract verifies reconciliation precedes the snapshot read.
 
 ## Verification
 
