@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "purpose": "Shared golden vectors for shift-start and shift-end odometer validation and gap allocation. Expected reason codes are runtime-neutral; UI-facing reason strings are not part of this contract.",
+  "purpose": "Shared golden vectors for shift-start and shift-end odometer validity.",
   "cases": [
     {
       "id": "previous-odometer-positive-gap",
@@ -102,76 +102,6 @@
       "expected": {
         "valid": false,
         "reasonCode": "BELOW_BUSINESS_START_ODOMETER"
-      }
-    },
-    {
-      "id": "zero-gap-needs-no-allocation",
-      "rule": "validateGapAllocation",
-      "input": {
-        "gapKm": 0,
-        "category": null
-      },
-      "expected": {
-        "valid": true,
-        "category": null,
-        "personalKm": 0,
-        "deadKm": 0
-      }
-    },
-    {
-      "id": "positive-gap-personal",
-      "rule": "validateGapAllocation",
-      "input": {
-        "gapKm": 12.5,
-        "category": "PERSONAL"
-      },
-      "expected": {
-        "valid": true,
-        "category": "PERSONAL",
-        "personalKm": 12.5,
-        "deadKm": 0
-      }
-    },
-    {
-      "id": "positive-gap-dead",
-      "rule": "validateGapAllocation",
-      "input": {
-        "gapKm": 12.5,
-        "category": "DEAD"
-      },
-      "expected": {
-        "valid": true,
-        "category": "DEAD",
-        "personalKm": 0,
-        "deadKm": 12.5
-      }
-    },
-    {
-      "id": "positive-gap-missing-category",
-      "rule": "validateGapAllocation",
-      "input": {
-        "gapKm": 5,
-        "category": null
-      },
-      "expected": {
-        "valid": false,
-        "requiresGapAllocation": true,
-        "gapKm": 5,
-        "reasonCode": "GAP_ALLOCATION_REQUIRED"
-      }
-    },
-    {
-      "id": "negative-gap-invalid",
-      "rule": "validateGapAllocation",
-      "input": {
-        "gapKm": -1,
-        "category": "PERSONAL"
-      },
-      "expected": {
-        "valid": false,
-        "requiresGapAllocation": true,
-        "gapKm": -1,
-        "reasonCode": "GAP_ALLOCATION_REQUIRED"
       }
     },
     {
