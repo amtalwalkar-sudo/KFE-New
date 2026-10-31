@@ -70,7 +70,7 @@ export const ActivityTimelineReadService = Object.freeze({
     ])
     const trips = Array.isArray(allTrips) ? allTrips : []
     const periodTrips = trips.filter(trip => (trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED') && inRange(tripPeriodTime(trip), range))
-    const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id))
+    const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id), ['PICKUP_START', 'TRIP_END'])
     const localityRows = await LocalityRepository.forSnapshotIds(tripLocations.map(location => location.id))
     const localityBySnapshotId = new Map(localityRows.map(row => [row.snapshotId, row]))
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false
