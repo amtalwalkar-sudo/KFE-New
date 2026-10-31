@@ -4,7 +4,7 @@ import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataC
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
-import { getCachedLocationName } from '../location/locationNameService.js'
+import { LocalityRepository } from '../../repositories/localityRepository.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -23,13 +23,15 @@ export const tripPeriodTime = trip => {
 }
 const recordTime = record => validTime(record?.capturedAt) ?? validTime(record?.createdAt)
 const inRange = (time, range) => time != null && time >= range.from.getTime() && time <= range.to.getTime()
-export const locationLabel = snapshot => {
+export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offline = false) => {
   const hasCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
   if (!snapshot || !hasCoordinate(snapshot.latitude) || !hasCoordinate(snapshot.longitude)) return 'Location unavailable'
   const latitude = Number(snapshot.latitude)
   const longitude = Number(snapshot.longitude)
   if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return 'Location unavailable'
-  return getCachedLocationName(snapshot) || 'Location unavailable'
+  const saved = localityBySnapshotId.get(snapshot.id)?.placeName
+  if (typeof saved === 'string' && saved.trim()) return saved.trim()
+  return offline ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Location unavailable'
 }
 const durationMs = trip => {
   const start = validTime(trip?.tripStartAt)
@@ -49,7 +51,7 @@ const farePresentation = trip => {
 
 /**
  * Read-only Timeline projection over ride/fuel authorities and saved GPS snapshots.
- * Locality labels are cache-only here; network resolution is explicitly user-triggered.
+ * Locality labels are read from permanent PWA IndexedDB records; this read model never performs network requests.
  */
 export const ActivityTimelineReadService = Object.freeze({
   subscribeDataChanges(callback) {
@@ -67,7 +69,11 @@ export const ActivityTimelineReadService = Object.freeze({
       FuelRepository.getAll(),
     ])
     const trips = Array.isArray(allTrips) ? allTrips : []
-    const tripLocations = await EventLocationService.forEntities('TRIP', trips.map(trip => trip?.id))
+    const periodTrips = trips.filter(trip => (trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED') && inRange(tripPeriodTime(trip), range))
+    const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id))
+    const localityRows = await LocalityRepository.forSnapshotIds(tripLocations.map(location => location.id))
+    const localityBySnapshotId = new Map(localityRows.map(row => [row.snapshotId, row]))
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
     const locationsByTrip = new Map()
     for (const snapshot of tripLocations) {
       if (!snapshot?.entityId) continue
@@ -78,15 +84,13 @@ export const ActivityTimelineReadService = Object.freeze({
       locationsByTrip.set(snapshot.entityId, current)
     }
 
-    const rides = trips
-      .filter(trip => trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED')
+    const rides = periodTrips
       .map(trip => ({ trip, time: tripPeriodTime(trip) }))
-      .filter(item => inRange(item.time, range))
       .map(({ trip, time }) => {
         const fare = farePresentation(trip)
         const locations = locationsByTrip.get(trip.id) || {}
-        const pickupName = locationLabel(locations.pickup)
-        const dropName = locationLabel(locations.end)
+        const pickupName = locationLabel(locations.pickup, localityBySnapshotId, offline)
+        const dropName = locationLabel(locations.end, localityBySnapshotId, offline)
         return {
           id: trip.id,
           status: trip.status,
