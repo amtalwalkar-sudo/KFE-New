@@ -153,7 +153,7 @@ application use cases
 - Application modules may import application-owned port contracts, but must not import concrete infrastructure adapters, Capacitor packages, browser APIs for platform capabilities, or native plugin instances.
 - The composition root is the only place that chooses and installs runtime implementations. It must install them before router construction or screen setup can call a port.
 - Browser and Android implementations are adapters behind the same application contract; a port must not contain platform branching or business rules.
-- The machine-readable layer registry must describe this rule consistently: application imports domain and repository boundaries, not infrastructure implementations.
+- The machine-readable layer registry allows Infrastructure to import the application-owned port contract for binding; it does not allow Application to import Infrastructure. This is dependency inversion, not a circular runtime dependency.
 
 ## 7.1 Capacitor plugin registration
 
@@ -165,7 +165,7 @@ application use cases
 ## 7.2 PWA and Android runtime ownership
 
 - `src/main.js` is the single JavaScript composition root. It installs runtime ports, mounts the Vue application, and starts the post-mount bootstrap once.
-- `src/infrastructure/capacitor/nativePluginRegistry.js` is the sole JavaScript plugin-registration point. `MainActivity` registers the matching native plugin classes once.
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the sole JavaScript plugin-registration point. `MainActivity` registers the matching native plugin classes once. The architecture contract test compares both registration lists and fails on missing, duplicate, or extra plugin registrations.
 - `PlatformStartup` owns browser service-worker registration; no view, store or other startup module registers another service worker.
 - `StartupService` owns canonical IndexedDB initialization and recovery ordering. The root may configure platform adapters and invoke startup, but must not duplicate storage recovery.
 - On browser PWA, IndexedDB is the durable canonical store. On Android, SQLite is the durable Work/GPS event store; IndexedDB is the synchronized PWA read model. Stable IDs, idempotent operations and explicit acknowledgements preserve one logical record history.
