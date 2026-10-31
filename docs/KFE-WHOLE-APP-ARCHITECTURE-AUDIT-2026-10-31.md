@@ -1,6 +1,6 @@
 # KFE PWA + Capacitor Whole-Application Architecture Audit
 
-**Date:** 2026-10-31  
+**Date:** 2026-11-01  
 **Branch / PR:** `fix/simple-four-event-gps-capture` / PR #412  
 **Status:** Implementation and regression verification in progress; physical-device verification remains separate.
 
@@ -69,6 +69,40 @@ The active Work start path now validates and saves the shift opening odometer on
 - The obsolete movement-artifact entity is no longer accepted by the active browser canonical write adapter; its historical store remains only for legacy backup compatibility.
 - Dropbox remains a live-app/WebView backup provider. No native background connectivity polling or service-worker upload loop was introduced.
 - Native event capture remains bounded and event-driven; no continuous GPS tracking or idle retry loop was added.
+
+## Follow-up audit — 2026-11-01
+
+### 7. Application/platform boundary leak
+
+**Finding:** The Timeline read model and locality-resolution application service read `navigator.onLine` directly. This was a browser-platform dependency inside Application and was not rejected by the previous import-only boundary check.
+
+**Change:** Connectivity status now comes from the application-owned `WorkRuntimePorts.platform.isOnline()` contract, implemented by `PlatformStartup`. Timeline and locality services no longer read browser globals. The architecture contract now rejects direct browser-global access from Application.
+
+### 8. Stale end-to-end workflow evidence
+
+**Finding:** The Golden Ride scenario still described the retired odometer-gap gate, reconciliation and shift-review stages. An unused Phase D cross-surface display test also referenced deleted calculation services and the retired Performance surface.
+
+**Change:** The Golden Ride now follows the current lifecycle only: PWA Shift start, four ride events across PWA/overlay, fare or explicit skip, and PWA Shift end. Regression assertions reject the retired stages. The unreferenced Phase D display test was deleted. The form end-to-end chain label now says End Shift, not End Shift/Reconciliation.
+
+### 9. Active calculation inventory
+
+The active calculation surface is intentionally small:
+
+- `src/domain/math/fuel.js` — fuel quantity, full-tank interval cost/km and selected-period fuel summary.
+- `src/domain/performance/phaseOneOverview.js` — read-only basic Performance projection from saved Shift/Trip and fuel facts.
+- `src/application/performance/phaseOnePerformanceService.js` — reporting-period orchestration and repository read.
+- `src/domain/work/liveRevenue.js` — canonical Shift revenue projection from eligible completed fares and cancellation fees; mirrored transactionally by native SQLite for Android commits.
+
+No active domain finance/loan engine, forecast, break-even, driver-target, provision, amortization or maintenance-projection calculation remains. The Admin Loan form stores contractual source facts only; it does not calculate EMI, repayment schedules or balances. This is separate from Basic Performance, which uses only saved ride/cancellation and fuel facts.
+
+### 10. End-to-end runtime wiring
+
+- `src/main.js` installs the PWA/native runtime adapter before router creation and Vue mount.
+- The single JavaScript Capacitor registry and Android `MainActivity` each register the same seven native capabilities.
+- PWA Work commands flow through the application Work service and canonical repository/port boundary. Android overlay ride commands enter the durable native action journal, replay through the PWA application command path, and are acknowledged only after canonical commit.
+- Android SQLite is the durable Work/GPS commit store; PWA IndexedDB is the browser canonical store and Android read-model projection.
+- Native GPS is isolated to the four event snapshots; PWA locality lookup is explicit Timeline pull-to-refresh only.
+- Dropbox remains an app/WebView backup integration. No native background upload or service-worker cloud polling path is part of this architecture.
 
 ## Verification
 
