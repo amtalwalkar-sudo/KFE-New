@@ -140,6 +140,18 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Performance now reads only `cancelledRevenue` for cancellation fees. A regression test proves a legacy cancelled Trip with a fare field but no cancellation fee contributes zero.
 
+### 14. Supporting UI and Android acceptance contracts contradicted current architecture
+
+**Finding:** The authoritative UI shell contract still described a single shared command path, old odometer-gap/reconciliation/shift-review stages, target/progress context, and Auto/Light/Dark themes. The Android physical-device runbook still required continuous dead-movement traces, trace-distance checks and reconciliation. The end-to-end matrix and frozen overlay requirement also said native submissions depended on PWA command processing/acknowledgement before becoming business commits. These statements contradicted the current native-first Android transaction design and simplified product.
+
+**Change:** The UI shell contract now documents distinct PWA and native command adapters over the same domain invariants and canonical record model, Dark Only, and the current Work lifecycle. The end-to-end matrix and frozen overlay requirement now describe atomic native SQLite commits followed by PWA synchronization/acknowledgement. The Android acceptance runbook was rewritten around four event-time GPS snapshots, offline operation, manual-only locality refresh, native commit/recovery, current Performance/Admin, and backup/reset acceptance. Retired movement-trace, ride-distance and reconciliation checks were removed. The UI shell regression contract now rejects the obsolete wording.
+
+### 15. Release-phase status consistency
+
+**Finding:** Launch status showed Phase 11 physical-device pilot as active while Phase 10 release-candidate freeze remained pending and Phase 5 cleanup was still in progress.
+
+**Change:** Status now correctly identifies Phase 5 as active, requires fresh CI on the final cleanup head, and keeps Phases 10–13 locked until their prerequisites and evidence are complete. CI and physical-device acceptance remain separate proof levels.
+
 ## Verification
 
 The following are enforced by regression contracts:
