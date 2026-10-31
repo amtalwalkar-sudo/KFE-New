@@ -63,7 +63,7 @@ configureWorkRuntimePorts({
     consumePendingAction: noop, acknowledgeAction: noop, recordActionFailure: noop,
   },
   canonicalWork: {
-    putRecord: noop, getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
+    putRecord: noop, commitTripLifecycle: noop, getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
     prepareCreateIntent: noop, completeCreateIntent: noop, migrateLegacySnapshot: noop, verifyLegacyMigration: noop, getMigration: noop,
     beginCanonicalReset: noop, clearCanonicalReset: noop, completeCanonicalReset: noop, releaseCanonicalReset: noop, getCanonicalResetState: noop,
   },
