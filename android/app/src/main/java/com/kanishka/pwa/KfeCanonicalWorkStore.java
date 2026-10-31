@@ -540,6 +540,18 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           || !"GOING_TO_PICKUP".equals(incomingStage)) {
         throw new IllegalArgumentException("GO_TO_PICKUP must create one new ACTIVE Trip at GOING_TO_PICKUP.");
       }
+      try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='TRIP'", null, null, null, null)) {
+        while (trips.moveToNext()) {
+          JSONObject current = new JSONObject(trips.getString(0));
+          if (shiftId.equals(current.optString("shiftId", ""))
+              && "ACTIVE".equals(current.optString("status", ""))
+              && (!current.has("deletedAt") || current.isNull("deletedAt"))
+              && !current.optBoolean("deleted", false)) {
+            throw new IllegalArgumentException("A Shift may have only one active Trip at a time.");
+          }
+        }
+      }
       return;
     }
 
