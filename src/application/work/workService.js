@@ -270,7 +270,7 @@ export const WorkService = Object.freeze({
       const revenue = deriveLiveRevenue(shiftTrips)
       const completedShift = {
         ...shift,
-        revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES',
+        revenue, revenueSource: 'TRIP_FARES',
         endOdometer: validation.closingOdometer,
         totalDistance: validation.closingOdometer - Number(shift.startOdometer),
         shiftEndAt: now,
