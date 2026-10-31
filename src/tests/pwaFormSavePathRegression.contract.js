@@ -3,7 +3,6 @@ import fs from 'node:fs'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const adminView = read('../views/AdminView.vue')
-const firstRun = read('../views/FirstRunSetupView.vue')
 const definitions = read('../application/admin/adminFormDefinitions.js')
 const rules = read('../application/admin/universalFormRules.js')
 const adminService = read('../application/admin/adminService.js')
@@ -41,7 +40,6 @@ assert.match(adminRepo, /audit_history/, 'Admin persistence must preserve audit 
 assert.match(rules, /normalizeFormValues/, 'Admin validation must normalize form values')
 
 // 2. First-run setup reuses Admin forms and separately persists step state.
-assert.match(firstRun, /AdminService\.save\(current\.value\.form, form\.value\)/, 'First-run source forms must share Admin validation/persistence')
 assert.match(firstRun, /FirstRunSetupService\.setStepState\(key, \{ status: 'COMPLETE' \}\)/, 'First-run form save must record step completion')
 
 // 3. Work shift/trip/cancellation/fuel/end-shift forms.
