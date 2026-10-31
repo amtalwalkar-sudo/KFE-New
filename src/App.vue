@@ -1,19 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import KfeShell from './components/shell/KfeShell.vue'
 import { StartupService, startupState } from './application/startup/startupService.js'
-import FirstRunSetupView from './views/FirstRunSetupView.vue'
 import { permissionGateState, retryStartupPermissionGate } from './application/startup/permissionGate.js'
-import { FirstRunSetupService } from './application/setup/firstRunSetupService.js'
 
 const renderError = ref(null)
-const firstRunRequired = ref(false)
-const firstRunSetupEnabled = import.meta.env.VITE_ENABLE_FIRST_RUN_SETUP === 'true'
-onMounted(async () => {
-  if (!firstRunSetupEnabled) return
-  try { firstRunRequired.value = await FirstRunSetupService.isFirstRunSetupRequired() } catch (_) { firstRunRequired.value = false }
-})
-const finishFirstRun = () => { firstRunRequired.value = false }
 const recoverApp = () => {
   renderError.value = null
   void StartupService.resetStartupAttempt().catch(error => console.error('KFE startup retry failed:', error))
@@ -55,9 +46,7 @@ const recoverApp = () => {
       <span>Local storage is initializing in the background.</span>
     </div>
 
-    <FirstRunSetupView v-if="permissionGateState.status === 'ready' && firstRunRequired" @complete="finishFirstRun" />
-
-    <router-view v-else-if="permissionGateState.status === 'ready'" v-slot="{ Component }">
+    <router-view v-if="permissionGateState.status === 'ready'" v-slot="{ Component }">
       <component :is="Component" />
     </router-view>
   </KfeShell>
