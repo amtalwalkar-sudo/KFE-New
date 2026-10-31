@@ -1267,6 +1267,37 @@ public class KfeOverlaySmokeTest {
     assertNotNull("Native overlay view must be created while MainActivity is not visible", overlay);
   }
 
+  @Test public void durableGpsJournalDeduplicatesPersistsBackoffAndRemovesSnapshots() throws Exception {
+    KfeGpsEventJournal journal = new KfeGpsEventJournal(context);
+    long now = System.currentTimeMillis();
+    String eventAt = java.time.Instant.ofEpochMilli(now - 1000L).toString();
+
+    assertTrue("First supported event must be durably queued",
+      journal.enqueue("TRIP", "journal-trip", "TRIP_START", eventAt));
+    assertTrue("Duplicate event identity must be idempotent",
+      journal.enqueue("TRIP", "journal-trip", "TRIP_START", eventAt));
+    assertEquals("Duplicate enqueue must not create a second journal row", 1, journal.count());
+    assertFalse("Unsupported event must not enter the durable journal",
+      journal.enqueue("TRIP", "journal-trip", "UNKNOWN", eventAt));
+
+    JSONObject queued = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
+    assertNotNull("Queued event must be recoverable from persistent storage", queued);
+    assertEquals("journal-trip::TRIP_START", queued.optString("key", ""));
+    assertEquals(eventAt, queued.optString("eventAt", ""));
+    assertEquals(0, queued.optInt("retryAttempts", -1));
+
+    assertTrue("Failed one-shot capture must persist retry backoff",
+      journal.recordFailure("TRIP", "journal-trip", "TRIP_START", now));
+    JSONObject deferred = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
+    assertEquals(1, deferred.optInt("retryAttempts", 0));
+    assertEquals(now + 30000L, deferred.optLong("nextAttemptAt", 0L));
+
+    assertTrue("Saved snapshot must remove its pending journal entry",
+      journal.remove("TRIP", "journal-trip", "TRIP_START"));
+    assertEquals(0, journal.count());
+    assertFalse(journal.hasPending());
+  }
+
   @Test public void gpsSnapshotEventTypeAllowlistContainsOnlyFourRideBoundaries() throws Exception {
     Method supported = KfeGpsEventPolicy.class.getDeclaredMethod(
       "supports", String.class, String.class);
