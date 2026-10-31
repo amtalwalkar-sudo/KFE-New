@@ -48,7 +48,8 @@
     "infrastructure": [
       "repositories",
       "localDatabase",
-      "futureIntegrations"
+      "futureIntegrations",
+      "application"
     ],
     "localDatabase": [],
     "futureIntegrations": []
@@ -115,6 +116,7 @@
     "UI/UX and shell remain decoupled from infrastructure providers.",
     "External providers must be reached through replaceable infrastructure adapters.",
     "Application may depend on application-owned runtime port contracts; only the infrastructure composition root may bind those ports to platform adapters.",
-    "src/main.js is the composition root and installs infrastructure adapters before mounting the Vue application."
+    "src/main.js is the composition root and installs infrastructure adapters before mounting the Vue application.",
+    "Infrastructure may import application-owned port contracts solely to bind replaceable runtime implementations; application may never import infrastructure."
   ]
 }
