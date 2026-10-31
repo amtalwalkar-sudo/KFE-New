@@ -3,6 +3,7 @@ import fs from 'node:fs'
 
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const adminView = read('../views/AdminView.vue')
+const firstRun = read('../views/FirstRunSetupView.vue')
 const definitions = read('../application/admin/adminFormDefinitions.js')
 const rules = read('../application/admin/universalFormRules.js')
 const adminService = read('../application/admin/adminService.js')
@@ -53,7 +54,7 @@ assert.match(shiftStore, /const cancelTrip = async/, 'Cancellation transition mu
 assert.match(workView, /WorkService\.recordFuel\(\{/, 'Fuel form must use Work service')
 assert.match(fuelService, /FuelRepository\.create\(\{ \.\.\.validation/, 'Fuel save must persist validated values')
 assert.match(fuelRepo, /objectStore\('fuel_logs'\)/, 'Fuel save must write fuel_logs')
-assert.match(fuelForm, /class="work-fuel-form"[\s\S]*@submit\.prevent/, 'Fuel entry must use native form submission')
+assert.match(fuelForm, /class="work-fuel-form[^"]*"[^>]*@submit\.prevent/, 'Fuel entry must use native form submission')
 assert.match(workView, /await store\.endShift\(\{/, 'End-shift reconciliation must use shift store')
 assert.match(endShift, /ShiftTripRepository\.completeShift\(/, 'End-shift finalization must reach canonical shift repository')
 assert.doesNotMatch(workView, /ShiftReconciliationModal|handleFinalCommit|shiftRevenue|reviewRevenue/, 'Work must not launch shift-end revenue reconciliation.')
