@@ -136,12 +136,42 @@ provider
 
 Business logic must never become provider-specific.
 
+### 6.1 Runtime ports and composition root
+
+The application owns the runtime-port contracts; infrastructure supplies their implementations.
+
+```text
+src/main.js (single composition root)
+        ↓ installs once, before Vue mount
+src/infrastructure/work/workRuntimeAdapter.js
+        ↓ implements
+src/application/work/workRuntimePorts.js (application-owned port contracts)
+        ↓ consumed by
+application use cases
+```
+
+- Application modules may import application-owned port contracts, but must not import concrete infrastructure adapters, Capacitor packages, browser APIs for platform capabilities, or native plugin instances.
+- The composition root is the only place that chooses and installs runtime implementations. It must install them before router construction or screen setup can call a port.
+- Browser and Android implementations are adapters behind the same application contract; a port must not contain platform branching or business rules.
+- The machine-readable layer registry must describe this rule consistently: application imports domain and repository boundaries, not infrastructure implementations.
+
 ## 7.1 Capacitor plugin registration
 
 - `src/infrastructure/capacitor/nativePluginRegistry.js` is the only JavaScript module allowed to import `@capacitor/core` or call `registerPlugin()`.
 - Android capability adapters consume the registered plugin instances and translate them into narrow KFE infrastructure services.
 - Presentation, application and domain layers must never import Capacitor plugins or register native plugins.
 - Adding or replacing a native plugin requires updating the registry and the architecture contract test; it must not create a parallel registration path.
+
+## 7.2 PWA and Android runtime ownership
+
+- `src/main.js` is the single JavaScript composition root. It installs runtime ports, mounts the Vue application, and starts the post-mount bootstrap once.
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the sole JavaScript plugin-registration point. `MainActivity` registers the matching native plugin classes once.
+- `PlatformStartup` owns browser service-worker registration; no view, store or other startup module registers another service worker.
+- `StartupService` owns canonical IndexedDB initialization and recovery ordering. The root may configure platform adapters and invoke startup, but must not duplicate storage recovery.
+- On browser PWA, IndexedDB is the durable canonical store. On Android, SQLite is the durable Work/GPS event store; IndexedDB is the synchronized PWA read model. Stable IDs, idempotent operations and explicit acknowledgements preserve one logical record history.
+- Native overlay commands are Android capability commands. Shift start/end remain PWA-owned. Native ride commands are constrained to the active canonical shift and are replayed/acknowledged through the durable native event journal.
+- Native GPS collection owns only the four event-time coordinate snapshots. It does not own ride timestamps, locality labels, ride distance or Timeline presentation.
+- Dropbox backup runs in the live app/WebView context only; no service-worker or native background polling is used.
 
 ## 8. Ride capture boundary
 
