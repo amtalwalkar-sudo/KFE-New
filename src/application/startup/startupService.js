@@ -1,10 +1,15 @@
-import { reactive } from 'vue'
-
-const startupState = reactive({
-  status: 'starting',
-  error: null,
-  elapsedMs: 0,
-})
+const startupState = { status: 'starting', error: null, elapsedMs: 0 }
+const startupStateListeners = new Set()
+const updateStartupState = patch => {
+  Object.assign(startupState, patch)
+  for (const listener of startupStateListeners) listener({ ...startupState })
+}
+export const subscribeStartupState = listener => {
+  if (typeof listener !== 'function') throw new TypeError('Startup state listener must be a function.')
+  startupStateListeners.add(listener)
+  listener({ ...startupState })
+  return () => startupStateListeners.delete(listener)
+}
 
 let platform = null
 let activeAttempt = null
@@ -67,21 +72,17 @@ export const initializeApplication = async () => {
 export const startApplication = () => {
   if (activeAttempt) return activeAttempt
   const startedAt = Date.now()
-  startupState.status = 'starting'
-  startupState.error = null
-  startupState.elapsedMs = 0
-  timer = setInterval(() => { startupState.elapsedMs = Date.now() - startedAt }, 250)
+  updateStartupState({ status: 'starting', error: null, elapsedMs: 0 })
+  timer = setInterval(() => updateStartupState({ elapsedMs: Date.now() - startedAt }), 250)
   activeAttempt = initializeApplication()
     .then(result => {
       clearTimer()
-      startupState.elapsedMs = Date.now() - startedAt
-      startupState.status = 'ready'
+      updateStartupState({ elapsedMs: Date.now() - startedAt, status: 'ready' })
       return result
     })
     .catch(error => {
       clearTimer()
-      startupState.error = error?.message || 'Application initialization failed.'
-      startupState.status = 'error'
+      updateStartupState({ error: error?.message || 'Application initialization failed.', status: 'error' })
       throw error
     })
   return activeAttempt
