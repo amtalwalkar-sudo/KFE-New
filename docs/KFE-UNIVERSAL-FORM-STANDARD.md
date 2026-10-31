@@ -30,7 +30,20 @@
 
 ## Current Admin forms
 
-Business Setup, Vehicle, Driver, Compliance, Maintenance, and Loan details use the shared Admin form/save boundary. These forms capture source facts; they do not launch financial planning or calculation workflows.
+Business Setup, Vehicle, Driver, Compliance, Maintenance, and Loan details use the shared Admin form/save boundary.
+
+Canonical path:
+
+```text
+AdminView / AdminSourceForm → AdminService → AdminRepository → canonical store
+```
+
+- Form definitions and validation live in the application layer and are executed once by AdminService.
+- AdminRepository is persistence-only: it must not import application form definitions or repeat application validation.
+- The repository enforces foreign-record integrity and deletion constraints inside the same IndexedDB transaction as the mutation.
+- FormDraftService stores only non-authoritative unfinished input; a draft is cleared only after confirmed commit or explicit confirmed discard.
+- Admin records contain source facts only. Loan terms are stored as entered facts; no EMI, amortization, prepayment, payment-allocation, or repayment-schedule workflow is active.
+- Legacy finance stores remain preserved by backup/restore for data recovery, but are not active Admin menus or calculation pathways.
 
 ## Out of scope
 
