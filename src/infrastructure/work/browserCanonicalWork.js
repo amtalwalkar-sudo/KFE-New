@@ -1,6 +1,6 @@
 import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../../utils/indexedDB.js'
 
-const STORE_BY_ENTITY = Object.freeze({ SHIFT: 'shifts', TRIP: 'trips', GPS_SNAPSHOT: 'gps_snapshots', MOVEMENT_ARTIFACT: 'movement_artifacts' })
+const STORE_BY_ENTITY = Object.freeze({ SHIFT: 'shifts', TRIP: 'trips', GPS_SNAPSHOT: 'gps_snapshots' })
 const requireText = (value, name) => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${name} is required.`)
   return value.trim()
