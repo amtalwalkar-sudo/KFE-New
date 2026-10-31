@@ -409,9 +409,9 @@ public class KfeNativeFullShiftAcceptanceTest {
     String blankCancelId = "atomic-form-blank-cancel-" + suffix;
     assertTrue(store.putRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", blankCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
-            .put("updatedAt", earlier)).accepted);
+            .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject blankCancellation = new JSONObject().put("id", blankCancelId).put("shiftId", shiftId)
-        .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+        .put("status", "CANCELLED").put("tripStage", "GOING_TO_PICKUP").put("cancelReason", "PASSENGER")
         .put("cancelledRevenue", JSONObject.NULL)
         .put("updatedAt", java.time.Instant.now().plusMillis(3000).toString());
     KfeCanonicalWorkStore.Outcome blankCancel = store.commitTripForm(
@@ -427,9 +427,9 @@ public class KfeNativeFullShiftAcceptanceTest {
     String paidCancelId = "atomic-form-paid-cancel-" + suffix;
     assertTrue(store.putRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", paidCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
-            .put("updatedAt", earlier)).accepted);
+            .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject paidCancellation = new JSONObject().put("id", paidCancelId).put("shiftId", shiftId)
-        .put("status", "CANCELLED").put("cancelReason", "PASSENGER").put("cancelledRevenue", 20d)
+        .put("status", "CANCELLED").put("tripStage", "GOING_TO_PICKUP").put("cancelReason", "PASSENGER").put("cancelledRevenue", 20d)
         .put("updatedAt", java.time.Instant.now().plusMillis(4000).toString());
     KfeCanonicalWorkStore.Outcome paidCancel = store.commitTripForm(
         "atomic-form-paid-cancel-submit-" + suffix, "CANCEL", paidCancellation);
