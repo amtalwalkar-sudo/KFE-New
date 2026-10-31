@@ -20,7 +20,8 @@ export const transitionTrip = (trip, to, data = {}) => {
       const fee = rawFee == null || String(rawFee).trim() === '' ? 0 : Number(rawFee)
       if (!Number.isFinite(fee) || fee < 0) throw new Error('Cancellation fee must be a finite non-negative amount.')
       next.cancelledRevenue = fee
-      next.revenue = fee
+      // Cancellation fee is a distinct source fact, never a Trip fare.
+      // Preserve any existing fare field without using it in cancelled revenue.
     }
     if (data.reason !== undefined || data.cancelReason !== undefined) next.cancelReason = data.cancelReason ?? data.reason
   }
