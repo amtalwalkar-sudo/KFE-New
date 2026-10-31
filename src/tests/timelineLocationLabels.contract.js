@@ -31,6 +31,7 @@ assert.match(timelineView, /Pull down to resolve unsaved GPS locality names from
 assert.match(canonicalBoundary, /while \(offset < expectedTotal\)/)
 assert.match(canonicalBoundary, /limit: pageSize, offset/)
 assert.match(canonicalBoundary, /Native GPS history is incomplete/)
+assert.match(canonicalBoundary, /duplicate snapshot ID/)
 assert.doesNotMatch(readService, /getCachedLocationName/)
 assert.doesNotMatch(timelineView, /forceRefresh: true/)
 console.log('PASS: all four event localities persist permanently in PWA IndexedDB; Timeline reads only selected-period snapshots')
