@@ -66,7 +66,6 @@ Any external provider used by an explicitly approved current capability sits beh
 | Backup/restore | Persistence + infrastructure boundary |
 | Sync | Persistence + infrastructure boundary |
 | Android/native capability | Capacitor/native boundary |
-| OCR/AI provider | Infrastructure |
 | Cloud/backup provider | Infrastructure |
 | Notifications | Infrastructure/native boundary |
 
