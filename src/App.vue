@@ -28,7 +28,7 @@ const recoverApp = () => {
     </div>
     <div v-if="permissionGateState.status === 'ready' && renderError" class="error-container kfe-runtime-error" role="alert">
       <h3>Something went wrong</h3>
-      <p>{{ renderError }}</p>
+      <pre class="kfe-runtime-error__details">{{ renderError }}</pre>
       <button @click="recoverApp" class="retry-btn">Retry Initialization</button>
     </div>
 
