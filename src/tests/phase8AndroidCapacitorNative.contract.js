@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { validateTripCorrection } from '../domain/work/trip.js'
+import { validateTripDetails } from '../domain/work/trip.js'
 
 const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8')
 const mainActivity = fs.readFileSync('android/app/src/main/java/com/kanishka/pwa/MainActivity.java', 'utf8')
@@ -145,8 +145,8 @@ assert.match(overlay, /params\.x=0/)
 assert.match(overlayPlugin, /KfeOverlayService\.ACTION_MINIMIZE/)
 assert.match(overlayLifecycle, /AndroidOverlay\.minimize\(\)/)
 assert.match(workView, /await WorkRuntimePorts\.androidOverlay\.update\(/, 'Overlay display is fed by PWA work state.')
-assert.equal(validateTripCorrection({ fareDetailsSkipped: true }).fareDetailsSkipped, true)
-assert.equal(validateTripCorrection({ fareDetailsSkipped: 'true' }).valid, false)
+assert.equal(validateTripDetails({ fareDetailsSkipped: true }).fareDetailsSkipped, true)
+assert.equal(validateTripDetails({ fareDetailsSkipped: 'true' }).valid, false)
 assert.match(cockpit, /pendingFareId = ''/)
 assert.ok(overlayLifecycle.includes('pendingFareId: state.pendingFareId'))
 assert.ok(overlay.includes('pendingFareTripId=root.optString("pendingFareId","")'))
