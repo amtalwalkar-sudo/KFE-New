@@ -17,13 +17,13 @@ console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
 
 const newTrip = createCanonicalTripRecord({ shiftId: 'shift-1', operator: 'Uber' }, { createId: () => 'new-trip', now: '2026-09-24T08:00:00.000Z' })
 assert(newTrip.revenueAuthority === undefined, 'New canonical Trips must not carry obsolete per-Trip revenue authority metadata.')
-const active = { id: 'trip-1', shiftId: 'shift-1', status: TRIP_STATES.ACTIVE, tripStage: 'GOING_TO_PICKUP', revenue: null }
+const active = { id: 'trip-1', shiftId: 'shift-1', status: TRIP_STATES.ACTIVE, tripStage: 'GOING_TO_PICKUP', cancelledRevenue: null }
 const completed = transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' })
 assert(completed.status === 'COMPLETED', 'END_RIDE must produce one COMPLETED canonical Trip')
 assert(completed.id === active.id, 'Trip ID must remain stable across END_RIDE')
 assert(completed.tripKm === undefined, 'Ride lifecycle must not calculate or capture trip distance')
 
-const priced = applyTripDetails({ ...completed, revenueAuthority: 'SUPPORTING_ONLY' }, { id: active.id, revenue: 250, toll: 10, parking: 5, fareDetailsSkipped: false }, '2026-09-24T12:01:00.000Z')
+const priced = applyTripDetails({ ...completed, revenueAuthority: 'SUPPORTING_ONLY' }, { id: active.id, cancelledRevenue: 250, toll: 10, parking: 5, fareDetailsSkipped: false }, '2026-09-24T12:01:00.000Z')
 assert(priced.id === active.id && priced.status === 'COMPLETED', 'Fare must update the same completed Trip, not create another record')
 assert(priced.revenue === 250, 'Fare amount must be saved.')
 assert(priced.toll === 10, 'Toll must be saved.')
@@ -31,22 +31,22 @@ assert(priced.parking === 5, 'Parking must be saved.')
 assert(priced.updatedAt === '2026-09-24T12:01:00.000Z', 'Trip detail update time must be saved.')
 assert(priced.revenueAuthority === undefined, 'Trip fare remains a supporting fact; obsolete per-Trip revenue authority metadata is not persisted.')
 
-const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
+const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { cancelledRevenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLED canonical Trip')
 assert(cancelled.id === active.id, 'Cancellation must retain the canonical Trip ID')
 assert(cancelled.cancelledRevenue === 0 && cancelled.revenue === null, 'Cancellation fee must be recorded separately and must not become a Trip fare.')
-const cancelledBlank = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: '', reason: 'DRIVER_MISTAKE' })
+const cancelledBlank = transitionTrip(active, TRIP_STATES.CANCELLED, { cancelledRevenue: '', reason: 'DRIVER_MISTAKE' })
 assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === null, 'Blank cancellation fee defaults to zero without creating a Trip fare.')
-const cancelledZero = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
+const cancelledZero = transitionTrip(active, TRIP_STATES.CANCELLED, { cancelledRevenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelledZero.cancelledRevenue === 0 && cancelledZero.revenue === null, 'Explicit zero cancellation fee remains distinct from Trip fare.')
-const cancelledWithPriorFare = transitionTrip({ ...active, revenue: 300 }, TRIP_STATES.CANCELLED, { revenue: 20, reason: 'PASSENGER' })
+const cancelledWithPriorFare = transitionTrip({ ...active, cancelledRevenue: 300 }, TRIP_STATES.CANCELLED, { cancelledRevenue: 20, reason: 'PASSENGER' })
 assert(cancelledWithPriorFare.cancelledRevenue === 20, 'Cancellation fee must be saved independently.')
 assert(cancelledWithPriorFare.revenue === 300, 'Cancellation must not overwrite a pre-existing fare fact with the cancellation fee.')
 let cancellationAfterStartRejected = false
-try { transitionTrip({ ...active, tripStage: 'RIDE_STARTED' }, TRIP_STATES.CANCELLED, { revenue: 20, reason: 'PASSENGER' }) } catch (_) { cancellationAfterStartRejected = true }
+try { transitionTrip({ ...active, tripStage: 'RIDE_STARTED' }, TRIP_STATES.CANCELLED, { cancelledRevenue: 20, reason: 'PASSENGER' }) } catch (_) { cancellationAfterStartRejected = true }
 assert(cancellationAfterStartRejected, 'A Trip cannot be cancelled after the ride has started.')
 let invalidCancellationRejected = false
-try { transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 'not-a-number' }) } catch (_) { invalidCancellationRejected = true }
+try { transitionTrip(active, TRIP_STATES.CANCELLED, { cancelledRevenue: 'not-a-number' }) } catch (_) { invalidCancellationRejected = true }
 assert(invalidCancellationRejected, 'Invalid cancellation fee must be rejected')
 
 assert(canTransitionTrip(TRIP_STATES.ACTIVE, TRIP_STATES.COMPLETED), 'ACTIVE → COMPLETED transition missing')
