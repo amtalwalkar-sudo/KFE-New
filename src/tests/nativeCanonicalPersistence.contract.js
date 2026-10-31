@@ -27,6 +27,7 @@ assert.doesNotMatch(read('src/domain/work/canonicalWorkRecords.js'), /revenueAut
 assert.ok(!store.includes('persistTripBoundarySnapshot('), 'Legacy trip-boundary snapshot writer must be removed.')
 assert.ok(!store.includes('SAVE_TRIP_BOUNDARY_SNAPSHOT'))
 assert.ok(overlayService.includes('.putRecord(operationId,"GPS_SNAPSHOT",snapshot)'), 'Native overlay GPS must use the shared event snapshot entity.')
+assert.match(read('android/app/src/main/java/com/kanishka/pwa/KfeNativeWorkActionsPlugin.java'), /return KfeNativeEventStore\.get\(context\)\.append\(stage, tripId, input\);/, 'New native actions must have one durable SQLite event-log representation.')
 assert.ok(!overlayService.includes('persistTripBoundarySnapshot('), 'Native overlay must not write a separate GPS copy onto the TRIP record.')
 assert.ok(!overlayService.includes('store.putRecord("native-trip-location-'), 'Boundary GPS must not rewrite a stale full-trip payload.')
 
