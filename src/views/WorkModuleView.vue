@@ -164,7 +164,7 @@ watch([closingOdo, endStage, largeDistanceConfirmation], () => {
   })
 })
 
-const gap = computed(() => store.calculateGap(startOdo.value))
+const startOdometerValidation = computed(() => store.validateStartOdometer(startOdo.value))
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
 const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
@@ -336,7 +336,7 @@ async function submitStart() {
   if (startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
   if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
-  if (!gap.value.valid) return fail(gap.value.reason || 'Enter a valid odometer.')
+  if (!startOdometerValidation.value.valid) return fail(startOdometerValidation.value.reason || 'Enter a valid odometer.')
 
   startBusy.value = true
   try {
@@ -349,7 +349,6 @@ async function submitStart() {
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
-    gapChoice.value = ''
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
     notify('Online — shift started.')
