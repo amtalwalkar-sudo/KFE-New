@@ -35,7 +35,7 @@ final class KfeNativeTripFormRules {
   /** Build the bounded cancellation command payload without depending on form widgets. */
   static JSONObject buildCancellationPayload(String amount, String reason) throws JSONException {
     JSONObject payload = new JSONObject();
-    payload.put("revenue", amount == null ? "" : amount.trim());
+    payload.put("cancelledRevenue", amount == null ? "" : amount.trim());
     payload.put("reason", reason == null ? "" : reason);
     return payload;
   }
