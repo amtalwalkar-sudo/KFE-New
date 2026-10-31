@@ -6,23 +6,25 @@ export const LOCALITY_RESOLUTION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const EVENTS = new Set(['PICKUP_START', 'TRIP_START', 'TRIP_END', 'TRIP_CANCELLED'])
 const inFlight = new Map()
 
+const validCoordinates = snapshot => {
+  const latitude = snapshot?.latitude == null || snapshot.latitude === '' ? NaN : Number(snapshot.latitude)
+  const longitude = snapshot?.longitude == null || snapshot.longitude === '' ? NaN : Number(snapshot.longitude)
+  const accuracy = snapshot?.accuracy == null || snapshot.accuracy === '' ? NaN : Number(snapshot.accuracy)
+  return Number.isFinite(latitude) && Math.abs(latitude) <= 90
+    && Number.isFinite(longitude) && Math.abs(longitude) <= 180
+    && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 75
+}
+
 export const isEligibleForLocalityResolution = (snapshot, now = Date.now()) => {
-  if (!snapshot || !EVENTS.has(snapshot.eventType)) return false
+  if (!snapshot || !EVENTS.has(snapshot.eventType) || !validCoordinates(snapshot)) return false
   const eventTime = Date.parse(snapshot.eventAt || '')
   return Number.isFinite(eventTime) && eventTime > 0 && eventTime <= now
     && now - eventTime <= LOCALITY_RESOLUTION_MAX_AGE_MS
 }
 
-const validCoordinates = snapshot => {
-  const latitude = snapshot?.latitude == null || snapshot.latitude === '' ? NaN : Number(snapshot.latitude)
-  const longitude = snapshot?.longitude == null || snapshot.longitude === '' ? NaN : Number(snapshot.longitude)
-  return Number.isFinite(latitude) && Math.abs(latitude) <= 90
-    && Number.isFinite(longitude) && Math.abs(longitude) <= 180
-}
-
 export const EventLocalityService = Object.freeze({
   async resolveSnapshot(snapshot, { now = Date.now() } = {}) {
-    if (!snapshot?.id || !isEligibleForLocalityResolution(snapshot, now) || !validCoordinates(snapshot)) {
+    if (!snapshot?.id || !isEligibleForLocalityResolution(snapshot, now)) {
       return { placeName: null, state: 'NOT_ELIGIBLE' }
     }
     const existing = await LocalityRepository.getBySnapshotId(snapshot.id)
