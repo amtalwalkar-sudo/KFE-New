@@ -62,7 +62,7 @@ export function runStartupPermissionGate() {
         attempted.add(missing.key)
         if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); updatePermissionGateState({ status: 'checking' }); try { await WorkRuntimePorts.platform.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
         if (native()) {
-          updatePermissionGateState({ status: 'checking' }); const returned = waitForForegroundReturn()
+          updatePermissionGateState({ status: 'checking' }); const returned = WorkRuntimePorts.platform.waitForForegroundReturn()
           try { await WorkRuntimePorts.platform.openStartupSetting({ setting: missing.setting }) } catch (error) { updatePermissionGateState({ error: error?.message || String(error) }) }
           await returned; continue
         }
