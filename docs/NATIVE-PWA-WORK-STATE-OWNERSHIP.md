@@ -16,7 +16,7 @@ The native Android overlay and main PWA are two surfaces over one canonical work
 | Background execution | Overlay foreground-service lifecycle, durable workflow checkpoints, and OS restart recovery | Refresh canonical work state and reconcile the IndexedDB projection when available |
 | Trip-boundary location evidence | On request, capture and persist one GPS coordinate snapshot at pickup start, trip start, trip end, and cancellation; no continuous collection, routing, or ride-distance calculation | Display the persisted boundary snapshot when available; missing GPS evidence must not block trip workflow |
 | Overlay UI | Render the current canonical/read-model state and pending/error feedback | Supply refreshed work state to the overlay when available |
-| Revenue | Recompute the deterministic shift revenue projection from canonical trip records after a native trip/fare/cancellation commit; do not alter shift lifecycle or unrelated shift fields | Use the same trip inclusion rules and reconcile the projection when the PWA resumes |
+| Revenue | Recompute the deterministic shift revenue projection from canonical trip records after a native trip/fare/cancellation commit; do not alter shift lifecycle or unrelated shift fields | Read the already-committed native projection into the PWA IndexedDB/read models on resume; do not create a second commit or repair a valid native result |
 | Sync and recovery | Durable transport queue, stable event IDs, retry, acknowledgement, OS lifecycle recovery | Replay events idempotently, reconcile records, refresh IndexedDB and send current state to the overlay |
 
 ## State synchronization protocol
