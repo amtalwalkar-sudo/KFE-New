@@ -41,7 +41,7 @@ export const LocalityRepository = Object.freeze({
         // Successful labels are immutable during normal operation; provider retries
         // must never silently replace a previously verified locality.
         if (request.result) { saved = request.result; return }
-        saved = { snapshotId, placeName: placeName.trim(), provider: provider || null, resolvedAt, eventAt, capturedAt }
+        saved = { id: snapshotId, snapshotId, placeName: placeName.trim(), provider: provider || null, resolvedAt, eventAt, capturedAt }
         store.add(saved)
       }
       request.onerror = () => { try { tx.abort() } catch (_) {} }
