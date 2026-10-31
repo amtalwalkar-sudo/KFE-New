@@ -43,12 +43,15 @@ Capture a one-shot GPS snapshot for these four ride events:
 
 Rules:
 - GPS capture must work offline and must not require continuous tracking.
+- Each event requests fresh fixes immediately and retries at approximately three-second intervals for no more than 30 seconds. Accept a valid, post-event fix with accuracy of 75 metres or better; otherwise retain the durable pending event for a later eligible trigger without keeping an idle foreground service running.
 - Preserve provider capture timestamp (capturedAt) separately from ride event timestamp (eventAt); do not change established ride timestamp behavior.
 - Missing permissions or an unavailable fix must not block the ride action or fabricate coordinates.
 - Persist event snapshots independently from ride business facts.
 - Timeline is read-only and must not mutate ride records.
-- Locality resolution is manual-only, triggered by a user pull-to-refresh while online. No automatic retries, polling, background connectivity checks, or queued locality-resolution jobs.
-- Show a reliable resolved locality only. Otherwise show Location unavailable; never infer a locality from stale or unreliable data and never display raw coordinates as a locality.
+- The PWA resolves all four event types asynchronously after a GPS snapshot is durably saved, without blocking ride actions. New reverse geocoding is restricted to event timestamps within the latest seven days.
+- Save successful locality names permanently in PWA IndexedDB by canonical snapshot ID; do not silently overwrite them. Native Android stores coordinates only.
+- If the PWA is offline, show a saved locality or, when unresolved, the stored coordinates. Manual Timeline pull-to-refresh retries unresolved eligible snapshots when online. No continuous connectivity polling, automatic locality retry loop, or background locality queue.
+- Show only provider-verified locality names. Reject missing accuracy, invalid coordinates, distant provider results, and broad-only results. Never guess or fabricate a locality.
 - A cancellation snapshot is not a drop-off location.
 
 ## 5. Timeline
@@ -56,7 +59,7 @@ Rules:
 - Timeline displays saved rides and fuel records for the selected period.
 - Cancelled rides remain visible and are clearly labelled as cancelled.
 - Do not calculate ride-distance metrics because ride distance is not an authoritative recorded input.
-- Show pickup/drop locality only when reliably resolved; otherwise show Location unavailable.
+- Show saved pickup/drop locality when reliably resolved; when offline and unresolved, show the saved coordinates. Online unresolved locations remain Location unavailable until the asynchronous lookup or manual refresh succeeds.
 - Fuel spending includes recorded partial refills. Fuel cost per kilometre is calculated only from consecutive valid full-tank odometer readings. Partial refills do not create a mileage interval.
 - Timeline must not invent or backfill business facts.
 
