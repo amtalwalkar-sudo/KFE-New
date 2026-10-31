@@ -1,3 +1,5 @@
+import { normalizeTripInput } from '../canonicalNormalization.js'
+
 export const WORK_TRIP_OPERATORS = Object.freeze(['Uber', 'One way', 'Rapido', 'Ola', 'Savaari'])
 
 export function validateTripOperator(operator) {
@@ -25,4 +27,24 @@ export function validateTripDetails(data = {}) {
     result.fareDetailsSkipped = data.fareDetailsSkipped
   }
   return { valid: true, ...result }
+}
+
+/**
+ * Apply validated fare/detail facts to an existing completed Trip.
+ * Shared by browser repository writes and the native-first Work application path.
+ * Shift revenue is projected separately from canonical Trip facts.
+ */
+export function applyTripDetails(trip, data, now) {
+  if (!trip?.id || trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.')
+  const normalized = normalizeTripInput(data)
+  const next = { ...trip }
+  if (normalized.revenue !== undefined) next.revenue = normalized.revenue
+  for (const field of ['toll', 'parking', 'fareDetailsSkipped']) {
+    if (normalized[field] !== undefined) next[field] = normalized[field]
+  }
+  // Retire the old per-Trip revenue authority marker. Shift.revenue is the
+  // sole shift-level projection; Trip fare is a supporting source fact.
+  delete next.revenueAuthority
+  next.updatedAt = now
+  return next
 }
