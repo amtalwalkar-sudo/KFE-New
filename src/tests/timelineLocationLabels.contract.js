@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { locationLabel } from '../application/timeline/activityTimelineReadService.js'
 
 const eventLocationService = fs.readFileSync('src/application/location/eventLocationService.js', 'utf8')
 const eventLocalityService = fs.readFileSync('src/application/location/eventLocalityService.js', 'utf8')
@@ -17,6 +18,16 @@ assert.match(readService, /\['PICKUP_START', 'TRIP_END'\]/, 'Timeline reads only
 assert.match(readService, /LocalityRepository\.forSnapshotIds/)
 assert.match(readService, /locationLabel\(locations\.pickup, localityBySnapshotId, offline\)/)
 assert.match(readService, /locationLabel\(locations\.end, localityBySnapshotId, offline\)/)
+const savedLabel = new Map([['gps-1', { placeName: 'Verified locality' }]])
+const accurateSnapshot = { id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 75 }
+assert.equal(locationLabel(accurateSnapshot, savedLabel, false), 'Verified locality')
+assert.equal(locationLabel({ ...accurateSnapshot, accuracy: null }, savedLabel, false), 'Location unavailable',
+  'A locality label without recorded GPS accuracy must not be displayed.')
+assert.equal(locationLabel({ ...accurateSnapshot, accuracy: null }, savedLabel, true), '19.07600, 72.87770',
+  'Offline fallback may show raw coordinates when accuracy is unavailable, never a locality label.')
+assert.equal(locationLabel({ ...accurateSnapshot, accuracy: 75.01 }, savedLabel, false), 'Location unavailable',
+  'A saved locality label must not override a poor-accuracy GPS fix.')
+
 assert.match(readService, /WorkRuntimePorts\.platform\.isOnline\(\)/)
 assert.match(eventLocalityService, /LOCALITY_RESOLUTION_MAX_AGE_MS = 7 \* 24 \* 60 \* 60 \* 1000/)
 assert.match(eventLocalityService, /TRIP_START.*TRIP_END.*TRIP_CANCELLED/)
