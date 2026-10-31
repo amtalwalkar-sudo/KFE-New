@@ -32,7 +32,7 @@ assert.doesNotMatch(boundary, /persistTripBoundarySnapshot|updateTripBoundaryPla
 assert.match(boundary, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/)
 assert.match(read('src/infrastructure/work/browserCanonicalWork.js'), /STORE_BY_ENTITY/)
 assert.match(indexedDb, /createSimpleStore\(db, 'canonical_operations'/)
-assert.match(version, /CANONICAL_DB_VERSION = 16/)
+assert.match(version, /CANONICAL_DB_VERSION = 17/)
 assert.match(store, /CREATE TABLE canonical_operations/)
 assert.match(store, /CREATE TABLE canonical_audit/)
 assert.match(store, /db\.beginTransaction\(\)/)
