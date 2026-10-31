@@ -8,7 +8,7 @@
 
 This document defines the canonical data contract that implementation, repositories, domain calculations, tests, and future backup/sync layers must preserve.
 
-The contract is provider-independent. Storage, OCR/AI provider, backup provider, cloud provider, and sync provider must not redefine canonical business meaning.
+The contract is provider-independent. Storage, backup provider, cloud provider, and cross-runtime synchronization must not redefine canonical business meaning.
 
 ```text
 External / UI / imported or legacy shape
@@ -54,7 +54,7 @@ Business calendar dates (`effectiveFrom`, `validUntil`, `performedOn`) are IST d
 
 Provenance records where a value came from: manual, imported/restored, synthetic/test, or system-derived as applicable.
 
-Authority is separate from provenance. A value being manually entered or OCR-derived does not by itself make it authoritative. Calculation authority is defined explicitly below.
+Authority is separate from provenance. A value's source does not by itself make it authoritative. Calculation authority is defined explicitly below.
 
 ## 4. Validation and normalization
 
