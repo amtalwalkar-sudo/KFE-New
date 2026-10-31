@@ -267,6 +267,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (empty(entityId)) throw new IllegalArgumentException("record.id is required.");
     // Keep the caller's exact operation payload for durable idempotent retries.
     // The canonical SHIFT payload may be reconciled with a native-derived projection below.
+    if ("TRIP".equals(entityType)) {
+      record.remove("revenueAuthority");
+      record.remove("revenueProvenance");
+    }
     JSONObject operationRecord = new JSONObject(record.toString());
     String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
@@ -441,6 +445,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     // Retire the legacy marker on the next form write; it is not canonical Trip data.
     existing.remove("revenueAuthority");
     incoming.remove("revenueAuthority");
+    existing.remove("revenueProvenance");
+    incoming.remove("revenueProvenance");
     String[] allowed = "FARE".equals(mode)
         ? new String[]{"revenue", "toll", "parking", "fareDetailsSkipped", "updatedAt"}
         : new String[]{"status", "cancelReason", "cancelledRevenue", "tripEndAt", "updatedAt"};
