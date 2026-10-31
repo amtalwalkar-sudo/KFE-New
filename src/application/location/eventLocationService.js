@@ -32,7 +32,7 @@ export const EventLocationService = {
     })().catch(error => console.warn('Ride GPS capture failed:', entityId, eventType, error))
   },
   async resolveNativeSnapshotAfterCapture(entityId, eventType) {
-    const delays = [250, 500, 1000, 2000, 4000, 6000, 8000, 8000]
+    const delays = [250, 500, 1000, 2000, 4000, 6000, 8000, 10000]
     for (const delay of delays) {
       await wait(delay)
       const snapshot = await CanonicalWorkBoundary.getEventLocationSnapshot(nativeSnapshotId(entityId, eventType)).catch(() => null)
