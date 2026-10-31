@@ -33,7 +33,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 | Business meaning and business rules | KFE_BUSINESS_RULES_REGISTER.md | Rule meaning, invariants, business semantics |
 | Architecture / ownership / layer boundaries | docs/KFE-ARCHITECTURE-CONTRACT.md | Responsibility and implementation boundaries |
 | Canonical domain/data model | docs/KFE-CANONICAL-DATA-CONTRACT.md | Entities, fields, relationships, source-of-truth data |
-| Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation/reconciliation transitions across surfaces |
+| Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation and end-shift transitions across surfaces |
 | PWA UI / shell / presentation boundary | docs/UI-UX-SHELL-CONTRACT.md | Visual and presentation architecture |
 | Work cockpit presentation | KFE_WORK_COCKPIT_BASELINE.md | Work-specific presentation of the canonical lifecycle |
 | Universal form architecture | docs/KFE-UNIVERSAL-FORM-STANDARD.md | Form interaction/viewport/resilience |
