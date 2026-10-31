@@ -215,7 +215,6 @@ public class KfeNativeFullShiftAcceptanceTest {
       catch (IllegalArgumentException expected) { genericLifecycleWriteRejected = true; }
       assertTrue("Generic native Trip writes must not bypass commitTripLifecycle.", genericLifecycleWriteRejected);
 
-      String t1 = java.time.Instant.parse(t0).plusMillis(10).toString();
       JSONObject cancelPickup = new JSONObject().put("id", cancelledTripId).put("shiftId", shiftId)
           .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
           .put("createdAt", t0).put("updatedAt", t0);
