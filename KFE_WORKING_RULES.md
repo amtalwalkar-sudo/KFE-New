@@ -36,8 +36,9 @@ Do not restore dormant or historical features because a test, document, componen
 - `KFE-AUTHORITY-MAP.md` is the governance index.
 - `docs/KFE-ARCHITECTURE-CONTRACT.md` owns architecture and layer boundaries.
 - `docs/KFE-CANONICAL-DATA-CONTRACT.md` owns stored facts, relationships, and data preservation.
-- `docs/KFE-CALCULATION-SPECIFICATION.md` owns only the basic Performance calculations.
 - `KFE_LAUNCH_MASTER_PLAN.md` owns phase sequence and gates; `KFE_LAUNCH_STATUS.md` records current state.
+- `KFE_BUSINESS_RULES_REGISTER.md` is the sole authority for Performance metric meaning and reporting attribution.
+- `docs/PERFORMANCE-FOUNDATION.md` documents the supporting Performance presentation/read architecture only; it does not define formulas or business meaning.
 - Supporting documents, tests, UI, and native adapters may implement or verify these authorities but must not create competing rules.
 
 ## Canonical implementation paths
@@ -48,7 +49,7 @@ Do not restore dormant or historical features because a test, document, componen
 | Fuel records | `src/domain/work/fuel.js` → `src/application/work/fuel.js` → `src/repositories/fuelRepository.js` |
 | GPS event snapshots | `src/application/location/eventLocationService.js` and native Capacitor GPS plugin; event snapshots persist separately from ride facts |
 | Timeline | `src/application/timeline/activityTimelineReadService.js`; `src/application/location/eventLocalityService.js` starts asynchronous capture-time locality lookup, with manual Timeline refresh as fallback |
-| Basic Performance | `src/application/performance/phaseOnePerformanceService.js` using `src/repositories/performanceRepository.js` |
+| Basic Performance | `src/application/performance/phaseOnePerformanceService.js` using `src/repositories/performanceRepository.js`; canonical changes refresh the open read-only view |
 | Admin forms/data | `src/application/admin/adminService.js` → `src/repositories/adminRepository.js` |
 | Android overlay | `src/infrastructure/android/androidOverlayLifecycle.js` → `src/infrastructure/android/kfeOverlay.js` → native `KfeOverlayService` |
 
@@ -63,4 +64,3 @@ Do not restore dormant or historical features because a test, document, componen
 ## Evidence standard
 
 A result is not verified merely because source code appears correct, a contract test passes, CI is green, or an APK artifact exists. If a gate requires runtime/device evidence, that evidence must actually exist.
-
