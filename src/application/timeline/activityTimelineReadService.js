@@ -16,17 +16,19 @@ const validTime = value => {
   const time = new Date(value).getTime()
   return Number.isFinite(time) ? time : null
 }
-const tripPeriodTime = trip => {
+export const tripPeriodTime = trip => {
   if (trip?.status === 'COMPLETED') return validTime(trip.tripStartAt)
-  if (trip?.status === 'CANCELLED') return validTime(trip.tripStartAt) ?? validTime(trip.createdAt)
+  if (trip?.status === 'CANCELLED') return validTime(trip.tripEndAt) ?? validTime(trip.tripStartAt) ?? validTime(trip.createdAt)
   return null
 }
 const recordTime = record => validTime(record?.capturedAt) ?? validTime(record?.createdAt)
 const inRange = (time, range) => time != null && time >= range.from.getTime() && time <= range.to.getTime()
-const locationLabel = snapshot => {
-  const latitude = Number(snapshot?.latitude)
-  const longitude = Number(snapshot?.longitude)
-  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return 'Location unavailable'
+export const locationLabel = snapshot => {
+  const hasCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+  if (!snapshot || !hasCoordinate(snapshot.latitude) || !hasCoordinate(snapshot.longitude)) return 'Location unavailable'
+  const latitude = Number(snapshot.latitude)
+  const longitude = Number(snapshot.longitude)
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return 'Location unavailable'
   return getCachedLocationName(snapshot) || 'Location unavailable'
 }
 const durationMs = trip => {
@@ -90,13 +92,13 @@ export const ActivityTimelineReadService = Object.freeze({
           status: trip.status,
           statusLabel: trip.status === 'CANCELLED' ? 'Cancelled' : 'Completed',
           timeAt: new Date(time).toISOString(),
-          timeLabel: trip.status === 'CANCELLED' && validTime(trip.tripStartAt) == null ? 'Cancelled at' : 'Start time',
+          timeLabel: trip.status === 'CANCELLED' ? 'Cancelled at' : 'Start time',
           durationMs: durationMs(trip),
           fareLabel: fare.label,
           fareValue: fare.value,
           fareState: fare.state,
           pickupArea: pickupName,
-                    // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
+          // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
           dropArea: trip.status === 'COMPLETED' ? dropName : 'Location unavailable',
         }
       })
@@ -108,8 +110,8 @@ export const ActivityTimelineReadService = Object.freeze({
         id: log.id,
         timeAt: new Date(recordTime(log)).toISOString(),
         amount: amount(log.amount) ? Number(log.amount) : null,
-        quantityKg: Number.isFinite(Number(log.quantityKg)) && Number(log.quantityKg) > 0 ? Number(log.quantityKg) : null,
-        odometer: Number.isFinite(Number(log.odometer)) && Number(log.odometer) >= 0 ? Number(log.odometer) : null,
+        quantityKg: log.quantityKg !== null && log.quantityKg !== undefined && log.quantityKg !== '' && Number.isFinite(Number(log.quantityKg)) && Number(log.quantityKg) > 0 ? Number(log.quantityKg) : null,
+        odometer: log.odometer !== null && log.odometer !== undefined && log.odometer !== '' && Number.isFinite(Number(log.odometer)) && Number(log.odometer) >= 0 ? Number(log.odometer) : null,
         isFullTank: log.isFullTank === true,
       }))
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))
