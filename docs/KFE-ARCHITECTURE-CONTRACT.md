@@ -3,7 +3,7 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE ownership, boundaries, data authority, replaceability and implementation constraints.
 
-This document defines architecture and ownership boundaries. Product scope and business meaning belong to `KFE_BUSINESS_RULES_REGISTER.md`. `docs/KFE-CALCULATION-SPECIFICATION.md` covers only the small set of recorded-data calculations used by basic Performance; no broader financial model is in scope.
+This document defines architecture and ownership boundaries. Product scope and business meaning, including the supported basic Performance calculations, belong to `KFE_BUSINESS_RULES_REGISTER.md`.
 
 ## 1. Governing architecture rule
 
@@ -75,11 +75,11 @@ No layer may silently assume ownership already assigned to another layer.
 
 ## 4. Basic Performance calculation boundary
 
-- Only the explicitly supported calculations in `docs/KFE-CALCULATION-SPECIFICATION.md` are in scope.
+- Only the recorded-data calculations explicitly defined in `KFE_BUSINESS_RULES_REGISTER.md` are in scope.
 - Presentation consumes the basic Performance read model rather than reproducing formulas.
-- Application coordinates these simple calculations and does not introduce additional financial models.
+- Application coordinates the read model and does not introduce additional financial models.
 - Provider adapters never calculate KFE business meaning.
-- The machine-readable registry may describe only the same supported basic metrics.
+- Historical calculation registries/specifications do not authorize additional product behavior.
 
 ## 5. Data authority
 
@@ -192,6 +192,28 @@ Presentation contracts define presentation behavior; historical UI documents are
 - No duplicate calculation service that can produce a competing answer.
 - If a service is replaced, references to the obsolete implementation are removed in the same run.
 - The consolidation / keep-one rule in §1.1 applies to every implementation path, not only repositories and services.
+
+### 11.1 Admin form and data path
+
+The one active Admin source-record path is:
+
+```text
+AdminView / AdminSourceForm (presentation)
+        ↓
+AdminService + form definitions + validation (application)
+        ↓
+AdminRepository (canonical persistence boundary)
+        ↓
+IndexedDB canonical stores + mutation/audit records
+```
+
+- AdminView owns navigation, transient selection, loading/error state and form orchestration only.
+- AdminSourceForm owns input rendering and non-authoritative draft recovery through FormDraftService; it does not write canonical business records.
+- AdminService is the single owner of Admin form normalization/validation and use-case orchestration.
+- AdminRepository must not import application form definitions or validation. It owns canonical transactions, relationship integrity, soft deletion, mutation records and audit history.
+- Parent/child relationship checks and record deletion must occur in the same repository transaction.
+- Admin forms store source facts only. Loan principal, tenure and rate are saved facts; Admin does not calculate EMI, amortization, repayment schedules or payment allocation.
+- Backup/restore remains a separate persistence workflow and must preserve legacy stores without exposing retired workflows in Admin.
 
 ## 12. Replace-and-delete rule
 
@@ -310,14 +332,12 @@ A calculation regression must be caught by deterministic calculation vectors rat
 
 The authoritative human-readable contracts have distinct scopes:
 
-1. `KFE_BUSINESS_RULES_REGISTER.md` — what KFE means; sole business-rule authority.
-2. `docs/KFE-CALCULATION-SPECIFICATION.md` — how KFE calculates.
-3. `docs/KFE-ARCHITECTURE-CONTRACT.md` — architecture, layer ownership, data authority and implementation boundaries.
-4. `docs/UI-UX-SHELL-CONTRACT.md` — presentation, shell, screen/component ownership, visual/interaction rules and UI/E2E verification.
+1. `KFE_BUSINESS_RULES_REGISTER.md` — product scope and business meaning; sole business-rule authority.
+2. `docs/KFE-ARCHITECTURE-CONTRACT.md` — architecture, layer ownership, data authority and implementation boundaries.
+3. `docs/UI-UX-SHELL-CONTRACT.md` — presentation, shell, screen/component ownership, visual/interaction rules and UI/E2E verification.
 
 When a concern crosses scopes, each contract governs its own responsibility: this architecture contract governs layer boundaries; the UI/UX & Shell Contract specializes presentation behavior and cannot override business/domain authority.
 
-`spec/calculations/index.json` is a machine-readable calculation registry, not a competing human-readable specification.
 
 Historical audit/consolidation documents must not become current authority.
 
