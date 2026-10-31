@@ -957,8 +957,8 @@ public class KfeOverlayService extends Service {
     }
   }
 
-  // A high-accuracy one-shot request is retried until the first valid fix is
-  // durably written. It is not a movement trace and does not use the network.
+  // A bounded high-accuracy request accepts the first reliable fix and durably
+  // writes it. It is not a movement trace and does not require internet access.
   private void captureOneShotEventLocation(String tripId,String eventType){captureOneShotEventLocation("TRIP",tripId,eventType,"");}
   private void captureOneShotEventLocation(String entityType,String entityId,String eventType,String eventAt){
     if(entityId==null||entityId.trim().isEmpty()||!KfeGpsEventPolicy.supports(entityType,eventType))return;
