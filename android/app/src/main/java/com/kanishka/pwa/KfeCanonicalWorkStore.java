@@ -236,11 +236,29 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record) throws Exception {
-    return putRecord(operationId, entityType, record, null, false);
+    return putRecordInternal(operationId, entityType, record, null, false, null);
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record,
       String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    return putRecordInternal(operationId, entityType, record, expectedUpdatedAt, expectAbsent, null);
+  }
+
+  /**
+   * Native overlay lifecycle commands use this guarded path rather than a generic
+   * record replacement. The state transition and active-Shift check are validated
+   * inside the same SQLite transaction as the canonical write.
+   */
+  synchronized Outcome commitTripLifecycle(String operationId, String action, JSONObject trip,
+      String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if (!"GO_TO_PICKUP".equals(action) && !"START_RIDE".equals(action) && !"END_RIDE".equals(action)) {
+      throw new IllegalArgumentException("Unsupported native Trip lifecycle action.");
+    }
+    return putRecordInternal(operationId, "TRIP", trip, expectedUpdatedAt, expectAbsent, action);
+  }
+
+  private Outcome putRecordInternal(String operationId, String entityType, JSONObject record,
+      String expectedUpdatedAt, boolean expectAbsent, String lifecycleAction) throws Exception {
     assertNoPendingReset();
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
@@ -267,11 +285,14 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           }
           JSONObject prior = new JSONObject(cursor.getString(4));
           JSONObject priorRecord = prior.optJSONObject("record");
-          boolean sameRecord = priorRecord != null && ("TRIP".equals(entityType)
-              ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
-              : jsonEquivalent(priorRecord, operationRecord));
+          String priorLifecycleAction = prior.optString("lifecycleAction", "");
+          String expectedLifecycleAction = lifecycleAction == null ? "" : lifecycleAction;
+          boolean sameRecord = priorRecord != null && expectedLifecycleAction.equals(priorLifecycleAction)
+              && ("TRIP".equals(entityType)
+                  ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
+                  : jsonEquivalent(priorRecord, operationRecord));
           if (!sameRecord) {
-            throw new IllegalArgumentException("operationId was already used with a different payload.");
+            throw new IllegalArgumentException("operationId was already used with a different payload or lifecycle action.");
           }
           db.setTransactionSuccessful();
           return new Outcome("ACCEPTED".equals(cursor.getString(3)), true, prior);
@@ -292,11 +313,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       // delayed mirror replace a newer canonical payload. ISO-8601 updatedAt
       // values sort chronologically; missing/equal-but-different versions fail
       // closed rather than guessing which snapshot is newer.
+      JSONObject existingRecord = null;
       try (Cursor existing = db.query("canonical_records", new String[]{"payload"},
           "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
         if (existing.moveToFirst()) {
           String existingPayload = existing.getString(0);
-          JSONObject existingRecord = new JSONObject(existingPayload);
+          existingRecord = new JSONObject(existingPayload);
           if (expectAbsent) {
             throw new IllegalArgumentException("Canonical create conflict: record already exists for " + entityType + "/" + entityId + ".");
           }
@@ -360,6 +382,11 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
 
+      if (lifecycleAction != null) {
+        validateNativeTripLifecycleTransition(db, lifecycleAction, record, existingRecord,
+            expectedUpdatedAt, expectAbsent);
+      }
+
       ContentValues recordValues = new ContentValues();
       recordValues.put("entity_type", entityType);
       recordValues.put("entity_id", entityId);
@@ -379,6 +406,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       result.put("entityId", entityId);
       result.put("committedAt", now);
       result.put("record", "SHIFT".equals(entityType) ? operationRecord : record);
+      if (lifecycleAction != null) result.put("lifecycleAction", lifecycleAction);
 
       ContentValues operationValues = new ContentValues();
       operationValues.put("operation_id", operationId);
@@ -406,6 +434,64 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     }
   }
 
+
+  private void validateNativeTripLifecycleTransition(SQLiteDatabase db, String action,
+      JSONObject incoming, JSONObject existing, String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if (incoming == null || empty(incoming.optString("id", "")) || empty(incoming.optString("shiftId", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle requires canonical Trip and Shift identity.");
+    }
+    String shiftId = incoming.optString("shiftId", "");
+    if (existing != null && !shiftId.equals(existing.optString("shiftId", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle cannot change Shift identity.");
+    }
+    JSONObject shift;
+    try (Cursor cursor = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+      if (!cursor.moveToFirst()) throw new IllegalArgumentException("Native Trip lifecycle requires an existing canonical Shift.");
+      shift = new JSONObject(cursor.getString(0));
+    }
+    if (!"ACTIVE".equals(shift.optString("status", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle requires an active canonical Shift.");
+    }
+
+    String incomingStatus = incoming.optString("status", "");
+    String incomingStage = incoming.optString("tripStage", "");
+    if ("GO_TO_PICKUP".equals(action)) {
+      if (!expectAbsent || existing != null
+          || !"ACTIVE".equals(incomingStatus)
+          || !"GOING_TO_PICKUP".equals(incomingStage)) {
+        throw new IllegalArgumentException("GO_TO_PICKUP must create one new ACTIVE Trip at GOING_TO_PICKUP.");
+      }
+      return;
+    }
+
+    if (expectAbsent || existing == null) {
+      throw new IllegalArgumentException(action + " requires an existing canonical Trip.");
+    }
+    if (!"ACTIVE".equals(existing.optString("status", ""))) {
+      throw new IllegalArgumentException(action + " requires an ACTIVE Trip; terminal Trips cannot be reopened.");
+    }
+    String currentStage = existing.optString("tripStage", "");
+    String currentVersion = existing.optString("updatedAt", "");
+    if (empty(expectedUpdatedAt) || !expectedUpdatedAt.equals(currentVersion)) {
+      throw new IllegalArgumentException("Native Trip lifecycle version changed before commit.");
+    }
+    if ("START_RIDE".equals(action)) {
+      if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
+          || !"ACTIVE".equals(incomingStatus)
+          || !"RIDE_STARTED".equals(incomingStage)
+          || empty(incoming.optString("tripStartAt", ""))) {
+        throw new IllegalArgumentException("START_RIDE is allowed only from GOING_TO_PICKUP and requires a ride-start timestamp.");
+      }
+      return;
+    }
+    if (!"RIDE_STARTED".equals(currentStage)
+        || !"COMPLETED".equals(incomingStatus)
+        || !"COMPLETED".equals(incomingStage)
+        || empty(incoming.optString("tripEndAt", ""))) {
+      throw new IllegalArgumentException("END_RIDE is allowed only after START_RIDE and requires a trip-end timestamp.");
+    }
+  }
 
   /**
    * Atomically merges optional boundary metadata into the latest canonical trip.
