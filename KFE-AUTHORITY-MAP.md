@@ -45,6 +45,7 @@ Anything outside these five capabilities is out of product scope. Do not restore
 ## 3. Supporting documents — not competing authorities
 
 ### Current UI and basic Performance evidence
+- docs/ADMIN-ARCHITECTURE-AUDIT-2026-10-31.md — Admin implementation audit evidence; subordinate to the architecture and universal form contracts.
 
 ### Data / persistence / operational evidence
 - docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
