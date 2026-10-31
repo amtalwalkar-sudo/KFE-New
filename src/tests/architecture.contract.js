@@ -100,10 +100,10 @@ for (const file of readFiles(infrastructureRoot)) {
   }
 }
 const pluginRegistryPath = path.join(infrastructureRoot, 'capacitor/nativePluginRegistry.js')
+const registry = fs.existsSync(pluginRegistryPath) ? fs.readFileSync(pluginRegistryPath, 'utf8') : ''
 if (!fs.existsSync(pluginRegistryPath)) {
   violations.push('Shared Capacitor native plugin registry is missing.')
 } else {
-  const registry = fs.readFileSync(pluginRegistryPath, 'utf8')
   for (const pluginName of ['KfeNativeWorkActions', 'KfeCanonicalWork', 'KfeOverlay', 'KfeTripBoundaryLocation', 'KfeSecureStorage', 'KfeBackupFile', 'KfeNativeSystem']) {
     if (!registry.includes(`registerPlugin('${pluginName}')`)) violations.push(`Shared Capacitor registry is missing ${pluginName}.`)
   }
