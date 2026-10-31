@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
 import { EventLocationService } from '../application/location/eventLocationService.js'
-import { resolveLocationNameDetailed } from '../application/location/locationNameService.js'
+import { EventLocalityService } from '../application/location/eventLocalityService.js'
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
@@ -66,32 +66,17 @@ const refreshLocationNames = async () => {
   try {
     const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
     const visibleRideById = new Map(snapshot.value.rides.map(ride => [ride.id, ride]))
-    const locations = (await EventLocationService.forEntities('TRIP', rideIds)).filter(location => {
-      const ride = visibleRideById.get(location.entityId)
-      if (!ride) return false
-      if (location.eventType === 'PICKUP_START') return true
-      return ride.status === 'COMPLETED' && location.eventType === 'TRIP_END'
-    })
-    let resolvedCount = 0
-    let lowAccuracyCount = 0
-    let attemptedCount = 0
-    for (const location of locations) {
-      const hasCoordinates = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
-      if (!hasCoordinates(location.latitude) || !hasCoordinates(location.longitude)
-        || Math.abs(Number(location.latitude)) > 90 || Math.abs(Number(location.longitude)) > 180) continue
-      attemptedCount += 1
-      const resolution = await resolveLocationNameDetailed(location, undefined, { forceRefresh: true })
-      if (resolution?.placeName) resolvedCount += 1
-      else if (resolution?.state === 'LOW_ACCURACY') lowAccuracyCount += 1
-    }
+    const locations = await EventLocationService.forEntities('TRIP', rideIds)
+    const eligible = locations.filter(location => visibleRideById.has(location.entityId))
+    const results = await EventLocalityService.resolveSnapshots(eligible)
+    const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
+    const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state)).length
     await load()
     refreshMessage.value = attemptedCount === 0
-      ? 'No valid pickup or completed drop GPS snapshots are available to resolve yet.'
+      ? 'No unresolved GPS snapshots from the last seven days are ready for locality lookup.'
       : resolvedCount > 0
-        ? `Resolved ${resolvedCount} of ${attemptedCount} area names. ${lowAccuracyCount ? `${lowAccuracyCount} low-accuracy snapshots remain Location unavailable.` : ''} Saved ride GPS snapshots remain unchanged.`
-        : lowAccuracyCount > 0
-          ? `${lowAccuracyCount} GPS snapshots are too imprecise to label safely. Those areas remain Location unavailable; the saved snapshots are retained.`
-          : 'No area names could be resolved. Saved GPS snapshots are retained; pull down again when online.'
+        ? `Saved ${resolvedCount} new locality name${resolvedCount === 1 ? '' : 's'} permanently. Other unresolved snapshots remain available for another manual refresh.`
+        : 'No new locality names could be verified. GPS coordinates remain unchanged; try again with a reliable connection.'
   } catch (cause) {
     refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved GPS snapshots are retained.'
   } finally {
@@ -148,7 +133,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down from the top to refresh area names when online.</p>
+    <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down to resolve unsaved GPS locality names from the last seven days when online.</p>
     <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
     <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
     <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
