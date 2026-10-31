@@ -1,4 +1,5 @@
 import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../../utils/indexedDB.js'
+import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
 
 const STORE_BY_ENTITY = Object.freeze({ SHIFT: 'shifts', TRIP: 'trips', GPS_SNAPSHOT: 'gps_snapshots' })
 const requireText = (value, name) => {
@@ -90,13 +91,11 @@ const preserveTripBoundaryMetadata = (existing, incoming) => {
 }
 const refreshBrowserShiftRevenueProjection = (shift, trips, committedAt) => {
   if (!shift) return null
-  let revenue = 0
+  const shiftTrips = (trips || []).filter(trip => trip?.shiftId === shift.id)
+  const revenue = deriveLiveRevenue(shiftTrips)
   let latest = parseCanonicalInstant(committedAt, 'committedAt')
   if (shift.updatedAt) latest = Math.max(latest, parseCanonicalInstant(shift.updatedAt, 'shift updatedAt'))
-  for (const trip of trips || []) {
-    if (trip.shiftId !== shift.id || (Object.hasOwn(trip, 'deletedAt') && trip.deletedAt != null) || trip.deleted === true) continue
-    if (trip.status === 'COMPLETED' && trip.fareDetailsSkipped !== true && typeof trip.revenue === 'number' && Number.isFinite(trip.revenue) && trip.revenue >= 0) revenue += trip.revenue
-    else if (trip.status === 'CANCELLED' && typeof trip.cancelledRevenue === 'number' && Number.isFinite(trip.cancelledRevenue) && trip.cancelledRevenue >= 0) revenue += trip.cancelledRevenue
+  for (const trip of shiftTrips) {
     if (trip.updatedAt) latest = Math.max(latest, parseCanonicalInstant(trip.updatedAt, 'trip updatedAt'))
   }
   const matches = typeof shift.revenue === 'number' && typeof shift.liveFareRevenue === 'number'
