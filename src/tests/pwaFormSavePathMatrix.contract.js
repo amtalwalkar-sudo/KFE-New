@@ -46,7 +46,7 @@ match(work, /await store\.startShift\(startOdo\.value,/, 'Start Shift must use t
 match(shiftStore, /const startShift = async/, 'Shift store must own Start Shift')
 match(workService, /async startShift\(data\)[\s\S]*ShiftTripRepository\.createShift/, 'Start Shift must reach shift repository')
 match(work, /await store\.saveTripDetails\(details, operationId\)/, 'Trip details must update the existing trip')
-match(workService, /async saveTripDetails\(data\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Trip update must reach canonical trip repository')
+match(workService, /async saveTripDetails\(data, operationId = ''\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Trip update must reach canonical trip repository')
 match(work, /await store\.cancelTrip\(\{/, 'Cancellation must use canonical lifecycle')
 match(shiftStore, /const cancelTrip = async/, 'Cancellation must be store-owned')
 match(work, /WorkService\.recordFuel\(\{/, 'Fuel form must use WorkService')
