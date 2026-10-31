@@ -121,7 +121,7 @@ if (!(layerRegistry.allowedImports.infrastructure || []).includes('application')
 const mainActivityPath = path.join(projectRoot, 'android/app/src/main/java/com/kanishka/pwa/MainActivity.java')
 const mainActivity = fs.readFileSync(mainActivityPath, 'utf8')
 const registeredJsPlugins = [...registry.matchAll(/registerPlugin\('([^']+)'\)/g)].map(match => match[1]).sort()
-const registeredNativePlugins = [...mainActivity.matchAll(/registerPlugin\((Kfe[A-Za-z0-9]+)\.class\)/g)].map(match => match[1].replace(/^Kfe/, 'Kfe')).sort()
+const registeredNativePlugins = [...mainActivity.matchAll(/registerPlugin\((Kfe[A-Za-z0-9]+)\.class\)/g)].map(match => match[1].replace(/Plugin$/, '')).sort()
 const expectedNativePlugins = ['KfeNativeWorkActions','KfeCanonicalWork','KfeOverlay','KfeTripBoundaryLocation','KfeSecureStorage','KfeBackupFile','KfeNativeSystem'].sort()
 if (registeredJsPlugins.length !== expectedNativePlugins.length || registeredJsPlugins.some((name,index) => name !== expectedNativePlugins[index])) {
   violations.push('JavaScript Capacitor plugin registry must contain exactly the seven active native capabilities.')
