@@ -46,7 +46,7 @@ if (/querySelector\(\s*['\"]\.content-scroll-area/.test(adminViewForShell)) viol
 const appPath = path.join(root, 'App.vue')
 if (fs.existsSync(appPath)) {
   const app = fs.readFileSync(appPath, 'utf8')
-  if (/<style\\b|\\sstyle\\s*=/.test(app)) violations.push('App.vue must use shared presentation styles rather than inline styling.')
+  if (/<style\b|\sstyle\s*=/.test(app)) violations.push('App.vue must use shared presentation styles rather than inline styling.')
   if (/ShellService|BackupService|CloudBackupLifecycle|initializeCanonicalStorage|indexedDB|serviceWorker/i.test(app)) violations.push('App.vue still owns application/infrastructure startup concerns.')
 }
 
@@ -116,7 +116,7 @@ if ((layerRegistry.allowedImports.application || []).includes('infrastructure'))
 }
 const mainPath = path.join(root, 'main.js')
 const mainSource = fs.readFileSync(mainPath, 'utf8')
-if (/document\\.createElement|style\\.cssText/.test(mainSource)) violations.push('main.js must dispatch runtime errors to the App shell, not build presentation DOM.')
+if (/document\.createElement|style\.cssText/.test(mainSource)) violations.push('main.js must dispatch runtime errors to the App shell, not build presentation DOM.')
 const runtimePortsPath = path.join(root, 'application/work/workRuntimePorts.js')
 const runtimeAdapterPath = path.join(root, 'infrastructure/work/workRuntimeAdapter.js')
 const runtimePorts = fs.readFileSync(runtimePortsPath, 'utf8')
