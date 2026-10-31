@@ -1006,7 +1006,6 @@ public class KfeOverlayService extends Service {
     if(!activateOneShotLocationForeground()){finishPendingGpsAttempt(entityType,entityId,eventType,false);return;}
     Handler handler=new Handler(Looper.getMainLooper());
     AtomicBoolean finished=new AtomicBoolean(false);
-    final Location[] best=new Location[1];
     final LocationListener[] listener=new LocationListener[1];
     Runnable stop=()->{
       if(!finished.compareAndSet(false,true))return;
@@ -1025,7 +1024,6 @@ public class KfeOverlayService extends Service {
           &&Double.isFinite(location.getLongitude())&&Math.abs(location.getLongitude())<=180d;
         boolean accuracyValid=!Float.isNaN(accuracy)&&!Float.isInfinite(accuracy)&&accuracy>=0f;
         if(!timestampValid||!coordinatesValid||!accuracyValid)return;
-        if(best[0]==null||accuracy<best[0].getAccuracy())best[0]=new Location(location);
         // A fix at 75m or better is accepted immediately. Less accurate fixes
         // remain candidates while the provider continues its 3-second updates.
         if(accuracy>75f)return;
