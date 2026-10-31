@@ -1152,7 +1152,9 @@ public class KfeOverlayService extends Service {
       String eventTimestamp=java.time.Instant.ofEpochMilli(
           KfeNativeEventStore.get(this).createdAtMillis(eventId)).toString();
       JSONObject found=store.getRecord("TRIP",pendingTripId);
+      boolean existingCanonicalTrip=found.optBoolean("found",false);
       JSONObject trip=found.optJSONObject("record");
+      String expectedTripVersion=existingCanonicalTrip&&trip!=null?trip.optString("updatedAt",""):null;
       if(trip==null){
         JSONObject snapshotTrip=root.optJSONObject("trip");
         trip=snapshotTrip!=null&&pendingTripId.equals(snapshotTrip.optString("id",""))
@@ -1170,19 +1172,15 @@ public class KfeOverlayService extends Service {
         if(!trip.has("tripEndAt")||trip.isNull("tripEndAt")||trip.optString("tripEndAt","").isEmpty())trip.put("tripEndAt",eventTimestamp);
       }
       trip.put("updatedAt",eventTimestamp);
-      // If the canonical write committed but its acknowledgement was lost, a retry
-      // may reconstruct the same lifecycle transition from the already-updated row.
-      // Recognize only the exact event timestamp + target stage/status as committed.
-      JSONObject latest=store.getRecord("TRIP",pendingTripId);
-      JSONObject latestTrip=latest.optJSONObject("record");
-      if(latest.optBoolean("found",false)&&latestTrip!=null
-          &&stage.equals(latestTrip.optString("tripStage",""))
-          &&("COMPLETED".equals(stage)?"COMPLETED":"ACTIVE").equals(latestTrip.optString("status",""))
-          &&eventTimestamp.equals(latestTrip.optString("updatedAt",""))){
-        refreshRideCountForShift(store,shift.optString("id",""));
-        return true;
-      }
-      KfeCanonicalWorkStore.Outcome outcome=store.putRecord("native-trip-stage-"+eventId,"TRIP",trip);
+      String lifecycleAction="GOING_TO_PICKUP".equals(stage)?"GO_TO_PICKUP"
+          :"RIDE_STARTED".equals(stage)?"START_RIDE"
+          :"COMPLETED".equals(stage)?"END_RIDE":"";
+      if(lifecycleAction.isEmpty())throw new IllegalArgumentException("Unsupported native Trip lifecycle stage.");
+      // The SQLite command ledger, not a matching status/timestamp heuristic,
+      // owns retry identity. The store validates the expected prior state and
+      // active Shift in the same transaction as this lifecycle write.
+      KfeCanonicalWorkStore.Outcome outcome=store.commitTripLifecycle(
+          "native-trip-stage-"+eventId,lifecycleAction,trip,expectedTripVersion,!existingCanonicalTrip);
       if(!outcome.accepted)throw new IllegalStateException("Canonical trip lifecycle stage was not acknowledged.");
       refreshRideCountForShift(store,shift.optString("id",""));
       return true;
