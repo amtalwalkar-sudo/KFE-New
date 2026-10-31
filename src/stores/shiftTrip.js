@@ -123,8 +123,8 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return { ok: true }
   }
 
-  const updateTrip = async (data, operationId = '') => {
-    const result = await WorkService.updateTrip(data, operationId)
+  const saveTripDetails = async (data, operationId = '') => {
+    const result = await WorkService.saveTripDetails(data, operationId)
     if (result?.ok === false) return result
     await refresh()
     return { ok: true }
@@ -140,5 +140,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, validateStartOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, validateStartOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, saveTripDetails, endShift }
 })
