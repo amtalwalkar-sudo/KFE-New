@@ -47,6 +47,7 @@ assert.ok(service.indexOf('const intent = await CanonicalWorkBoundary.prepareCre
 assert.ok(service.includes('await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)'), 'intent completes only after native record acknowledgement')
 assert.ok(service.includes("return await commitPreparedCreateIntent('SHIFT', record, data)"), 'Start Shift must use crash-recoverable create intent')
 assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData)"), 'Start Trip must use crash-recoverable create intent')
+assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' })"), 'Android Start Trip must create through the guarded active-Shift lifecycle transaction.')
 
 assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'intent lookup must include completed intents, not only pending intents')
 assert.ok(service.includes("if (intent.status !== 'COMPLETED')"), 'retry after intent completion must reuse the completed intent instead of creating again')
