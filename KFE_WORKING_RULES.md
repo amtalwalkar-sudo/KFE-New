@@ -24,7 +24,7 @@ Do not restore dormant or historical features because a test, document, componen
 5. Preserve saved business records when removing code or UI. Feature cleanup must not silently reset or migrate records destructively.
 6. Keep PWA UI, application workflows, domain rules, repositories, and native Android adapters uncoupled.
 7. Shift start/end and driver setup remain PWA-owned. Native overlay handles ride actions only during an active shift.
-8. GPS snapshots are one-shot and offline-capable at going to pickup, cancellation, trip start, and trip end. The PWA starts one asynchronous locality lookup immediately after each durable snapshot when online; manual Timeline pull-to-refresh is only a fallback for unresolved eligible snapshots. No continuous tracking, route tracing, distance calculation, automatic locality retry loop, or background connectivity polling.
+8. GPS snapshots are one-shot and offline-capable at going to pickup, cancellation, trip start, and trip end. GPS capture, startup and resume never initiate locality lookup. Only explicit Timeline pull-to-refresh may resolve eligible snapshots when online. No continuous tracking, route tracing, distance calculation, automatic locality lookup/retry, or background connectivity polling.
 9. Do not claim a fix, audit, device verification, APK, or green CI unless the corresponding evidence exists.
 10. PR #412 remains open and unmerged unless explicitly instructed otherwise.
 
