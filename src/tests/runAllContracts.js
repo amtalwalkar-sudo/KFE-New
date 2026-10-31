@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 
 const suites = [
+  'fuelDomain.contract.js',
   'performancePhaseOneOverview.contract.js',
   'performanceRefreshCoordinator.contract.js',
   'performanceReportingPeriodBoundary.contract.js',
