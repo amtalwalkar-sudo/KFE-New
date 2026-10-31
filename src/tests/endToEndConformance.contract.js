@@ -68,7 +68,6 @@ trip = transitionTripStage(trip, TRIP_STAGES.RIDE_STARTED, { at: '2026-10-03T08:
 assert.equal(deriveWorkCockpitState({ shift, trip }).state, WORK_COCKPIT_STATES.TRIP_ACTIVE)
 trip = transitionTrip(trip, TRIP_STATES.COMPLETED, {
   tripEndAt: '2026-10-03T08:30:00.000Z',
-  tripKm: 12.4,
 })
 assert.equal(trip.id, 'trip-1')
 assert.equal(trip.status, TRIP_STATES.COMPLETED)
