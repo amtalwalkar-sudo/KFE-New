@@ -1,9 +1,11 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 import KfeShell from './components/shell/KfeShell.vue'
-import { StartupService, startupState } from './application/startup/startupService.js'
-import { permissionGateState, retryStartupPermissionGate } from './application/startup/permissionGate.js'
+import { StartupService } from './application/startup/startupService.js'
+import { retryStartupPermissionGate } from './application/startup/permissionGate.js'
+import { useStartupUiState } from './presentation/startup/useStartupUiState.js'
 
+const { startupState, permissionGateState } = useStartupUiState()
 const renderError = ref(null)
 const handleRuntimeError = event => {
   const detail = event?.detail || {}
