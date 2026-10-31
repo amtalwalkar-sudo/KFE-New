@@ -81,7 +81,7 @@ assert.ok(endShiftImplementation.includes("await commitNativeFirst('SHIFT', comp
 assert.ok(endShiftImplementation.indexOf("await commitNativeFirst('SHIFT', completedShift, { expectedUpdatedAt: shift.updatedAt })") < endShiftImplementation.indexOf('checkpoint()'), 'shift closure must be committed before post-commit work')
 assert.ok(endShiftImplementation.includes("if (activeTrip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }"), 'native shift closure must refuse to close while a canonical trip is active')
 assert.ok(service.includes("const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data)"), 'Android shift creation must journal intent and commit native first')
-assert.ok(service.includes("const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData)"), 'Android trip creation must journal intent and commit native first')
+assert.ok(service.includes("const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' })"), 'Android Trip creation must journal intent and commit through the guarded active-Shift lifecycle command')
 assert.ok(service.includes("transitionTripStage(trip, 'RIDE_STARTED'"), 'Android ride-stage transition must be prepared from native canonical state')
 assert.ok(service.includes("await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, lifecycleAction: 'START_RIDE' })"), 'Android PWA ride start must use the guarded native lifecycle command and commit native first')
 assert.ok(service.includes("lifecycleAction: 'END_RIDE'"), 'Android PWA ride completion must use the guarded native lifecycle command')
