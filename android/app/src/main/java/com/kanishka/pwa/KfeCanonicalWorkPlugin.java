@@ -52,6 +52,24 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void commitTripLifecycle(PluginCall call) {
+    String operationId = call.getString("operationId", "");
+    String action = call.getString("action", "");
+    JSObject record = call.getObject("record");
+    String expectedUpdatedAt = call.getString("expectedUpdatedAt", null);
+    boolean expectAbsent = call.getBoolean("expectAbsent", false);
+    try {
+      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
+          .commitTripLifecycle(operationId, action, record, expectedUpdatedAt, expectAbsent);
+      call.resolve(new JSObject(outcome.toJson().toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_LIFECYCLE_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical Trip lifecycle commit failed.", "CANONICAL_LIFECYCLE_COMMIT_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void migrateLegacySnapshot(PluginCall call) {
     try {
       String migrationId = call.getString("migrationId", "");
