@@ -172,24 +172,37 @@ application use cases
 - Native overlay commands are Android capability commands. Shift start/end remain PWA-owned. Native ride commands are constrained to the active canonical shift and are replayed/acknowledged through the durable native event journal.
 - Native GPS collection owns only the four event-time coordinate snapshots. It does not own ride timestamps, locality labels, ride distance or Timeline presentation.
 - Dropbox backup runs in the live app/WebView context only; no service-worker or native background polling is used.
+- `App.vue` owns permission-gate and runtime-error presentation. `main.js` configures the Vue error handler and dispatches a runtime-error event; it does not construct fallback presentation DOM.
+- App presentation uses the shared presentation stylesheets. Do not add inline `style` attributes or component-local `<style>` blocks to App, views or app components.
 
-## 8. Ride capture boundary
+### 7.3 GPS and locality retry ownership
 
-Ride capture is an input pipeline, not a new business-data authority.
+- Native Android owns event-time coordinate capture at exactly `PICKUP_START`, `TRIP_START`, `TRIP_END` and `TRIP_CANCELLED`; no continuous tracking or GPS-derived ride distance is permitted.
+- The native journal is committed before location acquisition. A bounded 30-second request may accept the first valid fix at 75 metres or better; a valid fix without accuracy metadata may be stored but is not eligible for locality lookup.
+- If capture fails, stop active location requests and retain the pending event. Resume only on a later ride event, app open, or explicit GPS-status refresh. Never schedule a timed/idle GPS retry.
+- PWA locality resolution makes one immediate, non-blocking attempt for a newly captured eligible snapshot. Duplicate event delivery must not trigger another attempt. Later locality retries are user-initiated only through Timeline pull-to-refresh; no connectivity polling, automatic locality retry timer, or background geocoding queue is allowed.
+- Timeline locality refresh is restricted to the pickup and completed-drop event types it displays. A cancellation snapshot is not a passenger drop-off.
+
+## 8. Work and event capture boundary
+
+Work capture is an operational workflow, not a new business-data authority.
 
 ```text
-Screenshot
-   ↓
-Multimodal extraction provider
-   ↓
-KFE validation
-   ↓
-Review/confirmation
-   ↓
-Authoritative ride record
+PWA Work screen / Android ride overlay
+        ↓
+Application Work command path
+        ↓
+Domain lifecycle validation and transitions
+        ↓
+Authoritative runtime store
+  Browser: IndexedDB | Android: SQLite
+        ↓
+PWA read model → Timeline / basic Performance
 ```
 
-The extraction provider may change without changing KFE business rules or the authoritative ride record contract.
+- Shift start/end are PWA-owned. Native overlay ride actions are durable commands for the same canonical Trip records; they are not a second lifecycle or business-data path.
+- Fare, cancellation and fuel entries use their single Work application-service/repository paths. UI forms do not write canonical records directly.
+- Timeline is read-only. It does not capture GPS or mutate Work records.
 
 ## 9. Change isolation / bounded impact
 
