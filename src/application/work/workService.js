@@ -134,14 +134,18 @@ const stableCreateIntentKey = (entityType, data) => {
     ? JSON.stringify({ entityType, createIntentKey: String(explicitKey) })
     : JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
 }
-const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
+const commitPreparedCreateIntent = async (entityType, proposedRecord, data, { lifecycleAction = '' } = {}) => {
   const intent = await CanonicalWorkBoundary.prepareCreateIntent({
     entityType, intentKey: stableCreateIntentKey(entityType, data), record: proposedRecord,
   })
   if (intent.status !== 'COMPLETED') {
-    const result = await CanonicalWorkBoundary.putRecord({
-      operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
-    })
+    const result = lifecycleAction
+      ? await CanonicalWorkBoundary.commitTripLifecycle({
+        operationId: intent.operationId, action: lifecycleAction, record: intent.record, expectAbsent: true,
+      })
+      : await CanonicalWorkBoundary.putRecord({
+        operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
+      })
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error(`Native canonical ${entityType} create was not acknowledged.`)
     // If the process dies after record commit but before this marker, retry replays
     // the same operation id and SQLite returns the existing outcome without a duplicate.
@@ -151,7 +155,9 @@ const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
   // cannot turn a user retry into a second shift or trip.
   const snapshot = await readNativeWorkSnapshot()
   await ShiftTripRepository.syncCanonicalRecords(snapshot)
-  return intent.record
+  const latest = (entityType === 'SHIFT' ? snapshot.shifts : snapshot.trips)
+    .find(record => record?.id === intent.record?.id)
+  return latest || intent.record
 }
 const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false, operationId = '', lifecycleAction = '' } = {}) => {
   if (!nativeCanonicalAvailable()) throw new Error('Native-first lifecycle writes require Android canonical storage.')
@@ -217,7 +223,7 @@ export const WorkService = Object.freeze({
     const nativeAvailable = requireLifecycleStorage()
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeAvailable ? await (async () => { const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData) })() : await ShiftTripRepository.createTrip(tripData); if (!nativeAvailable) await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeAvailable ? await (async () => { const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' }) })() : await ShiftTripRepository.createTrip(tripData); if (!nativeAvailable) await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // Pickup journey origin is optional metadata captured after the canonical trip record commits.
     // It never delays the user's pickup workflow and uses the same offline-capable one-shot GPS path.
     if (result?.id) captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)
