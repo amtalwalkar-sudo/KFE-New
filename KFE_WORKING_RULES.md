@@ -24,7 +24,7 @@ Do not restore dormant or historical features because a test, document, componen
 5. Preserve saved business records when removing code or UI. Feature cleanup must not silently reset or migrate records destructively.
 6. Keep PWA UI, application workflows, domain rules, repositories, and native Android adapters uncoupled.
 7. Shift start/end and driver setup remain PWA-owned. Native overlay handles ride actions only during an active shift.
-8. GPS snapshots are one-shot and offline-capable at going to pickup, cancellation, trip start, and trip end. No continuous tracking, route tracing, distance calculation, automatic locality retry, or background connectivity polling.
+8. GPS snapshots are one-shot and offline-capable at going to pickup, cancellation, trip start, and trip end. The PWA starts one asynchronous locality lookup immediately after each durable snapshot when online; manual Timeline pull-to-refresh is only a fallback for unresolved eligible snapshots. No continuous tracking, route tracing, distance calculation, automatic locality retry loop, or background connectivity polling.
 9. Do not claim a fix, audit, device verification, APK, or green CI unless the corresponding evidence exists.
 10. PR #412 remains open and unmerged unless explicitly instructed otherwise.
 
@@ -47,7 +47,7 @@ Do not restore dormant or historical features because a test, document, componen
 | Ride/shift workflow | `src/domain/work/tripLifecycle.js` → `src/application/work/workService.js` → `src/repositories/shiftTripRepository.js` |
 | Fuel records | `src/domain/work/fuel.js` → `src/application/work/fuel.js` → `src/repositories/fuelRepository.js` |
 | GPS event snapshots | `src/application/location/eventLocationService.js` and native Capacitor GPS plugin; event snapshots persist separately from ride facts |
-| Timeline | `src/application/timeline/activityTimelineReadService.js`; locality lookup is user-initiated only |
+| Timeline | `src/application/timeline/activityTimelineReadService.js`; `src/application/location/eventLocalityService.js` starts asynchronous capture-time locality lookup, with manual Timeline refresh as fallback |
 | Basic Performance | `src/application/performance/phaseOnePerformanceService.js` using `src/repositories/performanceRepository.js` |
 | Admin forms/data | `src/application/admin/adminService.js` → `src/repositories/adminRepository.js` |
 | Android overlay | `src/infrastructure/android/androidOverlayLifecycle.js` → `src/infrastructure/android/kfeOverlay.js` → native `KfeOverlayService` |
