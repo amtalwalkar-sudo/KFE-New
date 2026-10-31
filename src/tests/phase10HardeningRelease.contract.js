@@ -19,9 +19,9 @@ const capacitor = JSON.parse(readFileSync('capacitor.config.json', 'utf8'))
 assert.equal(capacitor.appId, 'com.kanishka.pwa', 'release app ID must remain canonical')
 
 const release = readFileSync('KFE_RELEASE_CANDIDATE_PHASE10.md', 'utf8')
-assert.match(release, /Status:\*\* FROZEN \/ NON-DEVICE PASS/, 'release candidate must be explicitly frozen')
-assert.match(release, /Version:\*\* 2.1.0/, 'release candidate version must be recorded')
-assert.match(release, /Android APK:/, 'release candidate must define APK evidence')
+assert.match(release, /Status:\*\* HISTORICAL PHASE 10 FREEZE EVIDENCE/, 'historical Phase 10 evidence must be clearly labelled')
+assert.match(release, /Version at original freeze:\*\* 2.1.0/, 'historical release version must be recorded')
+assert.match(release, /Android APK were required to be generated from the same identified source revision/i, 'historical APK evidence rule must remain documented')
 assert.match(release, /Physical-device validation: \*\*deferred until after Phase 13\*\*/, 'physical-device audit must remain deferred')
 
 const roadmap = readFileSync('KFE_LAUNCH_MASTER_PLAN.md', 'utf8')
