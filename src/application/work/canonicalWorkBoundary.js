@@ -1,5 +1,4 @@
 import { WorkRuntimePorts } from './workRuntimePorts.js'
-import { BrowserCanonicalWorkService } from '../../infrastructure/work/browserCanonicalWork.js'
 import { generateUUID } from '../../utils/uuid.js'
 import { assertLifecycleStorageAvailable } from './lifecycleStorageGuard.js'
 
@@ -37,31 +36,7 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record)) throw new Error('record must be an object.')
     const nativeAvailable = requireCanonicalWriteRoute()
     if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
-    return BrowserCanonicalWorkService.putRecord(normalized)
-  },
-  async persistTripBoundarySnapshot(input) {
-    const normalized = {
-      operationId: requireText(input?.operationId, 'operationId'),
-      tripId: requireText(input?.tripId, 'tripId'),
-      field: requireText(input?.field, 'field'),
-      snapshot: input?.snapshot,
-    }
-    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary snapshot field.')
-    if (!normalized.snapshot || typeof normalized.snapshot !== 'object' || Array.isArray(normalized.snapshot)) throw new Error('snapshot must be an object.')
-    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Dedicated trip-boundary persistence is available only with native canonical storage.')
-    return WorkRuntimePorts.canonicalWork.persistTripBoundarySnapshot(normalized)
-  },
-  async updateTripBoundaryPlaceName(input) {
-    const normalized = {
-      operationId: requireText(input?.operationId, 'operationId'),
-      tripId: requireText(input?.tripId, 'tripId'),
-      field: requireText(input?.field, 'field'),
-      placeName: requireText(input?.placeName, 'placeName'),
-    }
-    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary place-name field.')
-    const nativeAvailable = requireCanonicalWriteRoute()
-    if (nativeAvailable) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
-    return BrowserCanonicalWorkService.updateTripBoundaryPlaceName(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord(normalized)
   },
   async persistEventLocationSnapshot(snapshot) {
     if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
@@ -77,8 +52,30 @@ export const CanonicalWorkBoundary = Object.freeze({
   },
   async listEventLocationSnapshots() {
     if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
-    const result = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: 1000 })
-    return Array.isArray(result?.records) ? result.records : []
+    const records = []
+    const pageSize = 500
+    let offset = 0
+    let expectedTotal = null
+    const seenIds = new Set()
+    do {
+      const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: pageSize, offset })
+      const rows = Array.isArray(page?.records) ? page.records : []
+      if (!Number.isInteger(page?.totalCount) || page.totalCount < 0 || page.offset !== offset) {
+        throw new Error('Native GPS history pagination returned invalid count/offset metadata.')
+      }
+      if (expectedTotal === null) expectedTotal = page.totalCount
+      else if (page.totalCount !== expectedTotal) throw new Error('Native GPS history changed during paginated retrieval.')
+      if (!rows.length && offset < expectedTotal) throw new Error(`Native GPS history stopped at ${offset} of ${expectedTotal} snapshots.`)
+      for (const row of rows) {
+        if (!row?.id || seenIds.has(row.id)) throw new Error('Native GPS history pagination returned a missing or duplicate snapshot ID.')
+        seenIds.add(row.id)
+      }
+      records.push(...rows)
+      offset += rows.length
+      if (records.length > expectedTotal) throw new Error('Native GPS history pagination returned duplicate or extra snapshots.')
+    } while (offset < expectedTotal)
+    if (records.length !== expectedTotal) throw new Error(`Native GPS history is incomplete: expected ${expectedTotal}, read ${records.length}.`)
+    return records
   },
   async getEventLocationSnapshot(snapshotId) {
     if (!snapshotId || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
@@ -86,8 +83,8 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!result || result.found === false) return null
     return result.record || result
   },
-  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
-  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
-  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },
+  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : WorkRuntimePorts.browserCanonicalWork.getRecord(input) },
+  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : WorkRuntimePorts.browserCanonicalWork.listRecords(input) },
+  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : WorkRuntimePorts.browserCanonicalWork.getOperation(operationId) },
   createOperationId() { return generateUUID() },
 })

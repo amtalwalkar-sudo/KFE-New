@@ -1,70 +1,20 @@
-# KFE Phase 4 — Runtime Visual Verification
+# KFE Runtime Verification — Current Product Scope
 
-## Status
+## Surfaces
 
-**COMPLETE — CI-gated runtime verification implemented.**
+Automated runtime checks cover the four active PWA surfaces: Work, Timeline, Performance, and Admin.
 
-This phase is the post-Phase-3 runtime verification pass. It validates the built PWA in a real Chromium runtime rather than relying only on source contracts or a successful build.
+## Required checks
 
-## Verified subsections
+- **Work:** shift start/end remain PWA-owned; ride actions preserve one canonical Trip identity; cancellation fee may be blank and defaults to ₹0; fuel forms remain usable offline.
+- **Timeline:** saved ride and fuel records are read-only. The four event GPS snapshots are displayed from saved data. Area-name lookup runs only on a user pull-to-refresh while online.
+- **Performance:** reads saved revenue and fuel facts only and does not mutate business records.
+- **Admin:** only Business Setup, Vehicle, Driver, Compliance, Maintenance, and Loan details are active source-record forms. Drafts clear only after confirmed saves or explicit confirmed discard.
+- **Android overlay:** Capacitor/native Android owns overlay and native GPS behavior. Capture one-shot snapshots for going to pickup, cancellation, trip start, and trip end; preserve event timestamps separately from provider capture timestamps.
+- **Offline behavior:** ride workflow and GPS snapshot persistence must not depend on internet. No continuous tracking, route tracing, or ride-distance calculations.
+- **Theme/layout:** dark-only visual system; no Light/Auto theme choices, horizontal overflow, or overlapping mobile form actions.
+- **Recovery:** existing records remain in canonical storage and local/phone backup paths. Retiring a feature must not delete historical records.
 
-### 4A — Shell and route experience
-- Work, Timeline, Performance, and Admin routes are loaded from the production build.
-- Kanishka Enterprises shell branding is present.
-- Primary navigation remains available.
-- Performance continues to honor its route-level header metadata.
-- Mobile and desktop layouts are checked for horizontal overflow.
-- Runtime screenshots are captured for all four production surfaces.
+## Evidence discipline
 
-### 4B — Work cockpit interaction boundaries
-- Compact CNG refuelling icon opens the refuelling form while Offline.
-- Refuelling form can be closed without entering Online mode.
-- Online/Offline control opens the Start Odometer gate.
-- Start Odometer flow exposes a Back action.
-- No business/calculation authority is changed by the runtime gate.
-
-### 4C — GPS status
-- Browser geolocation is supplied through a deterministic test device position.
-- The shell GPS control reaches the connected state.
-- The control remains icon-only while exposing an accessible label/title.
-
-### 4D — Theme runtime
-- Explicit Light resolves to the day palette.
-- Explicit Dark resolves to the night palette.
-- Auto resolves to a valid day/night state using the existing theme schedule controller.
-- The runtime verifies that Light and Dark expose distinct visual token values.
-
-### 4E — Accessibility and responsive behavior
-- Reduced-motion media is enabled for the runtime pass.
-- Visible interactive controls are checked for accessible names.
-- Mobile and desktop viewports are exercised.
-- Horizontal overflow is treated as a runtime failure.
-
-### 4F — Canonical/Synthetic data safety
-- Canonical IndexedDB is created during normal startup.
-- Synthetic IndexedDB is not created merely by canonical startup.
-- The physical database names remain distinct.
-- The existing Phase 4 persistence/data-isolation contract remains part of the full contract suite.
-
-## CI evidence
-
-The consolidated CI workflow now runs:
-
-1. Full contract suite.
-2. Production PWA build.
-3. Capacitor sync.
-4. Android debug APK build.
-5. Existing hardening/release gate.
-6. Existing Pages artifact validation.
-7. Existing runtime smoke.
-8. **Phase 4 runtime visual verification.**
-9. **Phase 4 runtime screenshots uploaded as a CI artifact.**
-10. GitHub Pages deployment on main.
-
-## Boundary
-
-This phase verifies the built application can actually render and exercise the frozen UI/runtime boundaries. It does **not** change the frozen calculation engine, finance authority, synthetic calculation model, or canonical business rules.
-
-## Exit condition
-
-**PHASE 4 RUNTIME VERIFIED** when the Phase 4 Playwright pass is green and the complete CI workflow remains green.
+CI source contracts and browser runtime checks are not physical-device acceptance. Report completed CI, APK generation, and phone verification separately; do not infer one from another.

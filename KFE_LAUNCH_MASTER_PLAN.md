@@ -40,7 +40,7 @@ Physical-device-only scenarios remain deferred and cannot be converted to PASS.
 
 2026-09-26 exit: PASS — non-device automated gate.
 
-Evidence includes backup/export validation and migration, canonical-only restore enforcement, atomic restore/reset transaction contracts, local backup checkpoint logic, and canonical/synthetic physical-database isolation. The new Phase 7 data/recovery contract is included in the consolidated contract runner.
+Evidence includes backup/export validation and migration, canonical-only restore enforcement, atomic restore/reset transaction contracts, local backup checkpoint logic, and canonical physical-database preservation and backup/restore. The new Phase 7 data/recovery contract is included in the consolidated contract runner.
 
 No physical-device scenario was used or converted to PASS.
 
@@ -76,7 +76,7 @@ Use KFE for actual business activity in a controlled manner and capture reconcil
 
 ## Phase 12 — Pilot Reconciliation
 
-Reconcile trips, fares, cancellations, odometer, GPS, fuel, expenses, targets, shift totals, daily totals, Timeline, Performance, overlay, notifications, and financial totals.
+Verify trips, fares, cancellations, odometer, four-event GPS snapshots, fuel records, shift totals, read-only Timeline, basic Performance, Admin forms/data, native overlay, and backup/restore.
 
 ## Phase 13 — Final Release Gate
 

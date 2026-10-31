@@ -2,7 +2,6 @@ import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { normalizeShiftInput, normalizeTripInput } from '../domain/canonicalNormalization.js'
-import { reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { createCanonicalShiftRecord, createCanonicalTripRecord } from '../domain/work/canonicalWorkRecords.js'
 import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'
@@ -18,7 +17,7 @@ const atomic = async (stores, writer) => {
 }
 const saveMutation = (mutationStore, auditStore, entityId, entityType, action, payload, createdAt) => writeMutationAndAudit(mutationStore, auditStore, { entityId, entityType, action, payload, createdAt })
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const tx = db.transaction([storeName], 'readonly'); const request = tx.objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`${storeName} query failed.`)) }) }
-const applyTripCorrection = (trip, data, now) => { const normalized = normalizeTripInput(data); if (normalized.operator !== undefined) trip.operator = normalized.operator; if (normalized.tripKm !== undefined) { trip.tripKm = normalized.tripKm; trip.tripKmAuthority = 'MANUAL'; if (normalized.tripKmProvenance !== undefined) trip.tripKmProvenance = normalized.tripKmProvenance }; if (normalized.revenue !== undefined) { trip.revenue = normalized.revenue; if (trip.status === 'CANCELLED') trip.cancelledRevenue = normalized.revenue; trip.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) trip.revenueProvenance = normalized.revenueProvenance }; if (normalized.toll !== undefined) trip.toll = normalized.toll; if (normalized.parking !== undefined) trip.parking = normalized.parking; if (normalized.tollTreatment !== undefined) trip.tollTreatment = normalized.tollTreatment; if (normalized.parkingTreatment !== undefined) trip.parkingTreatment = normalized.parkingTreatment; if (normalized.cancelReason !== undefined) trip.cancelReason = normalized.cancelReason; if (normalized.fareDetailsSkipped !== undefined) trip.fareDetailsSkipped = normalized.fareDetailsSkipped; trip.updatedAt = now; return trip }
+const applyTripCorrection = (trip, data, now) => { const normalized = normalizeTripInput(data); if (normalized.operator !== undefined) trip.operator = normalized.operator; if (normalized.revenue !== undefined) { trip.revenue = normalized.revenue; if (trip.status === 'CANCELLED') trip.cancelledRevenue = normalized.revenue; trip.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) trip.revenueProvenance = normalized.revenueProvenance }; if (normalized.toll !== undefined) trip.toll = normalized.toll; if (normalized.parking !== undefined) trip.parking = normalized.parking; if (normalized.cancelReason !== undefined) trip.cancelReason = normalized.cancelReason; if (normalized.fareDetailsSkipped !== undefined) trip.fareDetailsSkipped = normalized.fareDetailsSkipped; trip.updatedAt = now; return trip }
 const requireFinite = (value, field) => { const result = Number(value); if (!Number.isFinite(result)) throw new Error(`${field} must be a finite number.`); return result }
 const stableRecordValue = value => {
   if (Array.isArray(value)) return value.map(stableRecordValue)
@@ -134,16 +133,6 @@ export const ShiftTripRepository = {
             shift.revenue = deriveLiveRevenue(shiftTrips)
             shift.liveFareRevenue = shift.revenue
             shift.revenueSource = 'TRIP_FARES'
-            shift.revenueReconciliation = reconcileShiftRevenue({
-              shiftRevenue: shift.revenue,
-              trips: shiftTrips,
-              toll: shift.toll,
-              parking: shift.parking,
-              tollTreatment: shift.tollTreatment,
-              parkingTreatment: shift.parkingTreatment,
-              tollParkingCaptureMode: shift.tollParkingCaptureMode,
-              tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment
-            })
             shift.endOdometer = requireFinite(normalized.endOdometer, 'endOdometer')
             if (shift.endOdometer < shift.startOdometer) throw new Error('endOdometer cannot be less than startOdometer.')
             shift.totalDistance = shift.endOdometer - shift.startOdometer
@@ -312,7 +301,7 @@ export const ShiftTripRepository = {
   async updateTrip(data) { await ensureCanonicalReadBoundary();
     const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => {
       const tx = db.transaction(['trips', 'shifts', 'pending_mutations', 'audit_history'], 'readwrite'); const trips = tx.objectStore('trips'); const shifts = tx.objectStore('shifts'); const mutations = tx.objectStore('pending_mutations'); const audit = tx.objectStore('audit_history'); const request = trips.get(data.id)
-      request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'COMPLETED' && record.status !== 'CANCELLED') { reject(new Error('Only completed or cancelled trips can be corrected.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); applyTripCorrection(record, data, now); trips.put(record); saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now); const shiftRequest = shifts.get(record.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES'; const reconciliation = reconcileShiftRevenue({ shiftRevenue: shift.revenue, trips: shiftTrips, toll: shift.toll, parking: shift.parking, tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment, tollParkingCaptureMode: shift.tollParkingCaptureMode, tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment }); shift.revenueReconciliation = reconciliation; shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
+      request.onsuccess = () => { const record = request.result; if (!record) { reject(new Error('Trip not found.')); try { tx.abort() } catch (_) {}; return }; if (record.status !== 'COMPLETED' && record.status !== 'CANCELLED') { reject(new Error('Only completed or cancelled trips can be corrected.')); try { tx.abort() } catch (_) {}; return }; const now = new Date().toISOString(); applyTripCorrection(record, data, now); trips.put(record); saveMutation(mutations, audit, record.id, 'TRIP', 'UPDATE', record, now); const shiftRequest = shifts.get(record.shiftId); shiftRequest.onsuccess = () => { const shift = shiftRequest.result; if (!shift) return; const allTripsRequest = trips.getAll(); allTripsRequest.onsuccess = () => { const shiftTrips = allTripsRequest.result.filter(trip => trip.shiftId === shift.id); shift.revenue = deriveLiveRevenue(shiftTrips); shift.liveFareRevenue = shift.revenue; shift.revenueSource = 'TRIP_FARES';  shift.updatedAt = now; shifts.put(shift); saveMutation(mutations, audit, shift.id, 'SHIFT', 'UPDATE', shift, now) }; allTripsRequest.onerror = () => { try { tx.abort() } catch (_) {} } }; shiftRequest.onerror = () => { try { tx.abort() } catch (_) {} } }
       request.onerror = () => reject(request.error); tx.oncomplete = () => { notifyCanonicalDataChanged({ stores: ['trips'], reason: 'trip:UPDATE' }); resolve(true) }; tx.onerror = () => reject(tx.error || new Error('Trip correction failed.')); tx.onabort = () => reject(tx.error || new Error('Trip correction aborted.'))
     })
   },

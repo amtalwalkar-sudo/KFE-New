@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const KfeOverlay = registerPlugin('KfeOverlay')
+const KfeOverlay = NativePlugins.overlay
 
 const isAndroid = () => Capacitor.getPlatform() === 'android'
 

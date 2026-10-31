@@ -9,7 +9,7 @@ assert.match(backupPanel, /Create a JSON backup file you can keep on your phone 
 assert.match(backupPanel, /separate private recovery copy inside the app/)
 assert.match(backupPanel, /KFE private recovery copy/)
 assert.equal(typeof BackupService.createBackup, 'function'); assert.equal(typeof BackupService.serializeBackup, 'function'); assert.equal(typeof BackupService.readBackupText, 'function'); assert.equal(typeof BackupService.saveLocalBackup, 'function'); assert.equal(typeof BackupService.getLocalBackup, 'function'); assert.equal(typeof BackupService.restoreBackup, 'function'); assert.equal(typeof BackupService.requestLocalBackupCheckpoint, 'function'); assert.equal(typeof BackupService.maybeDailyLocalBackup, 'function')
-assert.equal(CANONICAL_BACKUP_STORES.length, 21); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
+assert.equal(CANONICAL_BACKUP_STORES.length, 22); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false); assert.equal(CANONICAL_BACKUP_STORES.includes('locality_labels'), true)
 const record = structuredClone(snapshot); record.stores.trips = [{ id: 'trip-1', fare: 327, distanceKm: 18.4 }]
 const serialized = BackupService.serializeBackup(record); assert.deepEqual(BackupService.readBackupText(serialized), record); assert.equal(BackupService.getBackupSummary(record).totalRecords, 1)
 const PRE_FA4_BACKUP_STORES = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']

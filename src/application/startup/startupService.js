@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { DiagnosticService } from '../diagnostics/diagnosticService.js'
 
 const startupState = reactive({
   status: 'starting',
@@ -30,13 +31,9 @@ export const initializeApplication = async () => {
   const [
     { MutationRepository },
     { BackupService },
-    { CloudBackupLifecycle },
-    { DiagnosticService },
   ] = await Promise.all([
     import('../../repositories/mutationRepository.js'),
     import('../backup/backupService.js'),
-    import('../backup/cloudBackupLifecycle.js'),
-    import('../../infrastructure/diagnostics/diagnosticService.js'),
   ])
 
   DiagnosticService.start('KFE startup')
@@ -78,22 +75,6 @@ export const initializeApplication = async () => {
     } catch (error) {
       DiagnosticService.error('Local backup deferred', error)
       console.warn('KFE local backup deferred:', error)
-    }
-  })()
-  void (async () => {
-    try {
-      const backgroundBackupRegistered = await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
-      DiagnosticService.checkpoint(backgroundBackupRegistered ? 'Cloud backup background schedule registered' : 'Cloud backup is foreground-only; retries on startup, app visibility and connectivity')
-    } catch (error) {
-      DiagnosticService.error('Cloud backup schedule failed', error)
-      console.warn('KFE cloud backup schedule registration failed:', error)
-    }
-    try {
-      await CloudBackupLifecycle.maybeDailyCloudBackup()
-      DiagnosticService.checkpoint('Cloud backup lifecycle checked')
-    } catch (error) {
-      DiagnosticService.error('KFE cloud backup lifecycle failed', error)
-      console.warn('KFE cloud backup lifecycle failed:', error)
     }
   })()
   return { ready: true }

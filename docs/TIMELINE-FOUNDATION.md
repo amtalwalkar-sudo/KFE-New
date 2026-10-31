@@ -1,33 +1,35 @@
-# KFE 2.0 Timeline Foundation
+# KFE Timeline Foundation
 
-Timeline is an active production reporting surface at `/timeline`. It presents canonical Work and ERP records by IST day, week, month and personal-use views. It is a read model and correction entry point, not a business-data or calculation authority.
+**Role:** Read-only reporting projection. Timeline must not create, correct, or mutate ride/fuel business records.
 
-## Preserved application concept
+## Ride GPS source of truth
 
-Timeline must answer what happened and in what order using authoritative Work and originating ERP module records. Its day/week/month aggregations must filter records by the correct event/period boundary, not merely by the shift start date.
+Timeline reads persisted event-time GPS snapshots from the four ride events only:
 
-## Horizons
-- L1: Day — today's chronological activity.
-- L2: Week — the current week's activity.
-- L3: Long-term — retained historical activity.
+- `PICKUP_START`: driver swipes to go to pickup.
+- `TRIP_CANCELLED`: driver cancels the ride.
+- `TRIP_START`: driver starts the ride.
+- `TRIP_END`: driver ends the ride.
 
-## Event contract
-`KFE_TIMELINE_EVENT_V1` may remain an extensibility boundary, but it does not replace the current canonical record contracts. New event types must map to authoritative records without creating Timeline-specific business data.
+A snapshot preserves the provider fix timestamp (`capturedAt`) separately from the ride-event timestamp (`eventAt`). Neither timestamp may replace or rewrite the other. GPS capture is one-shot and offline-capable; no continuous tracking or route/distance calculation is permitted.
 
-Work timestamps remain authoritative. GPS/location is displayed only when captured by the authoritative event. Business/personal scope is preserved and Timeline does not alter accounting.
+## Locality labels
 
-Timeline must never create, edit, correct, or silently reinterpret source records. Missing or invalid values remain unavailable. Ordering must be deterministic by authoritative occurrence time, then stable event identity.
+Locality resolution is owned by the PWA and is separate from native GPS capture.
 
-Break handling is part of the Work domain/application contract and may appear in Timeline when represented by an authoritative event. Timeline remains read-only for business authority; corrections are submitted through canonical application services and audited. It must not invent Break events or accounting effects.
+- Resolve all four GPS event types asynchronously after a snapshot is durably captured, without blocking ride actions.
+- New reverse geocoding is permitted only for event timestamps within the most recent seven days.
+- Save successful locality names permanently in PWA IndexedDB, keyed by canonical snapshot ID. Never use a coordinate-only cache or an arbitrary entry cap.
+- If the PWA is offline, show a saved locality where available; otherwise show the stored coordinates. While online, unresolved names remain unavailable until their asynchronous capture-time request or an explicit manual pull-to-refresh succeeds.
+- Manual pull-to-refresh retries only unresolved eligible snapshots; it must not overwrite successful saved names.
+- No continuous polling, automatic connectivity monitoring, or background locality retry queue.
+- A failed lookup never changes GPS coordinates, ride records, fares, or timestamps and never creates a guessed locality.
+- Cancellation snapshots are not passenger drop-off locations.
 
-Tax Reserve is permanently excluded from KFE 2.0 and is not a Timeline concept.
+## GPS history retrieval
 
+The native canonical database is the durable source for GPS snapshots. Native record listing is paginated; Timeline requests snapshots only for rides in its selected reporting period and must not rely on a fixed 1,000-record window.
 
-## GPS locality resolution contract
-GPS capture and event timestamps remain authoritative and independent from locality lookup. Timeline remains a read-only projection; it never geocodes or mutates snapshots.
+## Scope guard
 
-The shared application contract is `LocalityResolutionService`. It validates coordinates, normalizes locality/city/state labels, caches positive results by five-decimal coordinate key, and tries a configured first-party Mappls gateway before Photon fallback. Mappls credentials must remain server-side. Configure `VITE_MAPPLS_GEOCODER_GATEWAY_ENDPOINT` for the PWA and `KFE_MAPPLS_GEOCODER_GATEWAY` at Android build time with a gateway URL returning either normalized `{ locality, city, state }` fields or a compatible geocoder response. With no gateway configured, Photon remains operational; the app does not claim Mappls has resolved a location.
-
-Unresolved snapshots keep their original coordinates and remain available for a future user-initiated attempt. Only Timeline pull-down refresh (or its accessible refresh control) may invoke reverse geocoding; a failed request does not schedule a retry. No connectivity, startup, foreground/resume, periodic, WorkManager, or native background trigger may request an area name. A successful result updates the canonical snapshot without changing latitude, longitude, GPS fix timestamp, or business event timestamp.
-
-Cross-layer review: GPS capture and persistence are independent from locality lookup. Android native capture only stores the event snapshot; the PWA's explicit Timeline refresh is the sole locality-resolution trigger. Shared connectivity infrastructure remains available for unrelated features but does not initiate locality requests.
+Do not add new Timeline features or recalculate unrelated business metrics under this contract. Keep this document subordinate to `KFE_BUSINESS_RULES_REGISTER.md`, `docs/KFE-ARCHITECTURE-CONTRACT.md`, and `docs/ANDROID-NATIVE-GPS-CONTRACT.md`.

@@ -20,7 +20,6 @@ assert.equal(shift.status, 'ACTIVE')
 assert.equal(shift.shiftStartAt, fixedNow)
 assert.equal(shift.createdAt, fixedNow)
 assert.equal(shift.updatedAt, fixedNow)
-assert.equal(shift.tollParkingCaptureMode, 'ADDITIONAL_ONLY')
 
 const suppliedShift = createCanonicalShiftRecord({
   id: 'existing-shift-id',
@@ -33,14 +32,13 @@ const trip = createCanonicalTripRecord({
   shiftId: 'generated-1',
   operator: 'DRIVER',
   tripStage: 'GOING_TO_PICKUP',
-  tripKm: 4.5,
 }, { createId, now: fixedNow })
 assert.equal(trip.id, 'generated-2')
 assert.equal(trip.shiftId, 'generated-1')
 assert.equal(trip.status, 'ACTIVE')
 assert.equal(trip.tripStage, 'GOING_TO_PICKUP')
-assert.equal(trip.tripKm, 4.5)
-assert.equal(trip.tripKmAuthority, 'MANUAL')
+assert.equal(trip.tripKm, undefined, 'Ride distance is not part of the active canonical workflow')
+assert.equal(trip.tripKmAuthority, undefined, 'Ride distance authority is retired')
 assert.equal(trip.revenueAuthority, 'SUPPORTING_ONLY')
 assert.equal(trip.tripStartLocationStatus, 'MISSING')
 assert.equal(trip.tripEndLocationStatus, 'MISSING')

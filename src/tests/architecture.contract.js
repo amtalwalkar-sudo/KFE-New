@@ -20,8 +20,8 @@ const assertForbidden = (dirs, patterns, label) => {
   }
 }
 
-assertForbidden(['views', 'components', 'stores', 'presentation'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Presentation/state must not access persistence directly')
-assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/performance\//, /from\s+['"][^'"]*\/domain\/work\//, /from\s+['"][^'"]*\/domain\/math\//, /from\s+['"][^'"]*\/domain\/movement\// ], 'Presentation must not orchestrate domain logic directly')
+assertForbidden(['views', 'components', 'stores', 'presentation', 'router'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\// ], 'Presentation/state must not access persistence or infrastructure directly')
+assertForbidden(['views', 'components', 'presentation'], [ /from\s+['"][^'"]*\/domain\/(?:performance|work|math|movement|time)\// ], 'Presentation must not orchestrate domain logic directly')
 
 // Admin screens must consume financial calculations and reference-time helpers
 // through the application boundary, not import domain engines themselves.
@@ -44,9 +44,13 @@ if (fs.existsSync(workServicePath)) {
 }
 
 assertForbidden(['domain'], [ /from\s+['"][^'"]*\/repositories\//, /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/application\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"][^'"]*\/presentation\// ], 'Domain must remain independent of outer layers')
-assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/ ], 'Application must not depend directly on raw IndexedDB')
+assertForbidden(['application'], [ /from\s+['"][^'"]*\/utils\/indexedDB\.js['"]/, /from\s+['"][^'"]*\/presentation\//, /from\s+['"][^'"]*\/infrastructure\//, /from\s+['"]@capacitor\// ], 'Application must not depend on raw persistence, presentation, infrastructure, or Capacitor plugins')
+assertForbidden(['application'], [ /\bfetch\s*\(/, /navigator\.geolocation/ ], 'Application must not own network requests or platform location acquisition')
 assertForbidden(['views', 'components', 'presentation', 'application', 'infrastructure'], [ /from\s+['"][^'"]*\/services\// ], 'Canonical runtime must not depend on legacy src/services')
 assertForbidden(['views', 'components', 'presentation', 'application'], [ /['"][^'"]*\bjs\/app\.js['"]/ ], 'Current architecture must not reference removed legacy js application')
+
+const adminViewForShell = fs.readFileSync(path.join(root, 'views/AdminView.vue'), 'utf8')
+if (/querySelector\(\s*['\"]\.content-scroll-area/.test(adminViewForShell)) violations.push('AdminView must emit shell viewport intent instead of querying shell DOM internals.')
 
 const appPath = path.join(root, 'App.vue')
 if (fs.existsSync(appPath)) {
@@ -90,6 +94,28 @@ const obsoleteFiles = [
   'services/revenueReconciliationService.js',
 ]
 for (const relativePath of obsoleteFiles) if (fs.existsSync(path.join(root, relativePath))) violations.push(`Obsolete implementation still exists: ${relativePath}`)
+
+
+// Native Capacitor plugin registration is centralized. Capability adapters may
+// consume registry exports, but must not create independent plugin instances.
+const infrastructureRoot = path.join(root, 'infrastructure')
+for (const file of readFiles(infrastructureRoot)) {
+  const relativePath = path.relative(infrastructureRoot, file).split(path.sep).join('/')
+  if (relativePath === 'capacitor/nativePluginRegistry.js') continue
+  const source = fs.readFileSync(file, 'utf8')
+  if (/\bregisterPlugin\s*\(/.test(source) || /from\s+['"]@capacitor\/core['"]/.test(source)) {
+    violations.push(`Native Capacitor access must use the shared registry: infrastructure/${relativePath}`)
+  }
+}
+const pluginRegistryPath = path.join(infrastructureRoot, 'capacitor/nativePluginRegistry.js')
+if (!fs.existsSync(pluginRegistryPath)) {
+  violations.push('Shared Capacitor native plugin registry is missing.')
+} else {
+  const registry = fs.readFileSync(pluginRegistryPath, 'utf8')
+  for (const pluginName of ['KfeNativeWorkActions', 'KfeCanonicalWork', 'KfeOverlay', 'KfeTripBoundaryLocation', 'KfeSecureStorage', 'KfeBackupFile', 'KfeNativeSystem']) {
+    if (!registry.includes(`registerPlugin('${pluginName}')`)) violations.push(`Shared Capacitor registry is missing ${pluginName}.`)
+  }
+}
 
 if (violations.length) { console.error(violations.join('\n')); process.exit(1) }
 console.log('Architecture contract passed: presentation, application, domain, persistence, infrastructure and obsolete-code boundaries are clean.')

@@ -1,6 +1,6 @@
-import { registerPlugin, Capacitor } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const NativeWorkActions = registerPlugin('KfeNativeWorkActions')
+const NativeWorkActions = NativePlugins.workActions
 const native = () => Capacitor?.isNativePlatform?.() === true
 
 export const NativeWorkActionsService = Object.freeze({

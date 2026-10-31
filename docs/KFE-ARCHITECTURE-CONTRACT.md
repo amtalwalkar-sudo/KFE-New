@@ -3,7 +3,7 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE ownership, boundaries, data authority, replaceability and implementation constraints.
 
-This document consolidates the accepted architectural principles from the Master Blueprint and architecture/data/ownership/field-level boundary work. It does not define business meaning or formulas. Business meaning belongs to `KFE_BUSINESS_RULES_REGISTER.md`; arithmetic/formula mechanics belong to `docs/KFE-CALCULATION-SPECIFICATION.md`.
+This document defines architecture and ownership boundaries. Product scope and business meaning belong to `KFE_BUSINESS_RULES_REGISTER.md`. `docs/KFE-CALCULATION-SPECIFICATION.md` covers only the small set of recorded-data calculations used by basic Performance; no broader financial model is in scope.
 
 ## 1. Governing architecture rule
 
@@ -38,7 +38,11 @@ Repository Contracts
     ↓
 Persistence / Infrastructure
     ↓
-ONE AUTHORITATIVE LOCAL DATABASE
+Runtime persistence adapter
+    ├─ Browser PWA: IndexedDB
+    └─ Android native operational commit: SQLite
+
+ONE LOGICAL CANONICAL STATE — DURABLE PLATFORM STORES MUST CONVERGE
 ```
 
 External providers sit behind infrastructure adapters.
@@ -69,13 +73,13 @@ External providers sit behind infrastructure adapters.
 
 No layer may silently assume ownership already assigned to another layer.
 
-## 4. Calculation authority
+## 4. Basic Performance calculation boundary
 
-- Business calculations exist in one authoritative domain calculation path.
-- Presentation must consume calculated/read-model values rather than reproduce formulas.
-- Application coordinates calculations but does not redefine business arithmetic.
+- Only the explicitly supported calculations in `docs/KFE-CALCULATION-SPECIFICATION.md` are in scope.
+- Presentation consumes the basic Performance read model rather than reproducing formulas.
+- Application coordinates these simple calculations and does not introduce additional financial models.
 - Provider adapters never calculate KFE business meaning.
-- Machine-readable calculation metadata may exist for tooling, but it must agree with the human-readable calculation specification.
+- The machine-readable registry may describe only the same supported basic metrics.
 
 ## 5. Data authority
 
@@ -98,9 +102,13 @@ Derived values must be reconstructable from authoritative persisted records wher
 ## 6. Persistence boundary
 
 - Local KFE data is authoritative and local-first.
+- KFE has one **logical canonical state and business/data contract**, not one physical database shared across browser and Android runtimes.
+- In browser-only operation, IndexedDB is the local durable commit store. On Android, Work and overlay commands use native SQLite as the durable commit authority; IndexedDB is synchronized as the PWA projection/read model.
+- A command is not committed merely because a UI or queue accepted it: the runtime's authoritative durable commit must be acknowledged before success is surfaced.
+- Cross-runtime replay uses stable record/event/operation identity, idempotency checks, stale-write protection, and explicit convergence. Neither store may independently redefine business meaning or calculate a competing result.
 - Business/domain/application layers must not depend directly on a particular cloud/backup provider.
-- Persistence is accessed through repository contracts.
-- Backup/restore and sync operate against the authoritative persisted model rather than becoming alternate business-data authorities.
+- Persistence is accessed through repository/canonical-command contracts.
+- Backup/restore and sync operate against the logical canonical model rather than becoming alternate business-data authorities.
 - Raw authoritative records remain recoverable.
 
 ## 7. Provider independence
@@ -127,6 +135,13 @@ provider
 ```
 
 Business logic must never become provider-specific.
+
+## 7.1 Capacitor plugin registration
+
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the only JavaScript module allowed to import `@capacitor/core` or call `registerPlugin()`.
+- Android capability adapters consume the registered plugin instances and translate them into narrow KFE infrastructure services.
+- Presentation, application and domain layers must never import Capacitor plugins or register native plugins.
+- Adding or replacing a native plugin requires updating the registry and the architecture contract test; it must not create a parallel registration path.
 
 ## 8. Ride capture boundary
 

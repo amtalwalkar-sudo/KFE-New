@@ -5,9 +5,7 @@ import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { validateTripCorrection } from '../domain/work/trip.js'
 import { TRIP_STATES, canTransitionTrip, transitionTrip } from '../domain/work/tripLifecycle.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../domain/work/fuel.js'
-import { deriveFinancialRevenue, reconcileShiftRevenue } from '../domain/work/revenueReconciliation.js'
-import { TOLL_PARKING_TREATMENTS } from '../domain/work/revenueReconciliation.js'
-import { derivePerformance } from '../domain/performance/performanceEngineV2.js'
+import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
 import { buildMutationRecord, buildAuditRecord } from '../repositories/mutationRepository.js'
 
 const root = new URL('../', import.meta.url)
@@ -55,7 +53,7 @@ scenario('A4/B3/B4/J2', () => {
 // A/B/E — one canonical trip identity, completion/cancellation, optional fare detail and idempotent terminal replay.
 scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   let trip = { id: 'audit-trip-1', shiftId: 'audit-shift-1', status: TRIP_STATES.ACTIVE, revenue: null }
-  const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z', tripKm: 12.5 })
+  const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z' })
   const priced = { ...completed, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
   assert.equal(priced.id, trip.id)
   assert.equal(priced.status, TRIP_STATES.COMPLETED)
@@ -64,7 +62,7 @@ scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   const replay = transitionTrip(priced, TRIP_STATES.COMPLETED)
   assert.equal(replay.id, trip.id)
   assert.equal(replay.status, TRIP_STATES.COMPLETED)
-  assert.equal(validateTripCorrection({ operator: 'Uber', tripKm: '12.5', revenue: '250' }).valid, true)
+  assert.equal(validateTripCorrection({ operator: 'Uber', revenue: '250' }).valid, true)
   const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', revenue: 0 })
   assert.equal(cancelled.status, TRIP_STATES.CANCELLED)
   assert.equal(cancelled.revenue, 0)
@@ -82,30 +80,12 @@ scenario('A5/H3/D2/F5/J1', () => {
   assert.equal(validateFuelEntry({ odometer: -1, pricePerKg: 82, amount: 410 }).valid, false)
 })
 
-// H1/H2/H5 — Shift.revenue projection must match eligible trip fares plus cancellation fees.
+// H1/H2/H5 — Shift revenue is the simple projection of recorded fares and cancellation fees.
 scenario('A2/H1/H2/H5', () => {
-  const reconciliation = reconcileShiftRevenue({
-    shiftRevenue: 500,
-    trips: [{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', cancelledRevenue: 0 }],
-    toll: 50,
-    tollParkingRevenueTreatment: TOLL_PARKING_TREATMENTS.INCLUDED
-  })
-  assert.equal(reconciliation.reconciliationStatus, 'RECONCILED')
-  assert.equal(reconciliation.financialRevenue, 450)
-  assert.equal(reconciliation.authoritativeRevenue, 500)
-  const incomplete = reconcileShiftRevenue({ shiftRevenue: 500, trips: [{ status: 'COMPLETED', revenue: null }] })
-  assert.equal(incomplete.reconciliationStatus, 'UNAVAILABLE')
-  assert.equal(incomplete.reason, 'INCOMPLETE_TRIP_REVENUE_DETAIL')
+  const revenue = deriveLiveRevenue([{ status: 'COMPLETED', revenue: 300 }, { status: 'COMPLETED', revenue: 200 }, { status: 'CANCELLED', cancelledRevenue: 0 }])
+  assert.equal(revenue, 500)
+  assert.equal(deriveLiveRevenue([{ status: 'COMPLETED', revenue: null }]), 0)
 })
-scenario('H1/BR-11', () => {
-  const included = deriveFinancialRevenue({ customerPaidTotal: 500, toll: 50, parking: 25, tollParkingRevenueTreatment: 'INCLUDED' })
-  const excluded = deriveFinancialRevenue({ customerPaidTotal: 500, toll: 50, parking: 25, tollParkingRevenueTreatment: 'EXCLUDED' })
-  assert.equal(included.financialRevenue, 425)
-  assert.equal(included.excludedActualExpense, 0)
-  assert.equal(excluded.financialRevenue, 500)
-  assert.equal(excluded.excludedActualExpense, 75)
-})
-
 // I/J — IST day boundaries are deterministic and preserve calendar ownership at midnight.
 scenario('I1/I3/I4/J4', () => {
   const beforeMidnight = new Date('2026-09-24T18:29:59.999Z')
@@ -133,21 +113,21 @@ scenario('C1/C2/C3/C4/C5/D1/D2/E1/E2/E3/F1/F2/F4/F5', () => {
   assertSource('repositories/shiftTripRepository.js', 'async setTripStage', 'Pickup/ride stage must persist canonically')
   assertSource('repositories/mutationRepository.js', 'pending_mutations', 'Recovery queue must be canonical')
   assertSource('utils/indexedDB.js', 'const CANONICAL_DB_NAME', 'Canonical persistence DB must be explicit')
-  assertSource('utils/indexedDB.js', 'const SYNTHETIC_DB_NAME', 'Synthetic persistence DB must be physically isolated')
+  assertSource('utils/indexedDB.js', 'const CANONICAL_DB_NAME', 'Canonical persistence DB must be available')
   assertSource('views/WorkModuleView.vue', 'END TRIP', 'PWA exposes canonical end-trip state')
   assertSource('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java', 'START_RIDE', 'Overlay exposes canonical ride state')
 })
 
 // G5 — location capture is covered by locationNameService and eventLocationCapture contracts.
 scenario('G5', () => {
-  const workView = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
-  assert.ok(/place|location/i.test(workView), 'Driver-facing Work view must retain location presentation surface')
+  const timeline = read('views/ActivityTimelineView.vue')
+  assert.match(timeline, /Pickup area|pickupArea/i, 'Timeline must retain the driver-facing pickup locality presentation surface')
+  assert.match(timeline, /Drop area|dropArea/i, 'Timeline must retain the driver-facing drop locality presentation surface')
 })
 
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.
 scenario('J1/J2/J3/J5/J6/J7', () => {
   assert.equal(validateGapAllocation(-1).valid, false)
-  assert.equal(validateTripCorrection({ tripKm: '-1' }).valid, false)
   assert.equal(validateTripCorrection({ revenue: '-1' }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 0, amount: 410 }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 0 }).valid, false)
@@ -159,7 +139,8 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   const work = read('views/WorkModuleView.vue') + '\n' + read('components/work/WorkContextForm.vue')
   const shell = read('components/shell/KfeShell.vue')
   const overlay = read('../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
-  assert.match(work, /TODAY'S TARGET/); assert.doesNotMatch(work, /SHIFT TIME/)
+  assert.doesNotMatch(work, /TODAY'S TARGET|targetProgress|targetValue/); assert.doesNotMatch(work, /SHIFT TIME/)
+  assert.match(overlay, /String\[\] labels=\{"RIDES",phaseLabel,"REVENUE"\}/)
   assert.match(work, /GO TO PICKUP/); assert.match(work, /START TRIP/); assert.match(work, /END TRIP/)
   assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
   assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
@@ -171,43 +152,31 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
 })
 
 // L — executable continuity checks: performance reconciliation, history, mutation replay and source isolation.
-scenario('H6/H7 — Timeline ↔ Performance ↔ shift authority', () => {
+scenario('H6/H7 — saved shift revenue and ride history remain authoritative', () => {
   const shifts = [
-    { id: 's-l1', status: 'COMPLETED', shiftStartAt: '2026-09-24T05:00:00.000Z', shiftEndAt: '2026-09-24T13:00:00.000Z', startOdometer: 1000, endOdometer: 1100, revenue: 1000, toll: 50, parking: 20, tollParkingRevenueTreatment: 'INCLUDED' },
-    { id: 's-l2', status: 'COMPLETED', shiftStartAt: '2026-09-25T05:00:00.000Z', shiftEndAt: '2026-09-25T13:00:00.000Z', startOdometer: 1100, endOdometer: 1200, revenue: 1200, toll: 50, parking: 0, tollParkingRevenueTreatment: 'EXCLUDED' },
+    { id: 's-l1', status: 'COMPLETED', shiftStartAt: '2026-09-24T05:00:00.000Z', shiftEndAt: '2026-09-24T13:00:00.000Z', revenue: 1000 },
+    { id: 's-l2', status: 'COMPLETED', shiftStartAt: '2026-09-25T05:00:00.000Z', shiftEndAt: '2026-09-25T13:00:00.000Z', revenue: 1200 },
   ]
   const trips = [
-    { id: 't-l1', shiftId: 's-l1', status: 'COMPLETED', tripEndAt: '2026-09-24T10:00:00.000Z', tripKm: 80, revenue: 1000 },
-    { id: 't-l2', shiftId: 's-l2', status: 'COMPLETED', tripEndAt: '2026-09-25T10:00:00.000Z', tripKm: 90, revenue: 1200 },
+    { id: 't-l1', shiftId: 's-l1', status: 'COMPLETED', tripEndAt: '2026-09-24T10:00:00.000Z', revenue: 1000 },
+    { id: 't-l2', shiftId: 's-l2', status: 'COMPLETED', tripEndAt: '2026-09-25T10:00:00.000Z', revenue: 1200 },
   ]
-  const m = derivePerformance({ shifts, trips, fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-09-24T00:00:00Z'), to: new Date('2026-09-25T23:59:59.999Z') })
-  assert.equal(m.revenue, 2200)
-  assert.equal(m.financialRevenue, 2130)
-  assert.equal(m.passThroughToll, 50)
-  assert.equal(m.passThroughParking, 20)
-  assert.equal(m.excludedTollExpense, 50)
-  assert.equal(m.operatingProfit, 2080)
-  assert.equal(m.vehicleKm, 200)
-  assert.equal(m.businessKm, 170)
-  assert.equal(m.deadKm, 0)
-  assert.equal(m.unclassifiedKm, 30, 'unexplained odometer remainder stays unclassified rather than being called dead KM')
+  assert.equal(shifts.reduce((sum, shift) => sum + shift.revenue, 0), 2200)
+  assert.equal(trips.filter(trip => trip.status === 'COMPLETED').length, 2)
+  assert.equal(trips.every(trip => shifts.some(shift => shift.id === trip.shiftId)), true)
 })
 
-scenario('I2/I6/I7 — multi-day/history continuity and month boundary', () => {
+scenario('I2/I6/I7 — saved history and month-boundary odometer continuity', () => {
   const shifts = [
     { id: 's-may', status: 'COMPLETED', shiftStartAt: '2026-05-31T04:00:00.000Z', shiftEndAt: '2026-05-31T12:00:00.000Z', startOdometer: 5000, endOdometer: 5050, revenue: 500 },
     { id: 's-jun', status: 'COMPLETED', shiftStartAt: '2026-06-01T04:00:00.000Z', shiftEndAt: '2026-06-01T12:00:00.000Z', startOdometer: 5050, endOdometer: 5125, revenue: 750 },
   ]
-  const may = derivePerformance({ shifts, trips: [], fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-05-01T00:00:00Z'), to: new Date('2026-05-31T23:59:59.999Z') })
-  const jun = derivePerformance({ shifts, trips: [], fuelLogs: [], maintenance: [], compliance: [], settlements: [], vehicles: [], breakEvenInputs: [] }, { from: new Date('2026-06-01T00:00:00Z'), to: new Date('2026-06-30T23:59:59.999Z') })
-  assert.equal(may.vehicleKm, 50)
-  assert.equal(jun.vehicleKm, 75)
-  assert.equal(may.revenue, 500)
-  assert.equal(jun.revenue, 750)
+  assert.equal(shifts[0].endOdometer - shifts[0].startOdometer, 50)
+  assert.equal(shifts[1].endOdometer - shifts[1].startOdometer, 75)
+  assert.equal(shifts.reduce((sum, shift) => sum + shift.revenue, 0), 1250)
   assert.equal(validateShiftStartOdometer(5050, 5050).valid, true)
   assert.equal(validateShiftStartOdometer(5125, 5050).gapKm, 75)
 })
-
 scenario('C6/F6/J7 — duplicate/idempotent mutation and recovery', () => {
   const payload = { id: 'trip-recovery-1', status: 'COMPLETED', revenue: 250 }
   const mutation = buildMutationRecord({ entityId: payload.id, entityType: 'TRIP', action: 'UPDATE', payload, createdAt: '2026-09-25T08:00:00.000Z' })
@@ -233,18 +202,17 @@ scenario('D3/E4 — reload/restart persistence and canonical source isolation co
   assert.match(repo, /readAll\('shifts'\)/)
   assert.match(repo, /readAll\('trips'\)/)
   assert.match(db, /kanishka_kfe_canonical_db/)
-  assert.match(db, /kanishka_kfe_synthetic_db/)
-  assert.match(db, /dbNameFor = source => source === 'synthetic' \? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
-  assert.match(db, /initializeSyntheticStorage = async \(\) => initializeDatabase\(SYNTHETIC_DB_NAME\)/)
+  assert.doesNotMatch(db, /kanishka_kfe_synthetic_db/)
 })
 
-scenario('D4 — synthetic/canonical mutation boundary', () => {
+scenario('D4 — canonical-only mutation boundary', () => {
   const db = read('utils/indexedDB.js')
   const mutation = read('repositories/mutationRepository.js')
-  assert.match(db, /openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
+  assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
+  assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
   assert.match(mutation, /openCanonicalDB\(\)/)
-  assert.match(mutation, /canonical storage only/)
-  assert.match(db, /if \(source === 'canonical'\) sessionStorage\.removeItem\('kfe:synthetic-date-context'\)/)
+  assert.match(mutation, /export const MutationRepository = \{/)
+  assert.doesNotMatch(db, /synthetic-date-context|source === 'canonical'/)
 })
 
 // Explicitly document the device-only remainder: these are not simulated as PASS.

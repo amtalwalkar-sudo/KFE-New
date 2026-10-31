@@ -16,22 +16,19 @@ const shiftRepo = read('../repositories/shiftTripRepository.js')
 const fuelForm = read('../components/CngFuelModal.vue')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
-const reconciliation = read('../components/ShiftReconciliationModal.vue')
 const endShift = read('../application/work/endShift.js')
 const drafts = read('../repositories/formDraftRepository.js')
-const settings = read('../components/KfeSettingsView.vue')
+const settings = read('../views/AdminView.vue') + '\n' + read('../components/admin/BackupRestorePanel.vue')
 const backupPanel = read('../components/admin/BackupRestorePanel.vue')
 const backupService = read('../application/backup/backupService.js')
 const performanceRepo = read('../repositories/performanceRepository.js')
-const performanceService = read('../application/performance/performanceService.js')
-const calculations = read('../views/CalculationsView.vue')
-const calculationsService = read('../application/calculations/calculationsService.js')
+const performanceService = read('../application/performance/phaseOnePerformanceService.js')
 const router = read('../router/index.js')
 
 const has = (source, pattern, message) => assert.match(source, pattern, message)
 
 // 1. Admin source forms: inventory, validation, save, canonical persistence.
-const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan','loanPayment','prepayment','settlement','driverTarget','breakEvenInputs']
+const adminKeys = ['businessSetup','vehicle','driver','compliance','maintenance','loan']
 for (const key of adminKeys) {
   assert.match(definitions, new RegExp('^\\s*'+key+'\\s*:', 'm'), 'Admin inventory missing '+key)
 }
@@ -46,8 +43,6 @@ assert.match(rules, /normalizeFormValues/, 'Admin validation must normalize form
 // 2. First-run setup reuses Admin forms and separately persists step state.
 assert.match(firstRun, /AdminService\.save\(current\.value\.form, form\.value\)/, 'First-run source forms must share Admin validation/persistence')
 assert.match(firstRun, /FirstRunSetupService\.setStepState\(key, \{ status: 'COMPLETE' \}\)/, 'First-run form save must record step completion')
-assert.match(firstRun, /BackupConfig\.saveBackupConfiguration\(cloud\.value\)/, 'Cloud backup setup must persist its configuration')
-assert.match(firstRun, /CloudBackupLifecycle\.backupToConfiguredCloud\(\)/, 'Cloud backup setup must verify a real backup, not only settings')
 
 // 3. Work shift/trip/cancellation/fuel/end-shift forms.
 assert.match(workView, /await store\.startShift\(startOdo\.value,/, 'Start Shift must use shift store')
@@ -70,32 +65,25 @@ assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Tr
 assert.match(drafts, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Drafts must use a separate store')
 assert.match(drafts, /Form draft can only be cleared after successful commitment or explicit confirmed discard/, 'Draft clear must be guarded')
 assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start edits must survive navigation/restart')
-assert.match(workView, /watch\(\[fare, tripToll, tripParking, tripTollTreatment/, 'Trip details edits must be drafted')
+assert.match(workView, /watch\(\[fare, tripToll, tripParking/, 'Trip details edits must be drafted')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation edits must be drafted')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel edits must be drafted')
 assert.match(workView, /watch\(\[closingOdo, endStage, largeDistanceConfirmation\]/, 'Closing odometer and long-distance confirmation must be drafted')
 
 // 5. Backup, settings, calculation and read-model consumers.
-assert.match(settings, /props\.application\.exportBackup\(\)/, 'Settings export must use application boundary')
-assert.match(settings, /props\.application\.restoreBackup\(payload\)/, 'Settings restore must use application boundary')
-assert.match(settings, /props\.application\.resetAllData\(\)/, 'Settings reset must use application boundary')
+assert.match(settings, /BackupService\.createBackup\(\)/, 'Phone backup must use BackupService')
+assert.match(settings, /BackupService\.restoreBackup\(pendingRestore\.value\.backup\)/, 'Restore must use BackupService')
+assert.match(settings, /BackupService\.resetData\(\)/, 'Data reset must use BackupService')
 assert.match(backupPanel, /BackupService/, 'Admin backup panel must use backup service')
 assert.match(backupService, /createBackupRepository\(CANONICAL_BACKUP_STORES\)/, 'Backup service must delegate canonical snapshot reads/writes to the backup repository')
-assert.match(adminView, /AdminService\.save\('driverTarget'/, 'Admin quick target editor must save through AdminService')
-assert.match(adminView, /AdminService\.save\('breakEvenInputs'/, 'Admin quick maintenance-rate editor must save through AdminService')
-assert.match(adminView, /AdminService\.save\('loanPayment'/, 'Admin loan-payment action must save a canonical payment record')
-assert.match(adminView, /AdminService\.save\('settlement'/, 'Admin source-payment action must save a canonical settlement record')
-assert.match(adminView, /AdminService\.save\('prepayment'/, 'Admin prepayment action must save a canonical prepayment record')
-assert.match(calculations, /AdminService\.save\(openId\.value,values\)/, 'Calculations source-input forms must reuse Admin validation/persistence')
-assert.match(calculations, /CalculationsService\.recordFuelBaseline\(/, 'Calculations fuel baseline must use its application service')
-assert.match(calculationsService, /FuelRepository\.create\(/, 'Calculations fuel baseline must persist through canonical fuel repository')
 assert.match(router, /path: '\/timeline'/, 'Timeline is an active route and must remain in the route inventory')
 assert.match(router, /path: '\/performance'/, 'Performance is an active route and must remain in the route inventory')
 assert.match(router, /path: '\/admin'/, 'Admin is an active route and must remain in the route inventory')
 assert.doesNotMatch(router, /VehicleModuleView|MaintenanceModuleView|LoanModuleView|ComplianceModuleView|KfeFinancialModuleView/, 'Secondary legacy module components are not direct routes in the current PWA router')
-assert.match(performanceRepo, /'shifts', 'trips', 'fuel_logs', 'vehicles'/, 'Performance snapshot must include operational and vehicle records')
-assert.match(performanceService, /normalizeCalculationSnapshot\(snapshot\)/, 'Performance must normalize source snapshot before calculations')
-assert.ok(calculations.includes('PerformanceService'), 'Calculations view must use the calculation application boundary')
+assert.match(performanceRepo, /PERFORMANCE_STORES = Object\.freeze\(\['shifts', 'trips', 'fuel_logs', 'settings'\]\)/, 'Basic Performance must read only rides, fuel, and business-start boundary facts')
+assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Basic Performance must read saved canonical records')
+assert.match(performanceService, /calculateFuelPeriodSummary/, 'Basic Performance must summarize saved fuel facts')
+assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
 
 console.log('PWA Form Save-Path Regression Contract: PASS')
-console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','odometer-only end shift'],otherForms:['first-run setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore','calculations'],status:'source-level save-path and consumer checks passed'}))
+console.log(JSON.stringify({adminForms:adminKeys,workForms:['shift start','trip details/fare','cancellation','fuel','odometer-only end shift'],otherForms:['first-run basic setup','cloud backup setup','settings backup/restore/reset','Admin backup/restore'],status:'source-level save-path and consumer checks passed'}))

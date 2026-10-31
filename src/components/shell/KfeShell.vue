@@ -1,7 +1,11 @@
 <script setup>
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import GpsStatusIndicator from './GpsStatusIndicator.vue'
 const route = useRoute()
+const scrollMainToTop = () => document.getElementById('main-content')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+onMounted(() => window.addEventListener('kfe:shell-scroll-top', scrollMainToTop))
+onBeforeUnmount(() => window.removeEventListener('kfe:shell-scroll-top', scrollMainToTop))
 </script>
 
 <template>
@@ -15,7 +19,6 @@ const route = useRoute()
       <GpsStatusIndicator />
     </header>
     <main id="main-content" class="content-scroll-area" tabindex="-1"><slot /></main>
-    <DiagnosticBubble />
     <nav class="bottom-nav" aria-label="Primary navigation">
       <router-link to="/" class="nav-item" exact-active-class="nav-item-active" aria-label="Work">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7"/><path d="M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg></span><span class="nav-icon-label">Work</span>

@@ -50,7 +50,7 @@ assertIncludes(store, 'WorkService.completeTrip', 'PWA Work must end a ride thro
 assertIncludes(workView, 'deriveWorkCockpitState', 'PWA must derive presentation from the shared cockpit state.')
 assertIncludes(overlayLifecycle, 'deriveWorkCockpitState', 'Android overlay lifecycle must derive from the same cockpit state.')
 assertIncludes(overlayLifecycle, 'WorkService.getActiveState', 'Overlay reconstruction must read canonical active state.')
-assertIncludes(overlayBridge, 'registerPlugin(\'KfeOverlay\')', 'PWA overlay bridge must use the native KfeOverlay plugin.')
+assertIncludes(overlayBridge, 'NativePlugins.overlay', 'PWA overlay bridge must use the shared native KfeOverlay plugin registration.')
 assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must return to the PWA command path.')
 assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START TRIP must return to the PWA command path.')
 assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END TRIP must return to the PWA command path.')
@@ -105,14 +105,16 @@ assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must p
 assert.match(workService, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip start/end must use the shared event-location service.')
 assert.match(nativeOverlay, /captureOneShotEventLocation/, 'Native overlay must capture one-shot event snapshots without PWA replay.')
 assert.match(nativeOverlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must write to the shared GPS_SNAPSHOT authority.')
-assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'Continuous GPS and routing must be absent from lifecycle paths.')
+assert.doesNotMatch(workService, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'PWA lifecycle paths must not own native GPS provider calls.')
+assert.match(nativeOverlay, /requestLocationUpdates\(provider,3000L,0f/)
+assert.match(nativeOverlay, /handler\.postDelayed\(stop,30000L/)
+assert.match(nativeOverlay, /removeUpdates\(this\)/, 'native GPS provider requests must be bounded and removed after a valid fix.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
 assertIncludes(authorityMap, 'KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md', 'Authority map must expose lifecycle authority.')
 assertIncludes(authorityMap, 'KFE-CANONICAL-DATA-CONTRACT.md', 'Authority map must expose canonical data authority.')
 assertIncludes(authorityMap, 'KFE_WORK_COCKPIT_BASELINE.md', 'Authority map must expose Work presentation authority.')
-assertIncludes(readRepo('docs/GPS-VALHALLA-REMOVAL.md'), 'GPS tracking and Valhalla removal', 'Current architecture decision must record GPS/Valhalla removal.')
 assertIncludes(matrix, '### Level A — Repository/CI', 'Matrix must define Level A proof.')
 assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define Level B proof.')
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
@@ -137,7 +139,8 @@ assert.equal(cancelled.cancelledRevenue, 0, 'Blank cancellation fee defaults to 
 
 // 11. Release enforcement.
 assertIncludes(workflow, 'run: npm test', 'Consolidated CI must run the complete contract suite.')
-assertIncludes(workflow, 'Run Phase 4 Cross-surface Lifecycle', 'Cross-surface lifecycle evidence must remain in CI.')
+assertIncludes(workflow, 'Run Core Persistence and Repository Contract Matrix', 'Core persistence/recovery evidence must remain in CI.')
+assertIncludes(workflow, 'Run Phase 4 Runtime Visual Verification', 'Core UI runtime evidence must remain in CI.')
 assertIncludes(workflow, 'Android Exact APK Smoke Gate', 'Android release evidence must include exact APK smoke testing.')
 assertIncludes(workflow, 'Upload tested Android Debug APK', 'The exact tested APK must be retained as CI evidence.')
 

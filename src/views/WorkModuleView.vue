@@ -3,9 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useShiftTripStore } from '../stores/shiftTrip.js'
 import { useFuelStore } from '../stores/fuel.js'
 import { WorkService } from '../application/work/workService.js'
-import { WorkDraftService } from '../application/work/workDraftService.js'
+import { createWorkDraftController } from '../application/work/workDraftController.js'
+import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 import { WorkflowTimerService, WorkWorkflowSessionService } from '../application/work/workflowTimerService.js'
-import { PerformanceService } from '../application/performance/performanceService.js'
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { isAcceptedNativeTripFormOperation } from '../application/work/nativeTripFormRecovery.js'
@@ -23,8 +23,6 @@ const tripCreateWorkflowId = ref('')
 const fuelWorkflowId = ref('')
 let restoringDrafts = false
 let workflowTimerReady = false
-let nativeReplayTimer = null
-let nativeReplayRunning = false
 
 const startOdo = ref('')
 const startAck = ref(false)
@@ -42,8 +40,6 @@ const fareTripId = ref(null)
 const fare = ref('')
 const tripToll = ref('')
 const tripParking = ref('')
-const tripTollTreatment = ref('INCLUDED')
-const tripParkingTreatment = ref('INCLUDED')
 const fareBusy = ref(false)
 
 
@@ -66,8 +62,6 @@ const closingOdo = ref('')
 const endBusy = ref(false)
 const largeDistanceConfirmation = ref('')
 
-const target = ref(null)
-const targetAchieved = ref(0)
 const clock = ref(Date.now())
 const track = ref(null)
 const swipe = ref({ down: false, start: 0, offset: 0 })
@@ -75,6 +69,22 @@ const swipePointerId = ref(null)
 
 let timer = null
 const refreshClock = () => { clock.value = Date.now() }
+const startClock = () => {
+  if (timer !== null) return
+  timer = window.setInterval(refreshClock, 1000)
+}
+const stopClock = () => {
+  if (timer !== null) window.clearInterval(timer)
+  timer = null
+}
+const handleClockVisibility = () => {
+  if (document.visibilityState === 'visible') {
+    refreshClock()
+    startClock()
+  } else {
+    stopClock()
+  }
+}
 let nativeActionListener = null
 
 
@@ -109,48 +119,30 @@ const startDraftIdentity = () => ({
 const fuelDraftIdentity = () => store.shift?.id
   ? shiftDraftIdentity('work-fuel', 'RECORD_FUEL')
   : { formId: 'work-fuel', workflowStep: 'RECORD_FUEL', parentType: 'WORKFLOW', workflowId: fuelWorkflowId.value }
-const restoreDraft = async identity => {
-  try { return await WorkDraftService.get(identity) } catch (_) { return null }
+const draftController = createWorkDraftController({
+  isRestoring: () => restoringDrafts,
+  onFailure: fail,
+})
+const restoreDraft = draftController.restore
+const saveDraft = draftController.save
+const saveDraftBeforeCommit = async (identity, values) => {
+  const saved = await saveDraft(identity, values)
+  if (!saved) throw new Error('The recovery token could not be saved locally. No business change was submitted; retry when local storage is available.')
+  return saved
 }
-let draftWriteQueue = Promise.resolve()
-const committedDraftKeys = new Set()
-const draftIdentityKey = identity => JSON.stringify([
-  identity?.formId, identity?.workflowStep, identity?.parentType,
-  identity?.parentId || null, identity?.ownerId || null, identity?.workflowId || null
-])
-const saveDraft = (identity, values) => {
-  if (restoringDrafts || committedDraftKeys.has(draftIdentityKey(identity))) return draftWriteQueue
-  draftWriteQueue = draftWriteQueue.then(() => WorkDraftService.save(identity, values)).catch(() => {
-    fail('Draft could not be saved locally. Keep this form open and retry.')
-    return null
-  })
-  return draftWriteQueue
-}
-const clearCommittedDraft = async (identity, { quiet = false } = {}) => {
-  const key = draftIdentityKey(identity)
-  committedDraftKeys.add(key)
-  await draftWriteQueue
-  try { await WorkDraftService.clear(identity, { committed: true }) }
-  catch (_) {
-    // A draft-cleanup failure must not overwrite the authoritative commit
-    // confirmation or make a saved fuel record look unsaved. The draft is never
-    // auto-submitted; a later open still requires explicit user confirmation.
-    if (!quiet) fail('The record was saved, but its temporary draft could not be cleared. Do not replay it; reopen the record and verify the saved value.')
-  }
-}
+const clearCommittedDraft = draftController.clearCommitted
 
 watch([startOdo, startAck, gapChoice], () => {
   if (!startOpen.value || !startWorkflowId.value || restoringDrafts) return
   saveDraft(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value })
 })
-watch([fare, tripToll, tripParking, tripTollTreatment, tripParkingTreatment], () => {
+watch([fare, tripToll, tripParking], () => {
   // Persist only against the trip explicitly opened in the fare form; never
   // let a reset after commit overwrite the next pending trip's draft.
   const tripId = fareTripId.value
   if (!tripId || !store.shift?.id || restoringDrafts) return
   saveDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId), {
-    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value,
-    tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value
+    fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value
   })
 })
 watch([cancelReason, cancelFare], () => {
@@ -175,10 +167,6 @@ watch([closingOdo, endStage, largeDistanceConfirmation], () => {
 
 const gap = computed(() => store.calculateGap(startOdo.value))
 const gapKm = computed(() => Number(gap.value?.gapKm || 0))
-const targetValue = computed(() => target.value?.target == null ? null : Number(target.value.target))
-const targetProgress = computed(() => targetValue.value > 0
-  ? Math.min(100, Math.round(targetAchieved.value / targetValue.value * 100))
-  : 0)
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
 const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
@@ -198,8 +186,6 @@ const cockpit = computed(() => deriveWorkCockpitState({
   shift: store.shift,
   trip: store.trip,
   pendingFareId: pendingFare.value?.id || '',
-  target: targetValue.value == null ? '—' : money(targetValue.value),
-  targetProgress: targetProgress.value,
   revenue: money(liveRevenue.value),
   asOf: clock.value
 }))
@@ -214,11 +200,6 @@ const actionLabel = computed(() => {
   if (cockpit.value.action === 'END_RIDE') return 'END TRIP'
   if (cockpit.value.action === 'START_RIDE') return 'START TRIP'
   return 'GO TO PICKUP'
-})
-const shiftTimer = computed(() => {
-  const elapsed = Math.max(0, Number(cockpit.value.shiftDurationMs || 0))
-  const seconds = Math.floor(elapsed / 1000)
-  return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
 const formatElapsed = elapsedMs => {
   const seconds = Math.max(0, Math.floor(Number(elapsedMs || 0) / 1000))
@@ -282,19 +263,11 @@ const stateTimer = computed(() => formatElapsed(clock.value - stateTimerStartAt.
 const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
-async function targetRefresh() {
-  try {
-    const snapshot = await PerformanceService.getDailyTargetSnapshot()
-    target.value = snapshot.target
-    targetAchieved.value = Number(snapshot.achieved || 0)
-  } catch (_) {
-    target.value = null
-    targetAchieved.value = 0
-  }
-}
-
 async function syncOverlay() {
-  if (!store.isOnline || document.visibilityState === 'visible') {
+  // The shared Android lifecycle controller owns foreground minimization and
+  // background restoration. Work only reconciles native state while hidden.
+  if (document.visibilityState === 'visible') return
+  if (!store.isOnline) {
     await WorkRuntimePorts.androidOverlay.hide().catch(() => {})
     return
   }
@@ -315,8 +288,6 @@ async function syncOverlay() {
     trip: store.trip,
     trips,
     pendingFareId: recoveredPendingFareId,
-    target: targetValue.value == null ? '—' : money(targetValue.value),
-    targetProgress: targetProgress.value,
     revenue
   })
 
@@ -328,8 +299,6 @@ async function syncOverlay() {
       status: store.trip.status,
       tripStage: store.trip.tripStage
     } : null,
-    target: state.target,
-    targetProgress: state.targetProgress,
     rides: String(trips.length),
     revenue: state.revenue,
     tripStartAt: state.tripStartAt,
@@ -342,7 +311,7 @@ async function syncOverlay() {
     pendingFareId: state.pendingFareId,
     cancelOpen: cancelOpen.value,
     cancelDraft: { cancelReason: cancelReason.value, cancelFare: cancelFare.value },
-    fareDraft: { fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value, tripTollTreatment: tripTollTreatment.value, tripParkingTreatment: tripParkingTreatment.value }
+    fareDraft: { fare: fare.value, tripToll: tripToll.value, tripParking: tripParking.value }
   }).catch(() => {})
 }
 
@@ -354,7 +323,7 @@ async function openStart() {
   startOdo.value = store.lastKnownOdometer == null ? '' : String(store.lastKnownOdometer)
   startAck.value = false
   gapChoice.value = ''
-  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
+  startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
   const draft = await restoreDraft(startDraftIdentity())
   if (draft?.values) {
     startOdo.value = String(draft.values.startOdo ?? startOdo.value)
@@ -382,17 +351,15 @@ async function submitStart() {
   startBusy.value = true
   try {
     // Persist the workflow token before any native write so a process restart can retry the same create intent.
-    await draftWriteQueue
-    await WorkDraftService.save(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
+    await saveDraftBeforeCommit(startDraftIdentity(), { startOdo: startOdo.value, startAck: startAck.value, gapChoice: gapChoice.value, createIntentKey: startWorkflowId.value })
     const result = await store.startShift(startOdo.value, gapKm.value ? { category: gapChoice.value } : null, startWorkflowId.value)
     if (!result?.ok) return fail(result?.reason || 'Could not start the shift.')
     await clearCommittedDraft(startDraftIdentity())
-    startWorkflowId.value = WorkDraftService.newWorkflowId()
+    startWorkflowId.value = draftController.newWorkflowId()
     startOpen.value = false
     startOdo.value = ''
     startAck.value = false
     gapChoice.value = ''
-    await targetRefresh()
     await WorkRuntimePorts.androidOverlay.prepare().catch(() => {})
     await syncOverlay()
     notify('Online — shift started.')
@@ -411,10 +378,10 @@ async function goPickup(nativeTripId = '') {
     if (!createIntentKey) {
       const identity = tripCreateDraftIdentity()
       const draft = await restoreDraft(identity)
-      createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || WorkDraftService.newWorkflowId())
+      createIntentKey = String(draft?.values?.createIntentKey || tripCreateWorkflowId.value || draftController.newWorkflowId())
       tripCreateWorkflowId.value = createIntentKey
       // Fail closed if the retry token cannot be made durable before the native create.
-      await WorkDraftService.save(identity, { createIntentKey })
+      await saveDraftBeforeCommit(identity, { createIntentKey })
     }
     const result = await store.beginPickup(operator.value || store.defaultOperator, nativeTripId || null, createIntentKey)
     if (!result?.ok) {
@@ -423,7 +390,7 @@ async function goPickup(nativeTripId = '') {
     }
     await syncOverlay()
     if (!nativeTripId) {
-      try { await WorkDraftService.clear(tripCreateDraftIdentity(), { committed: true }) } catch (_) { /* canonical Trip is already committed; draft cleanup is recoverable */ }
+      await clearCommittedDraft(tripCreateDraftIdentity(), { quiet: true })
       tripCreateWorkflowId.value = ''
     }
     // Keep state transitions silent; the cockpit/action label reflects the new state.
@@ -458,15 +425,11 @@ async function endTrip() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     const draft = await restoreDraft(tripDraftIdentity('work-trip-details', 'ENTER_FARE', tripId))
     if (draft?.values) {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
-      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
     await syncOverlay()
@@ -494,8 +457,6 @@ async function saveFare(fromNative = false, operationId = '') {
       fareDetailsSkipped: fare.value === '',
       toll: tripToll.value === '' ? 0 : Number(tripToll.value),
       parking: tripParking.value === '' ? 0 : Number(tripParking.value),
-      tollTreatment: tripTollTreatment.value,
-      parkingTreatment: tripParkingTreatment.value
     }
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
     const result = await store.updateTrip(details)
@@ -518,12 +479,9 @@ async function saveFare(fromNative = false, operationId = '') {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     if (!fromNative) await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
     if (!fromNative) await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
-    await targetRefresh()
-    await syncOverlay()
+      await syncOverlay()
     notify('Trip details saved.')
     return true
   } finally {
@@ -543,8 +501,6 @@ async function skipTripDetails() {
     fare.value = ''
     tripToll.value = ''
     tripParking.value = ''
-    tripTollTreatment.value = 'INCLUDED'
-    tripParkingTreatment.value = 'INCLUDED'
     await WorkRuntimePorts.androidOverlay.fareSaved().catch(() => {})
     await WorkRuntimePorts.nativeWorkActions.clearPendingAction().catch(() => {})
     await syncOverlay()
@@ -626,7 +582,7 @@ async function toggleFuel() {
   fuelPrice.value = ''
   fuelAmount.value = ''
   fuelFull.value = true
-  if (!store.shift?.id) fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
+  if (!store.shift?.id) fuelWorkflowId.value = (await draftController.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || draftController.newWorkflowId()
   const draft = await restoreDraft(fuelDraftIdentity())
   if (draft?.values) {
     fuelOdo.value = String(draft.values.fuelOdo ?? '')
@@ -921,96 +877,35 @@ const handleNativeAction = async event => {
       fare.value = payload.fare == null ? '' : String(payload.fare)
       tripToll.value = payload.toll == null ? '' : String(payload.toll)
       tripParking.value = payload.parking == null ? '' : String(payload.parking)
-      tripTollTreatment.value = String(payload.tollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(payload.parkingTreatment || 'INCLUDED')
     } catch (_) {
       fare.value = String(event.input)
       tripToll.value = ''
       tripParking.value = ''
-      tripTollTreatment.value = 'INCLUDED'
-      tripParkingTreatment.value = 'INCLUDED'
     }
     return Boolean(await saveFare(true, String(event?.eventId || '')))
   }
   return false
 }
 
-// Serialize listener delivery and foreground replay through one FIFO queue.
-// Several overlay swipes can be queued while Android has suspended this WebView;
-// replay must apply GO_TO_PICKUP before START_RIDE and END_RIDE, never in parallel.
-let nativeEventQueue = Promise.resolve()
-function enqueueNativeEvent(event) {
-  const next = nativeEventQueue.then(() => processNativeEvent(event))
-  nativeEventQueue = next.catch(() => {})
-  return next
-}
-
-// Prevent duplicate delivery of one durable event while it is being processed.
-// The event ID remains the idempotency key.
-const nativeEventsInFlight = new Set()
-
-async function processNativeEvent(event) {
-  const eventId = String(event?.eventId || '')
-  if (eventId && nativeEventsInFlight.has(eventId)) return false
-  if (eventId) nativeEventsInFlight.add(eventId)
-  try {
-    const saved = await handleNativeAction(event)
-    if (saved && eventId) {
-      const acknowledged = await WorkRuntimePorts.nativeWorkActions.acknowledgeAction(
-        eventId, String(event?.stage || ''), String(event?.tripId || '')
-      )
-      // A successful Work write is not a completed native transition until its
-      // durable event is acknowledged. Keep the original event retryable if the
-      // acknowledgement bridge fails; the handlers above are idempotent by ID.
-      if (!acknowledged) {
-        await WorkRuntimePorts.nativeWorkActions.recordActionFailure(
-          eventId, 'Work saved the action but native acknowledgement failed'
-        )
-        return false
-      }
-    } else if (!saved && eventId) {
-      await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, 'Work did not confirm the action was saved')
-    }
-    return saved
-  } catch (error) {
-    if (eventId) await WorkRuntimePorts.nativeWorkActions.recordActionFailure(eventId, error?.message || error)
-    return false
-  } finally {
-    if (eventId) nativeEventsInFlight.delete(eventId)
-  }
-}
-
-// A failed durable event remains pending under its original ID. Retry it when
-// Android brings the already-mounted Work view back to the foreground; never
-// synthesize a replacement action or append another event.
-async function replayFailedNativeActions() {
-  if (document.visibilityState !== 'visible' || nativeReplayRunning) return
-  nativeReplayRunning = true
-  try {
-    const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-    // Replay every still-pending event, not only events with a recorded write
-    // failure. An interruption can happen after the Work commit but before the
-    // failure counter is persisted; handlers must safely accept replays.
-    for (const event of pendingEvents) await enqueueNativeEvent(event)
-  } finally {
-    nativeReplayRunning = false
-  }
-}
+// The application controller owns FIFO delivery, duplicate suppression,
+// durable acknowledgement, failure recording, and foreground replay.
+const nativeActionController = createNativeWorkActionController({
+  actions: WorkRuntimePorts.nativeWorkActions,
+  handleAction: handleNativeAction,
+  isVisible: () => document.visibilityState === 'visible',
+})
+const enqueueNativeEvent = nativeActionController.enqueue
+const processNativeEvent = nativeActionController.process
+const replayFailedNativeActions = nativeActionController.replay
 
 onMounted(async () => {
-  document.addEventListener('visibilitychange', syncOverlay)
   document.addEventListener('visibilitychange', replayFailedNativeActions)
   window.addEventListener('pageshow', replayFailedNativeActions)
   window.addEventListener('focus', replayFailedNativeActions)
-  // A transient bridge/WebView failure must not leave the native swipe locked
-  // indefinitely while Work remains visible. Reuse the same durable event IDs;
-  // processNativeEvent serializes per-ID work and acknowledges only confirmed saves.
-  nativeReplayTimer = setInterval(() => { void replayFailedNativeActions() }, 5000)
   await store.initialize()
   await fuel.refresh().catch(() => {})
-  startWorkflowId.value = (await WorkDraftService.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || WorkDraftService.newWorkflowId()
-  fuelWorkflowId.value = (await WorkDraftService.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || WorkDraftService.newWorkflowId()
-  await targetRefresh()
+  startWorkflowId.value = (await draftController.latestWorkflow('work-start-shift', 'START_SHIFT'))?.workflowId || draftController.newWorkflowId()
+  fuelWorkflowId.value = (await draftController.latestWorkflow('work-fuel', 'RECORD_FUEL'))?.workflowId || draftController.newWorkflowId()
   operator.value = store.defaultOperator
   if (pendingFare.value?.id && store.shift?.id) {
     fareTripId.value = pendingFare.value.id
@@ -1020,8 +915,6 @@ onMounted(async () => {
       fare.value = String(draft.values.fare ?? '')
       tripToll.value = String(draft.values.tripToll ?? '')
       tripParking.value = String(draft.values.tripParking ?? '')
-      tripTollTreatment.value = String(draft.values.tripTollTreatment || 'INCLUDED')
-      tripParkingTreatment.value = String(draft.values.tripParkingTreatment || 'INCLUDED')
     }
     restoringDrafts = false
   }
@@ -1058,11 +951,10 @@ onMounted(async () => {
 
   // Wall-clock time is authoritative. Background throttling may delay interval callbacks,
   // so refresh immediately whenever Android/WebView returns to the foreground.
-  refreshClock()
-  timer = setInterval(refreshClock, 1000)
-  document.addEventListener('visibilitychange', refreshClock)
-  window.addEventListener('pageshow', refreshClock)
-  window.addEventListener('focus', refreshClock)
+  handleClockVisibility()
+  document.addEventListener('visibilitychange', handleClockVisibility)
+  window.addEventListener('pageshow', handleClockVisibility)
+  window.addEventListener('focus', handleClockVisibility)
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
@@ -1089,16 +981,13 @@ watch(cancelOpen, () => { void syncOverlay() })
 
 
 onBeforeUnmount(() => {
-  document.removeEventListener('visibilitychange', syncOverlay)
   document.removeEventListener('visibilitychange', replayFailedNativeActions)
   window.removeEventListener('pageshow', replayFailedNativeActions)
   window.removeEventListener('focus', replayFailedNativeActions)
-  if (nativeReplayTimer) clearInterval(nativeReplayTimer)
-  nativeReplayTimer = null
-  document.removeEventListener('visibilitychange', refreshClock)
-  window.removeEventListener('pageshow', refreshClock)
-  window.removeEventListener('focus', refreshClock)
-  if (timer) clearInterval(timer)
+  stopClock()
+  document.removeEventListener('visibilitychange', handleClockVisibility)
+  window.removeEventListener('pageshow', handleClockVisibility)
+  window.removeEventListener('focus', handleClockVisibility)
   nativeActionListener?.remove?.()
   // Overlay visibility follows canonical shift state, not this component's
   // mount lifetime. The PWA may navigate away or close while the active shift
@@ -1162,13 +1051,6 @@ onBeforeUnmount(() => {
     </section>
 
     <template v-if="store.isOnline">
-      <section class="instrument target-instrument">
-        <div><span class="eyebrow">TODAY'S TARGET</span><strong>{{ targetValue==null ? '—' : money(targetValue) }}</strong></div>
-        <div class="target-meta"><span>PROGRESS</span><strong>{{ targetProgress }}%</strong><span>SHIFT {{ shiftTimer }}</span></div>
-        <div class="progress-track"><i :style="{width:targetProgress+'%'}"/></div>
-      </section>
-
-
 
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=SWIPE_CONFIG.commitThresholdPercent,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" :style="swipeStyle" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
@@ -1194,13 +1076,9 @@ onBeforeUnmount(() => {
       :fare="fare"
       :trip-toll="tripToll"
       :trip-parking="tripParking"
-      :trip-toll-treatment="tripTollTreatment"
-      :trip-parking-treatment="tripParkingTreatment"
       @update:fare="fare=$event"
       @update:trip-toll="tripToll=$event"
       @update:trip-parking="tripParking=$event"
-      @update:trip-toll-treatment="tripTollTreatment=$event"
-      @update:trip-parking-treatment="tripParkingTreatment=$event"
       @action="handleContextAction"
     />
 

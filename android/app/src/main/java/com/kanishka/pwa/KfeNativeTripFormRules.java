@@ -24,14 +24,11 @@ final class KfeNativeTripFormRules {
   }
 
   /** Build the bounded fare command payload without depending on form widgets. */
-  static JSONObject buildFarePayload(String fare, String toll, String parking,
-      boolean tollExcluded, boolean parkingExcluded) throws JSONException {
+  static JSONObject buildFarePayload(String fare, String toll, String parking) throws JSONException {
     JSONObject payload = new JSONObject();
     payload.put("fare", fare == null ? "" : fare.trim());
     payload.put("toll", toll == null ? "" : toll.trim());
     payload.put("parking", parking == null ? "" : parking.trim());
-    payload.put("tollTreatment", tollExcluded ? "EXCLUDED" : "INCLUDED");
-    payload.put("parkingTreatment", parkingExcluded ? "EXCLUDED" : "INCLUDED");
     return payload;
   }
 

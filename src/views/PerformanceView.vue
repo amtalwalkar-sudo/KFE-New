@@ -8,7 +8,6 @@ const overview = ref(null)
 const loading = ref(false)
 const error = ref('')
 let requestVersion = 0
-let unsubscribe = null
 
 const money = value => value == null || !Number.isFinite(Number(value))
   ? 'Unavailable'
@@ -16,13 +15,11 @@ const money = value => value == null || !Number.isFinite(Number(value))
 const costPerKm = value => value == null || !Number.isFinite(Number(value))
   ? 'Unavailable'
   : `${money(value)}/km`
-const sourceLabel = source => source === 'FULL_TANK_INTERVAL'
-  ? 'Based on qualified full-tank intervals'
-  : source === 'OBSERVED_PERIOD'
-    ? 'Indicative: period fuel spending ÷ recorded vehicle KM'
-    : 'Unavailable until sufficient valid fuel and mileage records exist'
-
-const load = async () => {
+const load = async ({ force = false } = {}) => {
+  // Canonical change notifications can arrive during the initial snapshot read.
+  // Do not supersede a valid in-flight load with a duplicate read; the active
+  // request already reads a transactionally consistent canonical snapshot.
+  if (loading.value && !force) return
   const version = ++requestVersion
   loading.value = true
   error.value = ''
@@ -35,14 +32,15 @@ const load = async () => {
     if (version === requestVersion) loading.value = false
   }
 }
-watch(period, () => { void load() })
+watch(period, () => { void load({ force: true }) })
 onMounted(() => {
+  // Read a consistent snapshot on entry. Avoid starting a second IndexedDB
+  // snapshot from cross-tab change notifications while the same view is alive;
+  // leaving and re-entering Performance refreshes from canonical data.
   void load()
-  unsubscribe = PhaseOnePerformanceService.subscribeDataChanges(() => { void load() })
 })
 onUnmounted(() => {
   requestVersion += 1
-  if (typeof unsubscribe === 'function') unsubscribe()
 })
 </script>
 
@@ -93,7 +91,7 @@ onUnmounted(() => {
         <article class="performance-metric">
           <span>Fuel cost per km</span>
           <strong>{{ costPerKm(overview.fuelCostPerKm) }}</strong>
-          <small>{{ sourceLabel(overview.fuelCostPerKmSource) }}</small>
+          <small>{{ overview.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'From consecutive full-tank odometer readings' : 'Unavailable until two valid full-tank readings exist' }}</small>
         </article>
         <article class="performance-metric performance-metric-highlight">
           <span>Income after fuel</span>
@@ -101,7 +99,7 @@ onUnmounted(() => {
           <small>Fare income + cancellation fees − fuel spending</small>
         </article>
       </section>
-      <p class="performance-footnote">Income after fuel is an operating summary, not net profit. Maintenance, EMI and other costs are not included in Phase 1.</p>
+      <p class="performance-footnote">Income after fuel is recorded shift revenue (including cancellation fees), less recorded fuel spending. Maintenance and EMI costs are not included in Phase 1.</p>
     </template>
   </section>
 </template>

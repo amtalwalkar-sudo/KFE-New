@@ -3,15 +3,16 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
 import { EventLocationService } from '../application/location/eventLocationService.js'
+import { EventLocalityService } from '../application/location/eventLocalityService.js'
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
 const loading = ref(false)
 const error = ref('')
-const refreshingLocations = ref(false)
 const refreshMessage = ref('')
-const pullDistance = ref(0)
-let touchStartY = null
+const refreshing = ref(false)
+let pullStartY = null
+let pullStartedAtTop = false
 let requestVersion = 0
 let unsubscribe = null
 
@@ -55,54 +56,50 @@ const load = async () => {
   }
 }
 const refreshLocationNames = async () => {
-  if (refreshingLocations.value) return
-  refreshingLocations.value = true
+  if (refreshing.value) return
   refreshMessage.value = ''
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    refreshMessage.value = 'Offline — saved GPS snapshots are retained. Pull down again when online.'
+    return
+  }
+  refreshing.value = true
   try {
-    const result = await EventLocationService.refreshUnresolvedLocationNames()
+    const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
+    const visibleRideById = new Map(snapshot.value.rides.map(ride => [ride.id, ride]))
+    const locations = await EventLocationService.forEntities('TRIP', rideIds)
+    const eligible = locations.filter(location => visibleRideById.has(location.entityId))
+    const results = await EventLocalityService.resolveSnapshots(eligible)
+    const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
+    const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state) && !result?.cacheHit).length
     await load()
-    if (!result.online) {
-      refreshMessage.value = 'Offline — saved coordinates are unchanged. Connect and pull down to try again.'
-    } else if (result.updated > 0) {
-      refreshMessage.value = `Updated ${result.updated} area name${result.updated === 1 ? '' : 's'}.${result.remaining ? ` ${result.remaining} still unresolved; pull down to try again.` : ' All available area names are resolved.'}`
-    } else if (result.remaining === 0) {
-      refreshMessage.value = 'No unresolved area names.'
-    } else if (result.attempted === 0) {
-      refreshMessage.value = `No saved coordinates were ready to resolve. ${result.remaining} remain queued.`
-    } else {
-      refreshMessage.value = `No new area names found. ${result.remaining} remain queued; pull down to try again later.`
-    }
+    refreshMessage.value = attemptedCount === 0
+      ? 'No unresolved GPS snapshots from the last seven days are ready for locality lookup.'
+      : resolvedCount > 0
+        ? `Saved ${resolvedCount} new locality name${resolvedCount === 1 ? '' : 's'} permanently. Other unresolved snapshots remain available for another manual refresh.`
+        : 'No new locality names could be verified. GPS coordinates remain unchanged; try again with a reliable connection.'
   } catch (cause) {
-    refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved coordinates are unchanged.'
+    refreshMessage.value = cause?.message || 'Area names could not be refreshed. Saved GPS snapshots are retained.'
   } finally {
-    refreshingLocations.value = false
-    pullDistance.value = 0
-    touchStartY = null
+    refreshing.value = false
   }
 }
-const atTop = () => Math.max(window.scrollY || 0, document.documentElement?.scrollTop || 0) <= 0
-const handleTouchStart = event => {
-  if (refreshingLocations.value || !atTop() || event.touches?.length !== 1) {
-    touchStartY = null
+const atTop = () => typeof window === 'undefined'
+  || Math.max(window.scrollY || 0, document.documentElement?.scrollTop || 0) <= 0
+const resetPull = () => { pullStartY = null; pullStartedAtTop = false }
+const onTouchStart = event => {
+  if (refreshing.value || !atTop() || event.touches?.length !== 1
+    || event.target?.closest?.('button, select, input, textarea, a')) {
+    resetPull()
     return
   }
-  if (event.target?.closest?.('button, select, input, textarea, a')) {
-    touchStartY = null
-    return
-  }
-  touchStartY = event.touches[0].clientY
+  pullStartY = event.touches[0].clientY
+  pullStartedAtTop = true
 }
-const handleTouchMove = event => {
-  if (touchStartY == null || refreshingLocations.value || !atTop() || event.touches?.length !== 1) return
-  pullDistance.value = Math.max(0, Math.min(96, event.touches[0].clientY - touchStartY))
-}
-const resetPull = () => {
-  touchStartY = null
-  pullDistance.value = 0
-}
-const handleTouchEnd = () => {
-  const shouldRefresh = pullDistance.value >= 72 && touchStartY != null
-  resetPull()
+const onTouchEnd = event => {
+  const endY = event.changedTouches?.[0]?.clientY
+  const shouldRefresh = pullStartedAtTop && pullStartY != null && Number.isFinite(endY) && endY - pullStartY >= 80
+  pullStartY = null
+  pullStartedAtTop = false
   if (shouldRefresh) void refreshLocationNames()
 }
 watch(period, () => { void load() })
@@ -117,7 +114,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" :aria-busy="refreshingLocations" @touchstart.passive="handleTouchStart" @touchmove.passive="handleTouchMove" @touchend.passive="handleTouchEnd" @touchcancel.passive="resetPull">
+  <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd" @touchcancel.passive="resetPull">
     <header class="activity-timeline-heading">
       <div>
         <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
@@ -125,10 +122,6 @@ onUnmounted(() => {
         <p class="activity-timeline-description">Your rides and CNG refills for the selected period.</p>
       </div>
       <div class="activity-timeline-actions">
-        <button class="activity-timeline-refresh" type="button" :disabled="refreshingLocations" aria-label="Refresh area names" @click="refreshLocationNames">
-          <span aria-hidden="true" :class="{ 'is-spinning': refreshingLocations }">↻</span>
-          {{ refreshingLocations ? 'Refreshing…' : 'Refresh areas' }}
-        </button>
         <label class="activity-timeline-filter">
         <span>Period</span>
         <select v-model="period" aria-label="Timeline period">
@@ -140,10 +133,9 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div v-if="pullDistance > 0 || refreshingLocations" class="activity-timeline-pull-status" role="status" aria-live="polite">
-      {{ refreshingLocations ? 'Refreshing saved coordinates into area names…' : pullDistance >= 72 ? 'Release to refresh area names' : 'Pull down to refresh area names' }}
-    </div>
-    <p v-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
+    <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down to resolve unsaved GPS locality names from the last seven days when online.</p>
+    <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
+    <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
     <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !snapshot.range" class="activity-timeline-message" role="status">Loading timeline…</p>
 
@@ -162,8 +154,8 @@ onUnmounted(() => {
           <div class="activity-timeline-record-grid">
             <div><span>Duration</span><strong>{{ duration(ride.durationMs) }}</strong></div>
             <div><span>{{ ride.fareLabel }}</span><strong>{{ fareText(ride) }}</strong></div>
-            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong><small v-if="ride.pickupArea.startsWith('GPS ') && ride.pickupAreaResolution !== 'RESOLVED'">Pull down to resolve area name</small></div>
-            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong><small v-if="ride.dropArea.startsWith('GPS ') && ride.dropAreaResolution !== 'RESOLVED'">Pull down to resolve area name</small></div>
+            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong></div>
+            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong></div>
           </div>
         </li>
       </ol>

@@ -6,16 +6,15 @@ This document is the human-readable index for the authoritative machine-readable
 KFE 2.0 is a simple single-vehicle ERP today. Future fleet/integration capabilities are extension points only and are not current functionality.
 
 ## Architecture
-`Presentation → Application → Domain → Repository Contracts → Infrastructure → Local Database → Future Integrations`
+`PWA UI/workflows → Application → Domain → Repositories → Local Database`; Capacitor/native plugins own Android-specific capabilities.
 
 ## Canonical authority boundary
 
-The product specification is an index and change-control pointer. It does not duplicate the current business rules, data model, formulas, operational lifecycle, or UI rules.
+The product specification is an index and change-control pointer. Basic Performance rules live in KFE_BUSINESS_RULES_REGISTER.md. This document does not define additional features or duplicate business rules, data fields, lifecycle transitions, or UI rules.
 
 Current authoritative documents are:
 
 1. Business meaning/rules — KFE_BUSINESS_RULES_REGISTER.md
-2. Arithmetic/calculations — docs/KFE-CALCULATION-SPECIFICATION.md
 3. Architecture/ownership — docs/KFE-ARCHITECTURE-CONTRACT.md
 4. Canonical data model — docs/KFE-CANONICAL-DATA-CONTRACT.md
 5. Operational lifecycle — docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md

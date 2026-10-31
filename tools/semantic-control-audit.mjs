@@ -35,8 +35,6 @@ const reset = async page => {
         r.onblocked = () => reject(new Error('DB delete blocked: ' + name))
       })
     }
-    const { setActiveDataSource } = await import(location.origin + '/src/utils/indexedDB.js')
-    setActiveDataSource('canonical')
     const { AdminRepository } = await import(location.origin + '/src/repositories/adminRepository.js')
     await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
   })
@@ -44,7 +42,7 @@ const reset = async page => {
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 }
 const db = async (page, stores) => page.evaluate(async stores => {
-  const request = indexedDB.open('kanishka_kfe_canonical_db', 16)
+  const request = indexedDB.open('kanishka_kfe_canonical_db', 17)
   const database = await new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
@@ -156,7 +154,13 @@ try {
   await enterKfeNumber('Current vehicle odometer', '1000')
   await page.getByRole('checkbox', { name: /current vehicle odometer/i }).waitFor({ state: 'visible' }); await page.getByRole('checkbox', { name: /current vehicle odometer/i }).check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await page.locator('.swipe-copy strong').filter({ hasText: 'GO TO PICKUP' }).waitFor({ state: 'visible', timeout: 10000 })
+  try {
+    await page.locator('.work-fixed-action .swipe-handle[aria-label="GO TO PICKUP"]').waitFor({ state: 'visible', timeout: 10000 })
+  } catch (error) {
+    const diagnostics = await page.locator('body').innerText().catch(() => '')
+    await page.screenshot({ path: 'artifacts/semantic-control-audit/start-shift-failure.png', fullPage: true }).catch(() => {})
+    throw new Error('START SHIFT did not expose GO TO PICKUP after confirmation. Visible Work state: ' + diagnostics.slice(0, 3000) + '\\n' + error.message)
+  }
   let state = await db(page, ['shifts'])
   assert(state.shifts.length === 1 && state.shifts[0].status === 'ACTIVE' && Number(state.shifts[0].startOdometer) === 1000, 'START SHIFT contract failed')
   evidence.push({ id: 'WORK.START_SHIFT', result: 'PASS', expected: 'one ACTIVE shift at 1000 km', persisted: { shifts: state.shifts.length, status: state.shifts[0]?.status, startOdometer: state.shifts[0]?.startOdometer } })
@@ -286,7 +290,7 @@ try {
   assert(await formsStartAck.isEnabled(), 'Start Shift odometer confirmation did not become enabled after validated input')
   await formsStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await page.locator('.swipe-copy strong').filter({ hasText: 'GO TO PICKUP' }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   evidence.push({ id: 'FORMS.START_SHIFT_INPUT', result: 'PASS', expected: 'contextual form + native numeric odometer + viewport-safe controls' })
 
   // Trip details: END TRIP exposes fare immediately; optional fields are expanded as needed and one OK saves.
@@ -320,7 +324,7 @@ try {
   await enterKfeNumber('Cancellation fee', '250')
   await page.getByText('Trip cancelled.', { exact: true }).waitFor()
   assert(await page.locator('.contextual-form.focus-surface').count() === 0, 'Cancellation form remained open after commit')
-  await page.locator('.swipe-copy strong').filter({ hasText: 'GO TO PICKUP' }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   state = await db(page, ['trips'])
   assert(state.trips.length === 2 && state.trips.filter(t => t.status === 'CANCELLED').length === 1 && state.trips.filter(t => t.status === 'COMPLETED').length === 1, 'FORMS.CANCELLATION lifecycle failed')
   evidence.push({ id: 'FORMS.CANCELLATION_KEYBOARD', result: 'PASS', expected: 'contextual cancellation commits and returns to ready/pickup context' })
@@ -359,7 +363,7 @@ try {
   await enterKfeNumber('Current vehicle odometer', '1000')
   const endStartAck = page.getByRole('checkbox', { name: /current vehicle odometer/i }); await endStartAck.waitFor({ state: 'visible' }); const endAckDeadline = Date.now() + 3000; while (Date.now() < endAckDeadline && !(await endStartAck.isEnabled())) await sleep(50); assert(await endStartAck.isEnabled(), 'End Shift setup odometer confirmation did not become enabled after validated input'); await endStartAck.check()
   await page.getByRole('button', { name: 'CONFIRM & GO ONLINE', exact: true }).click()
-  await page.locator('.swipe-copy strong').filter({ hasText: 'GO TO PICKUP' }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByRole('button', { name: 'GO TO PICKUP', exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   await page.getByRole('button', { name: 'ONLINE', exact: true }).click()
   await assertContextualViewport('.end-gate', 'End Shift close form')
   await assertInputContract(page.getByLabel('Closing odometer', { exact: true }).first())
@@ -424,12 +428,7 @@ try {
   assert(await applicationSettings.getByRole('button', { name: /Light|Auto/ }).count() === 0, 'Light and Auto theme options must not be available')
   assert(await page.locator('html').getAttribute('data-kfe-theme') === 'dark', 'KFE must remain in dark theme')
   assert(await page.locator('html').getAttribute('data-kfe-theme-mode') === 'dark', 'Dark-only theme mode must be enforced on the root document')
-  const notificationToggle = applicationSettings.getByRole('checkbox', { name: 'Enable notifications', exact: true })
-  assert(await notificationToggle.count() === 1, 'Application Settings notification option missing')
-  await notificationToggle.uncheck()
-  assert(await page.evaluate(() => localStorage.getItem('kfe.notifications.enabled')) === 'false', 'Notification preference did not persist when disabled')
-  await notificationToggle.check()
-  assert(await page.evaluate(() => localStorage.getItem('kfe.notifications.enabled')) === 'true', 'Notification preference did not persist when enabled')
+  assert(await applicationSettings.getByText('Appearance', { exact: true }).count() === 1, 'Application Settings appearance section missing')
   await page.goto(new URL('admin', base).href, { waitUntil: 'domcontentloaded' })
   await page.locator('.admin-page').getByRole('heading', { name: 'Admin workspace', exact: true }).waitFor({ state: 'visible', timeout: 30000 })
   await page.locator('.admin-page').getByRole('button', { name: /Data Reset/ }).click()

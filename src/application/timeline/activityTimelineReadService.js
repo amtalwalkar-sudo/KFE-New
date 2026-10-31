@@ -4,6 +4,7 @@ import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataC
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
+import { LocalityRepository } from '../../repositories/localityRepository.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -15,24 +16,24 @@ const validTime = value => {
   const time = new Date(value).getTime()
   return Number.isFinite(time) ? time : null
 }
-const tripPeriodTime = trip => {
+export const tripPeriodTime = trip => {
   if (trip?.status === 'COMPLETED') return validTime(trip.tripStartAt)
-  if (trip?.status === 'CANCELLED') return validTime(trip.tripStartAt) ?? validTime(trip.createdAt)
+  if (trip?.status === 'CANCELLED') return validTime(trip.tripEndAt) ?? validTime(trip.tripStartAt) ?? validTime(trip.createdAt)
   return null
 }
 const recordTime = record => validTime(record?.capturedAt) ?? validTime(record?.createdAt)
 const inRange = (time, range) => time != null && time >= range.from.getTime() && time <= range.to.getTime()
-const locality = value => {
-  const label = typeof value === 'string' ? value.trim() : ''
-  return label || 'Location unavailable'
-}
-const locationLabel = snapshot => {
-  const placeName = typeof snapshot?.placeName === 'string' ? snapshot.placeName.trim() : ''
-  if (placeName) return placeName
-  const latitude = Number(snapshot?.latitude)
-  const longitude = Number(snapshot?.longitude)
-  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) return 'Location unavailable'
-  return `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offline = false) => {
+  const hasCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+  if (!snapshot || !hasCoordinate(snapshot.latitude) || !hasCoordinate(snapshot.longitude)) return 'Location unavailable'
+  const latitude = Number(snapshot.latitude)
+  const longitude = Number(snapshot.longitude)
+  const hasAccuracy = snapshot.accuracy !== null && snapshot.accuracy !== undefined && snapshot.accuracy !== ''
+  const accuracy = hasAccuracy ? Number(snapshot.accuracy) : NaN
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || (hasAccuracy && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 75))) return 'Location unavailable'
+  const saved = localityBySnapshotId.get(snapshot.id)?.placeName
+  if (typeof saved === 'string' && saved.trim()) return saved.trim()
+  return offline ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Location unavailable'
 }
 const durationMs = trip => {
   const start = validTime(trip?.tripStartAt)
@@ -51,8 +52,8 @@ const farePresentation = trip => {
 }
 
 /**
- * Read-only Timeline projection over existing record authorities. No writes,
- * GPS capture, reverse geocoding, or separate business database are used here.
+ * Read-only Timeline projection over ride/fuel authorities and saved GPS snapshots.
+ * Locality labels are read from permanent PWA IndexedDB records; this read model never performs network requests.
  */
 export const ActivityTimelineReadService = Object.freeze({
   subscribeDataChanges(callback) {
@@ -70,44 +71,39 @@ export const ActivityTimelineReadService = Object.freeze({
       FuelRepository.getAll(),
     ])
     const trips = Array.isArray(allTrips) ? allTrips : []
-    const tripLocations = await EventLocationService.forEntities('TRIP', trips.map(trip => trip?.id))
+    const periodTrips = trips.filter(trip => (trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED') && inRange(tripPeriodTime(trip), range))
+    const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id), ['PICKUP_START', 'TRIP_END'])
+    const localityRows = await LocalityRepository.forSnapshotIds(tripLocations.map(location => location.id))
+    const localityBySnapshotId = new Map(localityRows.map(row => [row.snapshotId, row]))
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
     const locationsByTrip = new Map()
     for (const snapshot of tripLocations) {
       if (!snapshot?.entityId) continue
       const current = locationsByTrip.get(snapshot.entityId) || {}
-      if (snapshot.eventType === 'TRIP_START') current.start = snapshot
+      if (snapshot.eventType === 'PICKUP_START') current.pickup = snapshot
       if (snapshot.eventType === 'TRIP_END') current.end = snapshot
+      if (snapshot.eventType === 'TRIP_CANCELLED') current.cancelled = snapshot
       locationsByTrip.set(snapshot.entityId, current)
     }
 
-    const rides = trips
-      .filter(trip => trip?.status === 'COMPLETED' || trip?.status === 'CANCELLED')
+    const rides = periodTrips
       .map(trip => ({ trip, time: tripPeriodTime(trip) }))
-      .filter(item => inRange(item.time, range))
       .map(({ trip, time }) => {
         const fare = farePresentation(trip)
         const locations = locationsByTrip.get(trip.id) || {}
-        // New records use the shared GPS_SNAPSHOT event pathway. Legacy trip-boundary
-        // labels remain a read-only fallback so historical records are not hidden.
-        const pickupName = locationLabel(locations.start) !== 'Location unavailable'
-          ? locationLabel(locations.start)
-          : locationLabel(trip.tripStartLocation)
-        const dropName = locationLabel(locations.end) !== 'Location unavailable'
-          ? locationLabel(locations.end)
-          : locationLabel(trip.tripEndLocation)
+        const pickupName = locationLabel(locations.pickup, localityBySnapshotId, offline)
+        const dropName = locationLabel(locations.end, localityBySnapshotId, offline)
         return {
           id: trip.id,
           status: trip.status,
           statusLabel: trip.status === 'CANCELLED' ? 'Cancelled' : 'Completed',
           timeAt: new Date(time).toISOString(),
-          timeLabel: trip.status === 'CANCELLED' && validTime(trip.tripStartAt) == null ? 'Cancelled at' : 'Start time',
+          timeLabel: trip.status === 'CANCELLED' ? 'Cancelled at' : 'Start time',
           durationMs: durationMs(trip),
           fareLabel: fare.label,
           fareValue: fare.value,
           fareState: fare.state,
-          pickupArea: validTime(trip.tripStartAt) != null ? pickupName : 'Location unavailable',
-          pickupAreaResolution: locations.start?.placeName ? 'RESOLVED' : locations.start?.localityResolutionState || 'PENDING',
-          dropAreaResolution: locations.end?.placeName ? 'RESOLVED' : locations.end?.localityResolutionState || 'PENDING',
+          pickupArea: pickupName,
           // A cancelled trip's end GPS fix is a cancellation location, not a passenger drop-off.
           dropArea: trip.status === 'COMPLETED' ? dropName : 'Location unavailable',
         }
@@ -120,8 +116,8 @@ export const ActivityTimelineReadService = Object.freeze({
         id: log.id,
         timeAt: new Date(recordTime(log)).toISOString(),
         amount: amount(log.amount) ? Number(log.amount) : null,
-        quantityKg: Number.isFinite(Number(log.quantityKg)) && Number(log.quantityKg) > 0 ? Number(log.quantityKg) : null,
-        odometer: Number.isFinite(Number(log.odometer)) && Number(log.odometer) >= 0 ? Number(log.odometer) : null,
+        quantityKg: log.quantityKg !== null && log.quantityKg !== undefined && log.quantityKg !== '' && Number.isFinite(Number(log.quantityKg)) && Number(log.quantityKg) > 0 ? Number(log.quantityKg) : null,
+        odometer: log.odometer !== null && log.odometer !== undefined && log.odometer !== '' && Number.isFinite(Number(log.odometer)) && Number(log.odometer) >= 0 ? Number(log.odometer) : null,
         isFullTank: log.isFullTank === true,
       }))
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))

@@ -8,8 +8,8 @@ export const createCloudBackupScheduler = () => Object.freeze({
   async registerDaily() {
     // Deliberately do not register Periodic Background Sync as a "backup
     // scheduler": that event only notifies clients and is not a cloud upload.
-    // main.js retries on startup, app resume, restored connectivity, visible
-    // page and a six-hour foreground interval instead.
+    // The live application retries on startup, app resume, restored connectivity,
+    // and visibility changes. No timer or background polling is registered.
     return false
   },
 })

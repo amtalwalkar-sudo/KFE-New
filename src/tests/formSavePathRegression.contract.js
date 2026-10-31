@@ -14,12 +14,11 @@ const workRepo = read('../repositories/shiftTripRepository.js')
 const fuelModal = read('../components/CngFuelModal.vue')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
-const performanceService = read('../application/performance/performanceService.js')
+const performanceService = read('../application/performance/phaseOnePerformanceService.js')
 const universal = read('../presentation/forms/universalFormSystem.js')
 
 const adminKeys = [
-  'businessSetup', 'vehicle', 'driver', 'compliance', 'maintenance', 'loan',
-  'loanPayment', 'prepayment', 'settlement', 'driverTarget', 'breakEvenInputs'
+  'businessSetup', 'vehicle', 'driver', 'compliance', 'maintenance', 'loan'
 ]
 
 // Form inventory -> presentation -> validation -> persistence.
@@ -51,7 +50,9 @@ assert.match(workForm, /update:fuel-partial/, 'Partial-fill control must have an
 assert.match(workView, /fuelPartial = computed/, 'Partial-fill state must be derived consistently from stored full-tank state')
 
 // Saved source facts must feed the existing calculation/read-model consumers.
-assert.match(performanceService, /AdminRepository|PerformanceRepository|driverTarget|breakEvenInputs/, 'Performance must consume persisted source facts/read models')
+assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Performance must read saved canonical records')
+assert.match(performanceService, /calculateFuelPeriodSummary/, 'Performance must use the basic fuel summary')
+assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
 
 // Keyboard behavior is a shared form contract, not a cosmetic hint.
 assert.match(universal, /function handleEnter/, 'Shared form runtime must implement Enter/Next/Done navigation')

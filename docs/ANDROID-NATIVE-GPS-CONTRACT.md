@@ -1,29 +1,34 @@
-> **Superseded 2026-10-22:** GPS capture/tracking and Valhalla routing have been removed from the active KFE runtime. This document is retained as historical audit context only; do not use it as an implementation or release contract.
+# Android Ride GPS Contract
 
-# Android Trip-Boundary GPS Contract
+**Scope:** Native/PWA event-time GPS capture. Timeline locality display is a separate, explicitly user-triggered presentation enrichment.
 
-**Active scope (2026-10-21): one-shot GPS snapshots only.** This contract supersedes older continuous-trace requirements.
+KFE captures one GPS snapshot at exactly four ride workflow events:
 
-## Capture and persistence
+- `PICKUP_START`: driver swipes to go to pickup.
+- `TRIP_CANCELLED`: driver cancels the ride.
+- `TRIP_START`: driver swipes to start the ride.
+- `TRIP_END`: driver swipes to end the ride.
 
-- Capture a one-shot GPS fix and its device fix timestamp at passenger-trip start and trip end; retain a separate pickup-start snapshot where that workflow boundary is recorded.
-- Persist latitude, longitude, accuracy when available, and the GPS provider's actual fix timestamp as `capturedAt` locally. Never substitute the current wall-clock time when a fix timestamp is absent or invalid; treat that snapshot as unavailable. GPS-provider capture does not require internet. A fix may take longer offline and requires Android Location Services plus foreground precise/coarse location permission.
-- Cancellation is a terminal trip boundary and receives the same one-shot endpoint snapshot.
-- Never start a continuous watch, background GPS trace collector, trace auto-resume, route matching, Valhalla routing, or kilometre calculation for this feature.
-- The PWA and Android overlay capture snapshots without blocking trip transitions or fare/cancellation forms. A missing fix must not prevent a trip from completing; saved lifecycle timestamps remain authoritative.
-- Snapshot capture/persistence must not require the PWA to remain open when the native overlay is completing an otherwise-supported trip workflow.
-- Physical-device acceptance verifies start/end snapshots and timestamps with networking disabled, durable persistence after app/service reopening, and overlay operation with the PWA closed. It should also verify that missing/unavailable GPS does not block trip completion.
+Each snapshot records latitude, longitude, provider accuracy, the provider's actual fix timestamp (`capturedAt`), and the separate business-event timestamp (`eventAt`). Never substitute one timestamp for the other.
 
-## Explicit non-goals
+GPS capture is local and does not require internet. Android durably queues each event and makes repeated fresh location requests for up to 30 seconds, using enabled GPS and network location providers. Requests are spaced at approximately three-second intervals. A fix with supplied accuracy at 75 metres or better is accepted; less accurate fixes are ignored while the bounded window remains. If the provider omits accuracy metadata, preserve the valid coordinate as unverified but do not reverse geocode it. If no acceptable fix is obtained, active requests stop and the durable event remains pending for a later eligible retry. The ride transition never waits for GPS and no business timestamp changes. There is no continuous tracking, route matching, or GPS-based distance calculation.
 
-This feature does not collect continuous location traces, calculate distance, categorize kilometres, match routes, call Valhalla, or automatically resume GPS recording after reboot. Continuous trace, screen-off trace collection, routing and distance-reconciliation acceptance requirements are out of scope and must not be used as release criteria for this snapshot contract.
+## Locality display boundary
 
+The PWA owns reverse geocoding and permanent locality persistence. Native Android stores coordinates only and never performs geocoding.
 
+- After each of the four event snapshots is durably saved, the PWA starts reverse geocoding asynchronously when available; ride actions never wait for it.
+- All four event types are eligible for locality resolution.
+- New geocoding is limited to events whose `eventAt` is within the most recent seven days.
+- If the PWA is offline, show the saved locality if one exists; otherwise show the saved coordinates. A manual Timeline pull-to-refresh retries unresolved eligible events when online.
+- Successful locality names are saved permanently in PWA IndexedDB, keyed by canonical GPS snapshot ID. They are not keyed only by coordinates and are not subject to a 500-entry cache cap.
+- Existing successful locality names are not silently overwritten by ordinary retries.
+- No continuous network polling, automatic connectivity monitoring, or unbounded retry loop is permitted.
+- A provider result is accepted only when it includes coordinates within the saved GPS fix's accuracy-aware proximity bound (100–150 metres). A locality name without verifiable nearby result coordinates is rejected.
+- Never present guessed/fabricated localities or reuse legacy trip-location fields. Pickup and drop presentation rules remain separate: pickup uses `PICKUP_START`; only a completed ride's drop uses `TRIP_END`. Cancellation location is not a passenger drop-off.
 
-## Persisted snapshot validation and locality enrichment (2026-10-29)
+## Platform adapters and verification
 
-- A pending one-shot event is complete only when its canonical `GPS_SNAPSHOT` contains valid latitude/longitude bounds and a non-empty provider `capturedAt`. An incomplete matching row must not clear the durable pending request; a later permission-gated one-shot attempt may repair that same event identity.
-- Reverse geocoding is manual-only and is triggered from the Timeline pull-down refresh (or its accessible refresh control). Native GPS capture and app startup/lifecycle events must never enqueue locality lookup work.
-- No Android worker, periodic job, retry timer, connectivity listener, or background service may request area names. If a manual request cannot resolve a name, retain the original coordinates and leave the record eligible for the user's next explicit refresh.
-- Display only locality/city/state values actually returned by the geocoder. If no usable name exists, retain the coordinates for offline display; never infer or fabricate an area name.
-- Device audit must compare each ride ID and event type against the native `GPS_SNAPSHOT` rows. Distinguish (1) no snapshot, (2) snapshot with invalid/missing coordinates or provider timestamp, (3) valid coordinates with no locality label, and (4) valid coordinates and locality label. Do not repair business rows or rewrite event timestamps as part of the audit.
+The browser PWA uses one-shot browser geolocation and local snapshot persistence. Android uses the native durable event queue. These are platform adapters for the same four-event snapshot contract, not competing business writers. Android event capture must not require internet.
+
+Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, manual locality refresh online/offline, and that ride timestamps/fares remain unchanged.

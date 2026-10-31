@@ -1,9 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Capacitor, registerPlugin } from '@capacitor/core'
-
-const NativeGps = registerPlugin('KfeTripBoundaryLocation')
-const isNative = Capacitor?.isNativePlatform?.() === true
+import { GpsPermissionService } from '../../application/location/gpsPermissionService.js'
+const isNative = GpsPermissionService.isNativePlatform()
 const open = ref(false)
 const busy = ref(false)
 const error = ref('')
@@ -31,8 +29,8 @@ async function refresh() {
   status.value.checking = true
   error.value = ''
   try {
-    if (isNative && typeof NativeGps.getLocationStatus === 'function') {
-      const result = await NativeGps.getLocationStatus()
+    if (isNative && typeof GpsPermissionService.getStatus === 'function') {
+      const result = await GpsPermissionService.getStatus()
       status.value = { checking: false, pendingCount: 0, ...result }
     } else {
       status.value = { checking: false, fineGranted: false, coarseGranted: false, backgroundGranted: false, gpsEnabled: false, pendingCount: 0 }
@@ -44,7 +42,7 @@ async function refresh() {
 }
 
 async function openAndroidPermissionSettings() {
-  try { await NativeGps.openBackgroundLocationSettings() } catch (e) {
+  try { await GpsPermissionService.openBackgroundSettings() } catch (e) {
     error.value = e?.message || 'Could not open Android permission settings.'
   }
 }
@@ -54,13 +52,13 @@ async function enableBackgroundCapture() {
   busy.value = true
   error.value = ''
   try {
-    let current = await NativeGps.getLocationStatus()
+    let current = await GpsPermissionService.getStatus()
     if (!current.fineGranted) {
-      await NativeGps.requestLocationPermissions()
-      current = await NativeGps.getLocationStatus()
+      await GpsPermissionService.requestForegroundPermissions()
+      current = await GpsPermissionService.getStatus()
     }
     if (current.fineGranted && !current.backgroundGranted) {
-      await NativeGps.requestBackgroundLocationPermission()
+      await GpsPermissionService.requestBackgroundPermission()
     }
     await refresh()
   } catch (e) {
@@ -71,7 +69,6 @@ async function enableBackgroundCapture() {
   }
 }
 
-let statusRefreshInterval = null
 function onVisibilityChange() {
   if (document.visibilityState === 'visible') void refresh()
 }
@@ -79,14 +76,10 @@ onMounted(() => {
   void refresh()
   window.addEventListener('focus', refresh)
   document.addEventListener('visibilitychange', onVisibilityChange)
-  statusRefreshInterval = window.setInterval(() => {
-    if (open.value && document.visibilityState === 'visible') void refresh()
-  }, 5000)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('focus', refresh)
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  if (statusRefreshInterval != null) window.clearInterval(statusRefreshInterval)
 })
 </script>
 

@@ -1,10 +1,6 @@
 import { initializeCanonicalStorage } from '../utils/indexedDB.js'
 
-const PERFORMANCE_STORES = Object.freeze([
-  'shifts', 'trips', 'fuel_logs', 'vehicles', 'drivers',
-  'compliance_records', 'maintenance_records', 'loans', 'loan_payments',
-  'prepayments', 'driver_targets', 'break_even_inputs', 'settlements', 'settings',
-])
+const PERFORMANCE_STORES = Object.freeze(['shifts', 'trips', 'fuel_logs', 'settings'])
 
 const readSnapshot = async () => {
   const db = await initializeCanonicalStorage()
@@ -28,23 +24,9 @@ const readSnapshot = async () => {
 export const PerformanceRepository = {
   async getSnapshot() {
     const data = await readSnapshot()
-    return {
-      shifts: data.shifts,
-      trips: data.trips,
-      fuelLogs: data.fuel_logs,
-      vehicles: data.vehicles,
-      drivers: data.drivers,
-      compliance: data.compliance_records,
-      maintenance: data.maintenance_records,
-      loans: data.loans,
-      loanPayments: data.loan_payments,
-      prepayments: data.prepayments,
-      driverTargets: data.driver_targets,
-      breakEvenInputs: data.break_even_inputs,
-      settlements: data.settlements,
-      businessSetup: data.settings
-        .filter(record => record?.settingKey === 'businessSetup' && !record?.deletedAt && record?.deleted !== true)
-        .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0]?.values || null,
-    }
+    const businessSetup = (data.settings || [])
+      .filter(record => record?.settingKey === 'businessSetup' && !record?.deletedAt && record?.deleted !== true)
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0]?.values || null
+    return { shifts: data.shifts, trips: data.trips, fuelLogs: data.fuel_logs, businessSetup }
   }
 }

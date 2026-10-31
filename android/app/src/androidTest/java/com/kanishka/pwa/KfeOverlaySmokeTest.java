@@ -543,7 +543,7 @@ public class KfeOverlaySmokeTest {
     assertTrue("Overlay form flow must not retain an activity-launch fallback", hasNoActivityLaunchFallback());
   }
 
-  @Test public void fareFormSendsOptionalTollParkingAndTreatmentFlags() throws Exception {
+  @Test public void fareFormSendsOptionalTollAndParkingAmounts() throws Exception {
     clearPending();
     seedCanonicalShift("fare-shift");
     seedCanonicalTrip(new JSONObject().put("id", "fare-trip").put("shiftId", "fare-shift")
@@ -569,7 +569,6 @@ public class KfeOverlaySmokeTest {
         ((EditText) fieldValue(service, "formInput")).setText("450");
         ((EditText) fieldValue(service, "tollInput")).setText("0");
         ((EditText) fieldValue(service, "parkingInput")).setText("25");
-        ((android.widget.CheckBox) fieldValue(service, "tollTreatmentInput")).setChecked(true);
         java.lang.reflect.Method submit = KfeOverlayService.class.getDeclaredMethod("submitNumericForm");
         submit.setAccessible(true);
         submit.invoke(service);
@@ -580,8 +579,6 @@ public class KfeOverlaySmokeTest {
     assertEquals("450", payload.getString("fare"));
     assertEquals("0", payload.getString("toll"));
     assertEquals("25", payload.getString("parking"));
-    assertEquals("EXCLUDED", payload.getString("tollTreatment"));
-    assertEquals("INCLUDED", payload.getString("parkingTreatment"));
     JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "fare-trip");
     assertTrue("Fare must commit to native canonical storage", storedOutcome.optBoolean("found", false));
     JSONObject storedTrip = storedOutcome.getJSONObject("record");
@@ -589,7 +586,6 @@ public class KfeOverlaySmokeTest {
     assertEquals(450d, storedTrip.getDouble("revenue"), 0.001d);
     assertEquals(0d, storedTrip.getDouble("toll"), 0.001d);
     assertEquals(25d, storedTrip.getDouble("parking"), 0.001d);
-    assertEquals("EXCLUDED", storedTrip.getString("tollTreatment"));
   }
 
   @Test public void cancellationFormAllowsOptionalFeeAndPersistsPassengerReason() throws Exception {
@@ -714,100 +710,43 @@ public class KfeOverlaySmokeTest {
     assertEquals("COMPLETED", store.getRecord("SHIFT", shiftId).getJSONObject("record").getString("status"));
   }
 
-  @Test public void tripLocalityLabelSurvivesNativeReloadAndStalePwaSynchronization() throws Exception {
+  @Test public void fourRideEventGpsSnapshotsSurviveNativeReload() throws Exception {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    String tripId = "locality-reload-" + java.util.UUID.randomUUID();
-    String shiftId = "locality-shift-" + java.util.UUID.randomUUID();
-    String now = java.time.Instant.now().toString();
-    JSONObject trip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
-      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
-      .put("createdAt", now).put("updatedAt", now);
-    assertTrue("Canonical trip seed must commit",
-      store.putRecord("locality-seed-" + tripId, "TRIP", trip).accepted);
-
-    JSONObject snapshot = new JSONObject().put("latitude", 19.1197).put("longitude", 72.8468)
-      .put("accuracy", 12.0).put("capturedAt", now);
-    assertTrue("GPS snapshot must commit before its locality label",
-      store.persistTripBoundarySnapshot("locality-gps-" + tripId, tripId, "tripStartLocation", snapshot).accepted);
-
-    String labelOperation = "locality-label-" + tripId;
-    KfeCanonicalWorkStore.Outcome labelWrite = store.updateTripBoundaryPlaceName(
-      labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai");
-    assertTrue("Locality metadata write must be accepted", labelWrite.accepted);
-    assertTrue("Retrying the same operation must be idempotent",
-      store.updateTripBoundaryPlaceName(labelOperation, tripId, "tripStartLocation", "Andheri East, Mumbai").duplicate);
-    JSONObject immediatelyAfterLabel = store.getRecord("TRIP", tripId).optJSONObject("record");
-    assertEquals("Metadata enrichment must not advance the business version", now, immediatelyAfterLabel.getString("updatedAt"));
-
-    // Simulate a newer PWA mirror that has the business record but lacks the
-    // native-only boundary snapshot/locality metadata.
-    JSONObject staleMirror = new JSONObject().put("id", tripId).put("shiftId", shiftId)
-      .put("status", "ACTIVE").put("tripStage", "START_RIDE")
-      .put("createdAt", now).put("updatedAt", java.time.Instant.now().plusSeconds(3).toString());
-    assertTrue("PWA mirror must synchronize without dropping native metadata",
-      store.putRecord("locality-mirror-" + tripId, "TRIP", staleMirror).accepted);
-
-    JSONObject beforeReload = store.getRecord("TRIP", tripId).optJSONObject("record");
-    assertNotNull("Canonical trip must be readable before reload", beforeReload);
-    assertEquals("Andheri East, Mumbai",
-      beforeReload.getJSONObject("tripStartLocation").getString("placeName"));
-    assertEquals(19.1197, beforeReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
-    assertEquals(now, beforeReload.getJSONObject("tripStartLocation").getString("capturedAt"));
-
-    // Close and reopen the actual SQLite helper so this checks the durable
-    // storage boundary rather than only an in-memory object or serialized fixture.
-    store.close();
-    java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
-    instance.setAccessible(true);
-    instance.set(null, null);
-    KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
-    JSONObject afterReload = reopened.getRecord("TRIP", tripId).optJSONObject("record");
-    assertNotNull("Canonical trip must reload from SQLite", afterReload);
-    assertEquals("Andheri East, Mumbai",
-      afterReload.getJSONObject("tripStartLocation").getString("placeName"));
-    assertEquals(19.1197, afterReload.getJSONObject("tripStartLocation").getDouble("latitude"), 0.00001);
-    assertEquals(now, afterReload.getJSONObject("tripStartLocation").getString("capturedAt"));
-  }
-
-  @Test public void shiftAndFuelEventLocationsSurviveNativeReloadAndLabelEnrichment() throws Exception {
-    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    String eventAt = java.time.Instant.now().minusSeconds(60).toString();
-    String now = java.time.Instant.now().toString();
-    String[][] cases = new String[][] {{"SHIFT", "SHIFT_START"}, {"FUEL", "FUEL_ENTRY"}};
+    String tripId = "gps-trip-" + java.util.UUID.randomUUID();
+    String eventAt = java.time.Instant.now().minusSeconds(30).toString();
+    String capturedAt = java.time.Instant.now().toString();
+    String[] events = new String[] {"PICKUP_START", "TRIP_CANCELLED", "TRIP_START", "TRIP_END"};
     java.util.List<String> ids = new java.util.ArrayList<>();
-    for (String[] item : cases) {
-      String id = "event-location-" + java.util.UUID.randomUUID();
+    for (int i = 0; i < events.length; i++) {
+      String event = events[i];
+      String id = "native-event-location-" + tripId + "-" + event;
       ids.add(id);
-      JSONObject snapshot = new JSONObject().put("id", id).put("entityType", item[0])
-        .put("entityId", item[0].toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID())
-        .put("eventType", item[1]).put("eventAt", eventAt).put("latitude", 19.0486).put("longitude", 73.0694)
-        .put("accuracy", 8.0).put("capturedAt", now).put("createdAt", now).put("updatedAt", now);
-      KfeCanonicalWorkStore.Outcome created = store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot);
-      assertTrue("Event location coordinates must be committed to native canonical storage", created.accepted);
+      JSONObject snapshot = new JSONObject().put("id", id).put("entityType", "TRIP")
+        .put("entityId", tripId).put("eventType", event).put("eventAt", eventAt)
+        .put("latitude", 19.04 + i * 0.001).put("longitude", 72.84 + i * 0.001)
+        .put("accuracy", JSONObject.NULL).put("capturedAt", capturedAt)
+        .put("createdAt", capturedAt).put("updatedAt", capturedAt);
+      KfeCanonicalWorkStore.Outcome created = store.putRecord("gps-snapshot-" + id, "GPS_SNAPSHOT", snapshot);
+      assertTrue("Each of the four ride-event GPS snapshots must commit", created.accepted);
       assertTrue("Retry of the same snapshot operation must be idempotent",
-        store.putRecord("event-location-create-" + id, "GPS_SNAPSHOT", snapshot).duplicate);
-
-      String enrichedAt = java.time.Instant.now().plusMillis(50).toString();
-      JSONObject enriched = new JSONObject(snapshot.toString()).put("placeName", "Kharghar, Navi Mumbai")
-        .put("updatedAt", enrichedAt);
-      assertTrue("Locality label should enrich the existing durable event snapshot",
-        store.putRecord("event-location-label-" + id, "GPS_SNAPSHOT", enriched).accepted);
+        store.putRecord("gps-snapshot-" + id, "GPS_SNAPSHOT", snapshot).duplicate);
     }
     store.close();
     java.lang.reflect.Field instance = KfeCanonicalWorkStore.class.getDeclaredField("instance");
     instance.setAccessible(true);
     instance.set(null, null);
     KfeCanonicalWorkStore reopened = KfeCanonicalWorkStore.get(context);
-    for (int i = 0; i < cases.length; i++) {
-      JSONObject afterReload = reopened.getRecord("GPS_SNAPSHOT", ids.get(i)).optJSONObject("record");
-      assertNotNull("Event location must reload from SQLite", afterReload);
-      assertEquals("Kharghar, Navi Mumbai", afterReload.getString("placeName"));
-      assertEquals(19.0486, afterReload.getDouble("latitude"), 0.00001);
-      assertEquals(73.0694, afterReload.getDouble("longitude"), 0.00001);
-      assertEquals(now, afterReload.getString("capturedAt"));
-      assertEquals("Business event time must remain distinct from the GPS fix time", eventAt, afterReload.getString("eventAt"));
-      assertEquals(cases[i][1], afterReload.getString("eventType"));
-      assertEquals(cases[i][0], afterReload.getString("entityType"));
+    for (int i = 0; i < events.length; i++) {
+      JSONObject saved = reopened.getRecord("GPS_SNAPSHOT", ids.get(i)).optJSONObject("record");
+      assertNotNull("Ride GPS snapshot must reload from SQLite", saved);
+      assertEquals(events[i], saved.getString("eventType"));
+      assertEquals("TRIP", saved.getString("entityType"));
+      assertEquals(tripId, saved.getString("entityId"));
+      assertEquals(eventAt, saved.getString("eventAt"));
+      assertEquals(capturedAt, saved.getString("capturedAt"));
+      assertTrue("Area names are not part of the GPS snapshot contract", !saved.has("placeName"));
+      assertTrue("Coordinates must remain valid without accuracy metadata",
+        saved.getDouble("latitude") >= -90d && saved.getDouble("latitude") <= 90d);
     }
   }
 
@@ -939,12 +878,10 @@ public class KfeOverlaySmokeTest {
     assertTrue(KfeNativeTripFormRules.isValidCancellationReason("DRIVER"));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason(""));
     assertTrue(!KfeNativeTripFormRules.isValidCancellationReason("UNKNOWN"));
-    JSONObject fareCommand=KfeNativeTripFormRules.buildFarePayload(" 425 "," 12.5 ","",true,false);
+    JSONObject fareCommand=KfeNativeTripFormRules.buildFarePayload(" 425 "," 12.5 ","");
     assertEquals("425",fareCommand.getString("fare"));
     assertEquals("12.5",fareCommand.getString("toll"));
     assertEquals("",fareCommand.getString("parking"));
-    assertEquals("EXCLUDED",fareCommand.getString("tollTreatment"));
-    assertEquals("INCLUDED",fareCommand.getString("parkingTreatment"));
     JSONObject cancellationCommand=KfeNativeTripFormRules.buildCancellationPayload(" 0 ","PASSENGER");
     assertEquals("0",cancellationCommand.getString("revenue"));
     assertEquals("PASSENGER",cancellationCommand.getString("reason"));
@@ -952,7 +889,7 @@ public class KfeOverlaySmokeTest {
     android.content.SharedPreferences draftPrefs=context.getSharedPreferences("native-form-draft-boundary-test",Context.MODE_PRIVATE);
     draftPrefs.edit().clear().commit();
     KfeNativeTripFormDraftStore.save(draftPrefs,new KfeNativeTripFormDraftStore.Draft(
-        "FARE","425","12.5","", "PASSENGER",true,true,false,true,false));
+        "FARE","425","12.5","", "PASSENGER",true,true,false));
     KfeNativeTripFormDraftStore.Draft restoredDraft=KfeNativeTripFormDraftStore.load(draftPrefs);
     assertEquals("FARE",restoredDraft.mode);
     assertEquals("425",restoredDraft.fare);
@@ -961,7 +898,6 @@ public class KfeOverlaySmokeTest {
     assertEquals("PASSENGER",restoredDraft.reason);
     assertTrue(restoredDraft.cancelFormPwaSynchronized);
     assertTrue(restoredDraft.tollExpanded);
-    assertTrue(restoredDraft.tollExcluded);
     assertFalse(restoredDraft.parkingExpanded);
     KfeNativeTripFormDraftStore.clear(draftPrefs);
     assertFalse("Clearing a submitted/dismissed form must remove its saved draft.",draftPrefs.contains("formMode"));
@@ -1329,5 +1265,50 @@ public class KfeOverlaySmokeTest {
     }
     assertNotNull("Native overlay service instance must exist", KfeOverlayService.instance);
     assertNotNull("Native overlay view must be created while MainActivity is not visible", overlay);
+  }
+
+  @Test public void durableGpsJournalDeduplicatesPersistsBackoffAndRemovesSnapshots() throws Exception {
+    KfeGpsEventJournal journal = new KfeGpsEventJournal(context);
+    long now = System.currentTimeMillis();
+    String eventAt = java.time.Instant.ofEpochMilli(now - 1000L).toString();
+
+    assertTrue("First supported event must be durably queued",
+      journal.enqueue("TRIP", "journal-trip", "TRIP_START", eventAt));
+    assertTrue("Duplicate event identity must be idempotent",
+      journal.enqueue("TRIP", "journal-trip", "TRIP_START", eventAt));
+    assertEquals("Duplicate enqueue must not create a second journal row", 1, journal.count());
+    assertFalse("Unsupported event must not enter the durable journal",
+      journal.enqueue("TRIP", "journal-trip", "UNKNOWN", eventAt));
+
+    JSONObject queued = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
+    assertNotNull("Queued event must be recoverable from persistent storage", queued);
+    assertEquals("journal-trip::TRIP_START", queued.optString("key", ""));
+    assertEquals(eventAt, queued.optString("eventAt", ""));
+    assertEquals(0, queued.optInt("retryAttempts", -1));
+
+    assertTrue("Failed one-shot capture must persist retry backoff",
+      journal.recordFailure("TRIP", "journal-trip", "TRIP_START", now));
+    JSONObject deferred = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
+    assertEquals(1, deferred.optInt("retryAttempts", 0));
+    assertEquals(now + 30000L, deferred.optLong("nextAttemptAt", 0L));
+
+    assertTrue("Saved snapshot must remove its pending journal entry",
+      journal.remove("TRIP", "journal-trip", "TRIP_START"));
+    assertEquals(0, journal.count());
+    assertFalse(journal.hasPending());
+  }
+
+  @Test public void gpsSnapshotEventTypeAllowlistContainsOnlyFourRideBoundaries() throws Exception {
+    Method supported = KfeGpsEventPolicy.class.getDeclaredMethod(
+      "supports", String.class, String.class);
+    supported.setAccessible(true);
+    for (String event : new String[]{"PICKUP_START", "TRIP_CANCELLED", "TRIP_START", "TRIP_END"}) {
+      assertTrue("Ride event must support a durable GPS snapshot: " + event,
+        ((Boolean) supported.invoke(null, "TRIP", event)).booleanValue());
+    }
+    assertFalse("Shift events must not capture GPS through the ride snapshot path",
+      ((Boolean) supported.invoke(null, "SHIFT", "SHIFT_START")).booleanValue());
+    assertFalse("Unknown event types must not capture GPS",
+      ((Boolean) supported.invoke(null, "TRIP", "UNKNOWN")).booleanValue());
   }
 }

@@ -19,12 +19,12 @@ assert.match(platform, /registration\.waiting\.postMessage\(\{ type: 'kfe:activa
 assert.match(platform, /registration\.update\(\)\.catch/)
 
 assert.match(db, /CANONICAL_DB_NAME\s*=\s*'kanishka_kfe_canonical_db'/)
-assert.match(db, /SYNTHETIC_DB_NAME\s*=\s*'kanishka_kfe_synthetic_db'/)
-assert.match(db, /const getActiveSource = \(\) =>/)
-assert.match(db, /const dbNameFor = source => source === 'synthetic' \? SYNTHETIC_DB_NAME : CANONICAL_DB_NAME/)
-assert.match(db, /export const initializeActiveStorage = async \(\{ dataSource \} = \{\}\) => initializeDatabase\(dbNameFor\(dataSource \|\| getActiveSource\(\)\)\)/)
-assert.match(db, /export const initializeCanonicalStorage = initializeActiveStorage/)
-assert.match(db, /export const openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
+assert.doesNotMatch(db, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/)
+assert.doesNotMatch(db, /getActiveSource|dbNameFor|dbVersionFor/)
+assert.match(db, /indexedDB\.open\(name, CANONICAL_DB_VERSION\)/)
+assert.match(db, /export const initializeCanonicalStorage = async \(\) => initializeDatabase\(CANONICAL_DB_NAME\)/)
+assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
+assert.match(db, /export const openCanonicalDB = initializeCanonicalStorage/)
 
 const odo = db.slice(db.indexOf('export const getLastOdometer'))
 assert.match(odo, /initializeCanonicalStorage\(\)/)
@@ -36,7 +36,6 @@ const writers = [
   'repositories/fuelRepository.js',
   'repositories/odoGapRepository.js',
   'repositories/shiftTripRepository.js',
-  'repositories/movementArtifactRepository.js',
   'repositories/locationRepository.js'
 ]
 for (const relative of writers) {
@@ -45,15 +44,14 @@ for (const relative of writers) {
   assert.match(source, /pending_mutations/)
   assert.match(source, /audit_history/)
 }
-assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier, setActiveDataSource \} from '..\/utils\/indexedDB\.js'/)
+assert.match(backupRepository, /import \{ openCanonicalDB, notifyCanonicalDataChanged, withCanonicalResetWritePermission, setCanonicalResetBarrier, getCanonicalResetBarrier, clearCanonicalResetBarrier \} from '..\/utils\/indexedDB\.js'/)
 assert.doesNotMatch(backupRepository, /initializeCanonicalStorage\(/)
 assert.match(backupRepository, /restoreCanonicalSnapshot\(snapshot, \{ sourceExportedAt = null, authoritativeRecords = null \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupRepository, /resetCanonicalData\(\{ resetId \} = \{\}\) \{[\s\S]*const db = await openCanonicalDB\(\)/)
 assert.match(backupService, /source: \{ dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION \}/)
-assert.match(mutation, /canonical synchronization queue/)
-assert.match(mutation, /these sync lifecycle methods intentionally operate on canonical storage only/)
+assert.match(mutation, /export const MutationRepository = \{/)
 assert.doesNotMatch(mutation, /initializeCanonicalStorage\(/)
-for (const method of ['recoverStaleSyncing', 'getPending', 'updateStatus', 'remove']) {
+for (const method of ['recoverStaleSyncing']) {
   const start = mutation.indexOf('async ' + method)
   assert.ok(start >= 0, method + ' must exist')
   const next = mutation.indexOf('async ', start + 6)

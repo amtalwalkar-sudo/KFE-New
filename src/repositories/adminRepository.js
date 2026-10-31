@@ -1,17 +1,22 @@
-import { initializeCanonicalStorage, getActiveDataSource, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
+import { initializeCanonicalStorage, notifyCanonicalDataChanged } from '../utils/indexedDB.js'
 import { generateUUID } from '../utils/uuid.js'
 import { writeMutationAndAudit } from './mutationRepository.js'
 import { getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
 import { validateAdminForm } from '../application/admin/universalFormRules.js'
-import { deriveLoanPosition, paymentAllocationPreview, calculatePrepaymentEstimate, calculateEmi } from '../domain/finance/loanEngine.js'
 
-const FORM_STORE = Object.freeze({ businessSetup: 'settings', vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', ride: 'trips', shift: 'shifts', loan: 'loans', loanPayment: 'loan_payments', prepayment: 'prepayments', driverTarget: 'driver_targets', breakEvenInputs: 'break_even_inputs', settlement: 'settlements', backupRestore: 'settings', themes: 'settings', dataReset: 'settings' })
-const isSettingsForm = key => key === 'backupRestore' || key === 'themes' || key === 'dataReset' || key === 'businessSetup'
-const isFinanceForm = key => key === 'loan' || key === 'loanPayment' || key === 'prepayment'
+const ACTIVE_ADMIN_FORM_KEYS = new Set(['businessSetup','vehicle','driver','compliance','maintenance','loan'])
+// Legacy stores remain mapped for read-only relationship checks and backup compatibility.
+const FORM_STORE = Object.freeze({ businessSetup: 'settings', vehicle: 'vehicles', driver: 'drivers', compliance: 'compliance_records', maintenance: 'maintenance_records', loan: 'loans' })
+const isSettingsForm = key => key === 'businessSetup'
 const isDeleted = record => record?.deletedAt || record?.deleted === true
-const LOAN_CONTRACT_FIELDS = Object.freeze(['lender','accountReference','principal','tenureMonths','startDate','annualInterestRatePercent'])
 function storeFor(formKey) { const store = FORM_STORE[formKey]; if (!store) throw new Error(`No canonical store is defined for Admin form: ${formKey}`); return store }
-function toStoredRecord(formKey, values, existing = null) { const now = new Date().toISOString(); const id = existing?.id || generateUUID(); const base = { id, createdAt: existing?.createdAt || now, updatedAt: now }; if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: structuredClone(values) }; return { ...base, ...structuredClone(values) } }
+function toStoredRecord(formKey, values, existing = null) {
+  const now = new Date().toISOString()
+  const id = existing?.id || generateUUID()
+  const base = { ...(existing || {}), id, createdAt: existing?.createdAt || now, updatedAt: now }
+  if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: { ...(existing?.values || {}), ...structuredClone(values) } }
+  return { ...base, ...structuredClone(values) }
+}
 const readAll = async storeName => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
 const readOne = async (storeName, id) => { const db = await initializeCanonicalStorage(); return new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`)) }) }
 function toFormRecord(formKey, record) {
@@ -22,90 +27,16 @@ function toFormRecord(formKey, record) {
     const { annualInterestRate, emi, ...source } = values
     return { id, values: structuredClone(source), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
   }
-  if (formKey === 'loanPayment') {
-    const { allocations, allocatedAmount, status, ...source } = values
-    return { id, values: { ...structuredClone(source), status: status || 'PAID' }, createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
-  }
-  if (formKey === 'prepayment') {
-    const { outstandingBefore, outstandingAfter, effect, status, ...source } = values
-    return { id, values: { ...structuredClone(source), status: status || 'Applied', effect: effect || 'Reduce tenure' }, createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
-  }
   return { id, values: structuredClone(values), createdAt, updatedAt, ...(deletedAt ? { deletedAt } : {}), ...(deleted ? { deleted } : {}) }
 }
-const settlementSourceStore = Object.freeze({ Maintenance: 'maintenance_records', Compliance: 'compliance_records' })
-const settlementDirection = type => type === 'Receipt' ? 'IN' : 'OUT'
-const relationshipStore = Object.freeze({ settlement: [['sourceId', null]], compliance: [['vehicleId', 'vehicles']], ride: [['shiftId', 'shifts']], loanPayment: [['loanId', 'loans']], prepayment: [['loanId', 'loans']], driverTarget: [['driverId', 'drivers']] })
-const settlementSourceType = Object.freeze({ maintenance: 'Maintenance', compliance: 'Compliance' })
-async function readLiveSettlementsForSource(db, sourceId, sourceType) {
-  const rows = await new Promise((resolve, reject) => {
-    const request = db.transaction('settlements', 'readonly').objectStore('settlements').getAll()
-    request.onsuccess = () => resolve(request.result || [])
-    request.onerror = () => reject(request.error || new Error('Failed to read settlements.'))
-  })
-  return rows.filter(item => !isDeleted(item) && item.sourceId === sourceId && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT')
-}
-async function assertSourcePaymentIntegrity(db, formKey, values) {
-  const sourceType = settlementSourceType[formKey]
-  if (!sourceType) return
-  const existingPayments = await readLiveSettlementsForSource(db, values.id, sourceType)
-  const paid = existingPayments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
-  const sourceAmount = Number(values.cost)
-  if (Number.isFinite(sourceAmount) && paid > sourceAmount + 0.005) {
-    throw new Error(`Cannot reduce this ${formKey} amount below the already-paid amount. Already paid: ₹${paid.toFixed(2)}.`)
-  }
-}
-async function assertSourceHasNoSettlements(db, formKey, id) {
-  const sourceType = settlementSourceType[formKey]
-  if (!sourceType) return
-  const payments = await readLiveSettlementsForSource(db, id, sourceType)
-  if (payments.length) throw new Error(`Cannot delete this ${formKey}: existing payment settlements are linked to it.`)
-}
+const relationshipStore = Object.freeze({ driver: [['vehicleId', 'vehicles']], compliance: [['vehicleId', 'vehicles']], maintenance: [['vehicleId', 'vehicles']] })
 async function validateRelationships(db, formKey, values) {
-  if (formKey === 'settlement') {
-    const storeName = settlementSourceStore[values.sourceType]
-    if (!storeName) throw new Error('Settlement source type is invalid.')
-    const source = await new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(values.sourceId); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
-    if (!source || isDeleted(source)) throw new Error('Settlement source record does not exist or has been deleted.')
-    const sourceAmount = Number(source.cost ?? source.acquisitionValue ?? (storeName === 'shifts' ? source.revenue : NaN))
-    if (!Number.isFinite(sourceAmount) || sourceAmount <= 0) throw new Error('Settlement source record does not contain an authoritative positive amount.')
-    const existingPayments = await new Promise((resolve, reject) => { const request = db.transaction('settlements', 'readonly').objectStore('settlements').getAll(); request.onsuccess = () => resolve(request.result || []); request.onerror = () => reject(request.error) }); const alreadyPaid = existingPayments.filter(item => !isDeleted(item) && item.sourceId === values.sourceId && String(item.direction || 'OUT').toUpperCase() === 'OUT' && item.id !== (values.id || '')).reduce((sum,item)=>sum+(Number(item.amount)||0),0); if (alreadyPaid + Number(values.amount) > sourceAmount + 0.005) throw new Error(`Payment would exceed the linked source amount. Already paid: ₹${alreadyPaid.toFixed(2)}.`)
-    const expected = settlementDirection(values.settlementType)
-    if (expected !== 'OUT') throw new Error('Only payment settlements are allowed for maintenance and compliance records.')
-    return
-  }
   for (const [field, storeName] of relationshipStore[formKey] || []) {
     const id = values[field]
     if (!id) continue
     const record = await new Promise((resolve, reject) => { const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
     if (!record || isDeleted(record)) throw new Error(`${field} references a missing or deleted canonical record.`)
   }
-}
-function changedLoanContractFields(existing, next) { return LOAN_CONTRACT_FIELDS.filter(field => String(existing?.[field] ?? '') !== String(next?.[field] ?? '')) }
-async function prepareFinanceValues(formKey, values, existingId) {
-  if (formKey === 'loan') {
-    const principal = Number(values.principal)
-    const tenureMonths = Number(values.tenureMonths)
-    const annualInterestRatePercent = Number(values.annualInterestRatePercent)
-    const startDate = values.startDate
-    if (!(principal > 0) || !(tenureMonths > 0) || !Number.isFinite(annualInterestRatePercent) || annualInterestRatePercent < 0 || !startDate) throw new Error('Loan amount, interest rate, tenure and start date are required.')
-    return { ...values, principal, tenureMonths, annualInterestRatePercent, emi: calculateEmi(principal, tenureMonths, annualInterestRatePercent), status: values.status || 'Active' }
-  }
-  const loans = (await readAll('loans')).filter(record => !isDeleted(record))
-  const payments = (await readAll('loan_payments')).filter(record => !isDeleted(record))
-  const prepayments = (await readAll('prepayments')).filter(record => !isDeleted(record))
-  const loan = loans.find(record => record.id === values.loanId)
-  if (!loan) throw new Error('The selected loan does not exist.')
-  if (formKey === 'loanPayment') {
-    const preview = paymentAllocationPreview({ loan, payments: existingId ? payments.filter(payment => payment.id !== existingId) : payments, prepayments, amount: Number(values.amount), paidOn: values.paidOn })
-    if (!preview.available) throw new Error(preview.reason === 'PAYMENT_EXCEEDS_EMI_OBLIGATIONS' ? 'Payment exceeds the payable EMI obligations. Record the excess separately as a prepayment after overdue obligations are settled.' : preview.reason)
-    return { ...values, status: 'PAID', allocatedAmount: preview.allocatedAmount, allocations: preview.allocations }
-  }
-  const position = deriveLoanPosition({ loan, payments, prepayments, asOf: values.paidOn })
-  if (position.totalOverdue > 0.005) throw new Error(`Prepayment is blocked until all overdue EMIs are settled. Current overdue: ₹${position.totalOverdue.toFixed(2)}.`)
-  const estimate = calculatePrepaymentEstimate({ loan, payments, prepayments, amount: Number(values.amount), paidOn: values.paidOn })
-  if (!estimate.available) throw new Error(estimate.reason)
-  if (estimate.appliedAmount <= 0) throw new Error('Prepayment amount must be greater than zero.')
-  return { ...values, amount: estimate.appliedAmount, outstandingBefore: estimate.outstandingBefore, outstandingAfter: estimate.outstandingAfter, effect: estimate.effect === 'CLOSE_LOAN' ? 'Close loan' : 'Reduce tenure', status: 'Applied' }
 }
 export const AdminRepository = {
   async getSetting(id) { return toFormRecord('businessSetup', await readOne('settings', id)) },
@@ -116,27 +47,21 @@ export const AdminRepository = {
     await new Promise((resolve, reject) => { const tx = db.transaction('settings', 'readwrite'); tx.objectStore('settings').put(record); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error || new Error('Failed to save setting.')); tx.onabort = () => reject(tx.error || new Error('Save setting transaction aborted.')) })
     return structuredClone(values)
   },
-  async list(formKey) { const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
-  async get(formKey, id) { return toFormRecord(formKey, await readOne(storeFor(formKey), id)) },
+  async list(formKey) { if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`); const records = await readAll(storeFor(formKey)); return records.filter(record => !isDeleted(record) && (!isSettingsForm(formKey) || record.settingKey === formKey)).map(record => toFormRecord(formKey, record)).sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))) },
+  async get(formKey, id) { if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`); return toFormRecord(formKey, await readOne(storeFor(formKey), id)) },
   async save(formKey, values, existingId = null) {
+    if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`)
     const definition = getAdminFormDefinition(formKey)
     if (definition) { const validation = validateAdminForm(definition, values); if (!validation.valid) throw new Error(`Invalid ${formKey}: ${Object.values(validation.errors).join(' ')}`); values = validation.values }
-    const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existing = existingId ? await this.get(formKey, existingId) : null
-    if (formKey === 'shift' && !existing) throw new Error('Shift corrections require an existing Work-created shift.')
-    const existingRaw = existing ? { id: existing.id, createdAt: existing.createdAt, updatedAt: existing.updatedAt, deletedAt: existing.deletedAt, deleted: existing.deleted, ...existing.values } : null
-    if (formKey === 'loan' && existingRaw) {
-      const changed = changedLoanContractFields(existingRaw, values)
-      if (changed.length) throw new Error(`Active/contractual loan terms are immutable through normal edit. Use AdminRepository.correctLoan() for an audited correction: ${changed.join(', ')}.`)
-    }
+    const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const existingRaw = existingId ? await readOne(storeName, existingId) : null; const existing = existingRaw ? toFormRecord(formKey, existingRaw) : null
     await validateRelationships(db, formKey, values)
-    await assertSourcePaymentIntegrity(db, formKey, { ...values, id: existingId })
-    const financeValues = isFinanceForm(formKey) ? await prepareFinanceValues(formKey, values, existingId) : formKey === 'settlement' ? { ...values, direction: settlementDirection(values.settlementType) } : values
+    const persistedInputValues = formKey === 'loan' ? { ...values, principal: Number(values.principal), tenureMonths: Number(values.tenureMonths), annualInterestRatePercent: Number(values.annualInterestRatePercent), status: values.status || 'Active' } : values
     // Vehicle expiry is no longer an editable vehicle fact because dated compliance records own renewal validity.
     // Preserve a legacy value on unrelated edits so removing the old field never silently destroys stored history.
-    const persistedValues = formKey === 'vehicle' && existingRaw?.expiryDate && !financeValues.expiryDate
-      ? { ...financeValues, expiryDate: existingRaw.expiryDate }
-      : financeValues
-    const record = formKey === 'shift' ? { ...existingRaw, ...structuredClone(persistedValues), id: existingRaw.id, createdAt: existingRaw.createdAt, updatedAt: new Date().toISOString() } : toStoredRecord(formKey, persistedValues, existingRaw)
+    const persistedValues = formKey === 'vehicle' && existingRaw?.expiryDate && !persistedInputValues.expiryDate
+      ? { ...persistedInputValues, expiryDate: existingRaw.expiryDate }
+      : persistedInputValues
+    const record = toStoredRecord(formKey, persistedValues, existingRaw)
     const now = record.updatedAt; const action = existing ? 'UPDATE' : 'CREATE'
     return new Promise((resolve, reject) => {
       const stores = new Set([storeName, 'pending_mutations', 'audit_history'])
@@ -147,15 +72,10 @@ export const AdminRepository = {
           relationChecks.push({ kind: 'parent', field, store: relatedStore, id: values[field] })
         }
       }
-      const sourceStore = formKey === 'settlement' ? settlementSourceStore[values.sourceType] : null
-      if (sourceStore) stores.add(sourceStore)
-      if (formKey === 'settlement' || formKey === 'maintenance' || formKey === 'compliance') stores.add('settlements')
       const tx = db.transaction([...stores], 'readwrite')
-      let remaining = relationChecks.length + (sourceStore ? 1 : 0) + (stores.has('settlements') ? 1 : 0) + (existingId ? 1 : 0)
+      let remaining = relationChecks.length + (existingId ? 1 : 0)
       let settled = false
-      let sourceRecord = null
       let currentRecord = null
-      let settlementRows = []
       const parentRecords = new Map()
       const fail = error => {
         if (settled) return
@@ -174,19 +94,6 @@ export const AdminRepository = {
             const parent = parentRecords.get(check.field)
             if (!parent || isDeleted(parent)) throw new Error(`${check.field} references a missing or deleted canonical record.`)
           }
-          if (formKey === 'settlement') {
-            if (!sourceRecord || isDeleted(sourceRecord)) throw new Error('Settlement source record does not exist or has been deleted.')
-            const sourceAmount = Number(sourceRecord.cost ?? sourceRecord.acquisitionValue ?? (sourceStore === 'shifts' ? sourceRecord.revenue : NaN))
-            if (!Number.isFinite(sourceAmount) || sourceAmount <= 0) throw new Error('Settlement source record does not contain an authoritative positive amount.')
-            if (settlementDirection(values.settlementType) !== 'OUT') throw new Error('Only payment settlements are allowed for maintenance and compliance records.')
-            const alreadyPaid = settlementRows.filter(item => !isDeleted(item) && item.sourceId === values.sourceId && String(item.direction || 'OUT').toUpperCase() === 'OUT' && item.id !== (values.id || '')).reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
-            if (alreadyPaid + Number(values.amount) > sourceAmount + 0.005) throw new Error(`Payment would exceed the linked source amount. Already paid: ₹${alreadyPaid.toFixed(2)}.`)
-          }
-          if (formKey === 'maintenance' || formKey === 'compliance') {
-            const sourceType = settlementSourceType[formKey]
-            const paid = settlementRows.filter(item => !isDeleted(item) && item.sourceId === record.id && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT').reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
-            if (Number.isFinite(Number(record.cost)) && paid > Number(record.cost) + 0.005) throw new Error(`Cannot reduce this ${formKey} amount below the already-paid amount. Already paid: ₹${paid.toFixed(2)}.`)
-          }
           tx.objectStore(storeName).put(record)
           writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: formKey, action, payload: record, createdAt: now })
         } catch (error) { fail(error) }
@@ -201,94 +108,42 @@ export const AdminRepository = {
         request.onsuccess = () => { parentRecords.set(check.field, request.result); remaining--; commit() }
         request.onerror = () => fail(request.error || new Error(`Failed to verify ${check.field} relationship.`))
       }
-      if (sourceStore) {
-        const request = tx.objectStore(sourceStore).get(values.sourceId)
-        request.onsuccess = () => { sourceRecord = request.result; remaining--; commit() }
-        request.onerror = () => fail(request.error || new Error('Failed to verify settlement source.'))
-      }
-      if (stores.has('settlements')) {
-        const request = tx.objectStore('settlements').getAll()
-        request.onsuccess = () => { settlementRows = request.result || []; remaining--; commit() }
-        request.onerror = () => fail(request.error || new Error('Failed to verify settlement integrity.'))
-      }
       commit()
       tx.oncomplete = () => {
         if (settled) return
         settled = true
-        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` })
+        notifyCanonicalDataChanged({ stores: [storeName], reason: `admin:${action}` })
         resolve(toFormRecord(formKey, record))
       }
       tx.onerror = () => fail(tx.error || new Error(`Failed to save ${formKey}.`))
       tx.onabort = () => fail(tx.error || new Error(`Save ${formKey} aborted.`))
     })
   },
-  async correctLoan(values, correctionReason, existingId) {
-    if (!existingId) throw new Error('A loan ID is required for contractual correction.')
-    if (!String(correctionReason || '').trim()) throw new Error('A correction reason is required for a loan contractual correction.')
-    const definition = getAdminFormDefinition('loan')
-    const validation = validateAdminForm(definition, values)
-    if (!validation.valid) throw new Error(`Invalid loan correction: ${Object.values(validation.errors).join(' ')}`)
-    const db = await initializeCanonicalStorage(); const storeName = storeFor('loan'); const current = await readOne(storeName, existingId)
-    if (!current || isDeleted(current)) throw new Error('Cannot correct a missing or deleted loan.')
-    const nextValues = validation.values
-    const currentForm = toFormRecord('loan', current)?.values || {}
-    const changed = changedLoanContractFields(currentForm, nextValues)
-    if (!changed.length) throw new Error('Loan correction does not change any contractual source term.')
-    const financeValues = await prepareFinanceValues('loan', nextValues, existingId)
+  async remove(formKey, id) {
+    if (!ACTIVE_ADMIN_FORM_KEYS.has(formKey)) throw new Error(`Admin form '${formKey}' is retired and read-only.`)
+    if (!id) throw new Error('Admin record id is required.')
+    const db = await initializeCanonicalStorage()
+    const storeName = storeFor(formKey)
     const now = new Date().toISOString()
-    const record = { ...current, ...structuredClone(financeValues), id: current.id, createdAt: current.createdAt, updatedAt: now }
     return new Promise((resolve, reject) => {
       const tx = db.transaction([storeName, 'pending_mutations', 'audit_history'], 'readwrite')
-      try { tx.objectStore(storeName).put(record); writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: record.id, entityType: 'loan', action: 'CORRECTION', payload: { ...record, correctionReason: String(correctionReason).trim(), correctedFields: changed }, createdAt: now }) } catch (error) { try { tx.abort() } catch (_) {}; reject(error); return }
-      tx.oncomplete = () => { if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:CORRECTION' }); resolve(toFormRecord('loan', record)) }; tx.onerror = () => reject(tx.error || new Error('Failed to correct loan.')); tx.onabort = () => reject(tx.error || new Error('Loan correction aborted.'))
-    })
-  },
-  async remove(formKey, id) {
-    if (formKey === 'shift') throw new Error('Shift records are not deletable; correct the Work-created source record instead.')
-    const db = await initializeCanonicalStorage(); const storeName = storeFor(formKey); const now = new Date().toISOString()
-    await assertSourceHasNoSettlements(db, formKey, id)
-    return new Promise((resolve, reject) => {
-      const sourceType = settlementSourceType[formKey]
-      const stores = [storeName, 'pending_mutations', 'audit_history', ...(sourceType ? ['settlements'] : [])]
-      const tx = db.transaction([...new Set(stores)], 'readwrite')
       const store = tx.objectStore(storeName)
       let settled = false
-      const fail = error => {
-        if (settled) return
-        settled = true
-        try { tx.abort() } catch (_) {}
-        reject(error)
-      }
+      const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
       const request = store.get(id)
       request.onsuccess = () => {
         const record = request.result
-        if (!record) { fail(new Error(`Cannot delete missing ${formKey} record.`)); return }
-        const deleteRecord = () => {
-          if (settled) return
-          try {
-            record.deletedAt = now
-            record.updatedAt = now
-            record.deleted = true
-            store.put(record)
-            writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
-          } catch (error) { fail(error) }
-        }
-        if (!sourceType) { deleteRecord(); return }
-        const settlementsRequest = tx.objectStore('settlements').getAll()
-        settlementsRequest.onsuccess = () => {
-          const linked = (settlementsRequest.result || []).filter(item => !isDeleted(item) && item.sourceId === id && String(item.sourceType || '') === sourceType && String(item.direction || 'OUT').toUpperCase() === 'OUT')
-          if (linked.length) { fail(new Error(`Cannot delete this ${formKey}: existing payment settlements are linked to it.`)); return }
-          deleteRecord()
-        }
-        settlementsRequest.onerror = () => fail(settlementsRequest.error || new Error('Failed to verify linked settlements before deletion.'))
+        if (!record || isDeleted(record)) { fail(new Error(`Cannot delete missing or deleted ${formKey} record.`)); return }
+        try {
+          record.deletedAt = now
+          record.updatedAt = now
+          record.deleted = true
+          store.put(record)
+          writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
+        } catch (error) { fail(error) }
       }
       request.onerror = () => fail(request.error || new Error(`Failed to read ${formKey} for deletion.`))
-      tx.oncomplete = () => {
-        if (settled) return
-        settled = true
-        if (getActiveDataSource() === 'canonical') notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' })
-        resolve(true)
-      }
+      tx.oncomplete = () => { if (settled) return; settled = true; notifyCanonicalDataChanged({ stores: [storeName], reason: 'admin:DELETE' }); resolve(true) }
       tx.onerror = () => fail(tx.error || new Error(`Failed to delete ${formKey}.`))
       tx.onabort = () => fail(tx.error || new Error(`Delete ${formKey} aborted.`))
     })
