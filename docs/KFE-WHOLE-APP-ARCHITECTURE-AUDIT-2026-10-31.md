@@ -110,6 +110,18 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** The module now lives at `presentation/workflowUiState.js`, and WorkModuleView consumes it from the presentation layer. Form field drafts remain with the shared form-draft application/repository path. The application layer is now guarded against direct browser-global storage and platform access, and the architecture contract enforces this ownership.
 
+### 12. Duplicate native revenue projection implementation
+
+**Finding:** Android SQLite had two separate Java implementations of the same Shift revenue projection: one for ordinary Trip writes and another inside native fare/cancellation form commits. The PWA domain formula was already the semantic authority, but the native persistence mirror was duplicated internally and could drift.
+
+**Change:** Both native write paths now call the single `refreshShiftRevenueProjection` helper. The native persistence contract verifies that only one revenue aggregation implementation exists and that native fare/cancellation commits reuse it. The architecture and canonical-data contracts now state the narrow exception clearly: native SQLite mirrors the exact domain rule transactionally for offline native overlay commits; it is not allowed to introduce a second financial rule or metric.
+
+### 13. Obsolete form save-path evidence
+
+**Finding:** `docs/PWA-FORM-SAVE-PATH-MATRIX.md` described retired first-run, break-even, driver-target, calculations and reconciliation surfaces, and its baseline was from an older application architecture.
+
+**Change:** The obsolete matrix was removed. The current form architecture remains defined by the Admin extensibility contract, universal form contract, application/repository save paths and active regression tests.
+
 ## Verification
 
 The following are enforced by regression contracts:
