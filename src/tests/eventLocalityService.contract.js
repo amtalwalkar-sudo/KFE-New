@@ -21,7 +21,7 @@ const captureService = fs.readFileSync('src/application/location/eventLocationSe
 const timeline = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 assert.match(captureService, /if \(prior\) return/)
 assert.doesNotMatch(captureService, /if \(prior\)[^\n]*resolveSnapshot/)
-assert.match(timeline, /forEntities\('TRIP', rideIds, \['PICKUP_START', 'TRIP_END'\]\)/)
+assert.match(timeline, /EventLocationService\.forEntities\('TRIP', rideIds\)/)
 const adapter = fs.readFileSync('src/infrastructure/location/localityResolutionAdapter.js', 'utf8')
 assert.match(repository, /snapshotId, placeName/)
 assert.match(repository, /store\.add\(saved\)/)
