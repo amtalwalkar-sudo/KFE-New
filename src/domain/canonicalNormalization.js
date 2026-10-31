@@ -18,7 +18,7 @@ export const normalizeShiftInput = input => {
     'closingOdometer', 'closing_odometer', 'openingPersonalKm', 'opening_personal_km',
     'openingDeadKm', 'opening_dead_km', 'openingPersonalToll', 'opening_personal_toll',
     'openingPersonalParking', 'opening_personal_parking', 'totalDistance', 'total_distance',
-    'revenue', 'fare', 'amount', 'toll', 'tollCost', 'toll_cost', 'parking',
+    'revenue', 'liveFareRevenue', 'fare', 'amount', 'toll', 'tollCost', 'toll_cost', 'parking',
     'parkingCost', 'parking_cost', 'tollTreatment', 'parkingTreatment',
     'tollParkingCaptureMode', 'tollParkingRevenueTreatment',
   ]) delete value[key]
