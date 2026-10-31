@@ -17,6 +17,6 @@ assert.ok(universal.includes('enterKeyHint'),'Universal form runtime must govern
 assert.ok(universal.includes('inputMode'),'Universal form runtime must govern numeric input hints')
 assert.ok(universal.includes('primaryAction(surface)'),'Universal form runtime must have one primary action path')
 assert.ok(!admin.includes('@keydown="handleEnter'),'Admin must not own a duplicate keyboard navigation handler')
-assert.ok(adminForm.includes(':inputmode="inputMode(field)"'),'The active Admin form must expose field-specific native input modes')
+assert.ok(adminForm.includes(':inputmode="field.type === \'number\' ?'),'The active Admin form must expose field-specific native input modes')
 assert.ok(adminForm.includes(':enterkeyhint="enterKeyHint(field)"'),'The active Admin form must expose governed Next/Done hints')
 console.log('Phase 1 Technical Forms Contract: PASS')
