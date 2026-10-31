@@ -476,7 +476,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         while (shifts.moveToNext()) {
           JSONObject current = new JSONObject(shifts.getString(0));
           if ("ACTIVE".equals(current.optString("status", ""))
-              && !current.has("deletedAt") && !current.optBoolean("deleted", false)) {
+              && (!current.has("deletedAt") || current.isNull("deletedAt")) && !current.optBoolean("deleted", false)) {
             throw new IllegalArgumentException("Only one canonical Shift may be active at a time.");
           }
         }
@@ -498,7 +498,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         JSONObject trip = new JSONObject(trips.getString(0));
         if (incoming.optString("id", "").equals(trip.optString("shiftId", ""))
             && "ACTIVE".equals(trip.optString("status", ""))
-            && !trip.has("deletedAt") && !trip.optBoolean("deleted", false)) {
+            && (!trip.has("deletedAt") || trip.isNull("deletedAt")) && !trip.optBoolean("deleted", false)) {
           throw new IllegalArgumentException("A Shift cannot be completed while one of its Trips is active.");
         }
       }
