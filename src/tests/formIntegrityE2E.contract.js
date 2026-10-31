@@ -26,7 +26,7 @@ assertHas(workService, /async startShift\(data\)[\s\S]*ShiftTripRepository\.crea
 assertHas(workRepo, /createShift\(data\)/, 'Shift repository must own canonical shift persistence')
 
 assertHas(work, /await store\.saveTripDetails\(details, operationId\)/, 'Fare save must commit through the shift store')
-assertHas(workService, /async saveTripDetails\(data\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Fare/trip correction must reach the canonical trip repository')
+assertHas(workService, /async saveTripDetails\(data, operationId = ''\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Fare/trip correction must reach the canonical trip repository')
 assertHas(work, /fareDetailsSkipped: fare\.value === ''/, 'Fare skip must be an explicit persisted terminal flag')
 assertHas(work, /await store\.saveTripDetails\(\{ id: pendingFare\.value\.id, fareDetailsSkipped: true \}\)/, 'Skip must update the exact completed trip and not create a blank record')
 assertHas(work, /function openCancel\(\)/, 'Cancellation form must have an explicit open path')
