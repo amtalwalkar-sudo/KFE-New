@@ -4,7 +4,6 @@ const reasonMessages = {
   INVALID_CURRENT_ODOMETER: 'Enter a valid current odometer.',
   BELOW_PREVIOUS_ODOMETER: 'Current odometer cannot be lower than the last recorded odometer.',
   BELOW_BUSINESS_START_ODOMETER: 'Current odometer cannot be lower than the business start odometer.',
-  GAP_ALLOCATION_REQUIRED: null
 }
 
 function preservePwaResult(result) {
@@ -27,8 +26,4 @@ export function validateFirstDayShiftStartOdometer(currentOdometer, businessStar
     currentOdometer,
     businessStartOdometer
   }))
-}
-
-export function validateGapAllocation(gapKm, category = null) {
-  return preservePwaResult(evaluateShiftStartRule('validateGapAllocation', { gapKm, category }))
 }
