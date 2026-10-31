@@ -46,9 +46,10 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 ### Current UI and basic Performance evidence
 - docs/ADMIN-ARCHITECTURE-AUDIT-2026-10-31.md — Admin implementation audit evidence; subordinate to the architecture and universal form contracts.
+- docs/KFE-WHOLE-APP-ARCHITECTURE-AUDIT-2026-10-31.md — whole-app implementation audit evidence; does not create new product scope.
 
 ### Data / persistence / operational evidence
-- docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
+- docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — historical persistence implementation/evidence under the canonical data contract.
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
 - docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md — reconciliation evidence.
 
