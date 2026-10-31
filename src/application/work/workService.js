@@ -185,6 +185,7 @@ const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt
 
 
 export const WorkService = Object.freeze({
+  async ensureCanonicalReadModel() { await reconcileCanonicalReads(); return true },
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
   validateTripDetails(data) { return validateTripDetails(data) },
