@@ -247,6 +247,14 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("END_RIDE must commit only after START_RIDE.", endResult.accepted);
 
       String t5 = java.time.Instant.parse(t4).plusMillis(10).toString();
+      JSONObject tamperedFare = new JSONObject(completed.toString()).put("revenue", 250d)
+          .put("fareDetailsSkipped", false).put("tripStage", "RIDE_STARTED").put("updatedAt", t5);
+      boolean fareStageMutationRejected = false;
+      try { store.commitTripForm("native-lifecycle-guard-fare-stage-" + suffix, "FARE", tamperedFare); }
+      catch (IllegalArgumentException expected) { fareStageMutationRejected = true; }
+      assertTrue("Fare form must not mutate the completed Trip lifecycle stage.", fareStageMutationRejected);
+
+      String t5unused = java.time.Instant.parse(t4).plusMillis(10).toString();
       JSONObject reopened = new JSONObject(completed.toString()).put("status", "ACTIVE")
           .put("tripStage", "RIDE_STARTED").put("updatedAt", t5);
       boolean terminalReopenRejected = false;
