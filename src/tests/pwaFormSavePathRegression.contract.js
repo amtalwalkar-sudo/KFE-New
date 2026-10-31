@@ -64,7 +64,7 @@ assert.doesNotMatch(workForm, /Additional shift toll|Additional shift parking|Tr
 // 4. Draft recovery: drafts are separate from canonical records and clear only after commit/discard.
 assert.match(drafts, /tx\.objectStore\('form_drafts'\)\.put\(record\)/, 'Drafts must use a separate store')
 assert.match(drafts, /Form draft can only be cleared after successful commitment or explicit confirmed discard/, 'Draft clear must be guarded')
-assert.match(workView, /watch\(\[startOdo, startAck, gapChoice\]/, 'Shift-start edits must survive navigation/restart')
+assert.match(workView, /watch\(\[startOdo, startAck\]/, 'Shift-start edits must survive navigation/restart with only current odometer and confirmation')
 assert.match(workView, /watch\(\[fare, tripToll, tripParking/, 'Trip details edits must be drafted')
 assert.match(workView, /watch\(\[cancelReason, cancelFare\]/, 'Cancellation edits must be drafted')
 assert.match(workView, /watch\(\[fuelOdo, fuelPrice, fuelAmount, fuelFull\]/, 'Fuel edits must be drafted')
