@@ -75,6 +75,8 @@ assert.ok(!overlayService.includes('store.putRecord("native-trip-stage-'), 'Nati
 assert.match(store, /synchronized Outcome commitTripLifecycle\(/, 'Native canonical store must expose a dedicated lifecycle command boundary.')
 assert.match(store, /validateNativeTripLifecycleTransition\(/, 'Native lifecycle transition validation must execute inside the SQLite write transaction.')
 assert.match(store, /Cancellation is allowed only before the ride starts/, 'Native cancellation form must enforce the pre-ride stage invariant.')
+assert.match(store, /assertTripFormMutationScope\(existingTrip, trip, mode\)/, 'Native Trip forms must be restricted to their owned source fields.')
+assert.match(store, /Trip form attempted to mutate fields outside its canonical form ownership/, 'Native Trip form boundary must reject unrelated record mutations.')
 assert.match(store, /requires an active canonical Shift/, 'Native lifecycle transaction must verify active Shift ownership.')
 assert.ok(overlayService.includes('trip.put("updatedAt",eventTimestamp)'), 'lifecycle retry payload must preserve its original version timestamp');
 assert.ok(overlayService.includes('persistCanonicalTripForm("FARE",actionTripId,payload,eventId)'), 'fare canonical writes must use the durable outbox event ID');
