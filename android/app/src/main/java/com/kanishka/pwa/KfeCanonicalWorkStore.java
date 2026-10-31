@@ -386,6 +386,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
 
+      if ("TRIP".equals(entityType) && lifecycleAction == null && existingRecord != null
+          && !jsonEquivalent(tripLifecycleFacts(existingRecord), tripLifecycleFacts(record))) {
+        throw new IllegalArgumentException("Trip lifecycle fields must be changed through commitTripLifecycle.");
+      }
       if (lifecycleAction != null) {
         validateNativeTripLifecycleTransition(db, lifecycleAction, record, existingRecord,
             expectedUpdatedAt, expectAbsent);
@@ -457,6 +461,14 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (!jsonEquivalent(existing, incoming)) {
       throw new IllegalArgumentException("Trip form attempted to mutate fields outside its canonical form ownership.");
     }
+  }
+
+  private JSONObject tripLifecycleFacts(JSONObject trip) throws Exception {
+    JSONObject facts = new JSONObject();
+    for (String field : new String[]{"status", "tripStage", "tripStartAt", "tripEndAt", "cancelledAt"}) {
+      if (trip.has(field)) facts.put(field, trip.get(field));
+    }
+    return facts;
   }
 
   private void validateNativeTripLifecycleTransition(SQLiteDatabase db, String action,
