@@ -48,7 +48,7 @@ scenario('A4/B3/B4/J2', () => {
 scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   let trip = { id: 'audit-trip-1', shiftId: 'audit-shift-1', status: TRIP_STATES.ACTIVE, revenue: null }
   const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z' })
-  const priced = { ...completed, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
+  const priced = { ...completed, revenue: 250 }
   assert.equal(priced.id, trip.id)
   assert.equal(priced.status, TRIP_STATES.COMPLETED)
   assert.equal(canTransitionTrip(priced.status, TRIP_STATES.COMPLETED), true)
@@ -59,7 +59,8 @@ scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   assert.equal(validateTripDetails({ revenue: '250' }).valid, true)
   const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', revenue: 0 })
   assert.equal(cancelled.status, TRIP_STATES.CANCELLED)
-  assert.equal(cancelled.revenue, 0)
+  assert.equal(cancelled.cancelledRevenue, 0)
+  assert.equal(cancelled.revenue, null, 'Cancellation fee remains distinct from Trip fare.')
   assert.equal(canTransitionTrip(cancelled.status, TRIP_STATES.CANCELLED), true)
   assert.equal(canTransitionTrip(cancelled.status, TRIP_STATES.COMPLETED), false)
 })
