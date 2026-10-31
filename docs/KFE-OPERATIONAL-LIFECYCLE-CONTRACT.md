@@ -77,7 +77,7 @@ Native Android captures one-shot GPS snapshots at exactly four Trip events: `PIC
 - Missing permissions or unavailable fixes leave a durable pending event; no coordinate is fabricated.
 - Provider capture time (`capturedAt`) is distinct from the existing Trip event time (`eventAt`).
 - No continuous tracking, route matching, GPS-derived distance or idle timed retry service is permitted.
-- PWA locality resolution is asynchronous after durable snapshot save. Successful locality labels are persisted by snapshot ID. Manual Timeline pull-to-refresh is the fallback for eligible unresolved snapshots; no automatic connectivity polling or locality retry loop is permitted.
+- GPS snapshot capture never initiates locality resolution. PWA locality resolution is invoked only by explicit Timeline pull-to-refresh for eligible unresolved snapshots. Successful locality labels are persisted by snapshot ID; no automatic connectivity polling, capture-triggered lookup, or locality retry loop is permitted.
 - A cancellation snapshot is not a passenger drop-off location.
 
 ## 7. PWA / Android behavior and recovery
