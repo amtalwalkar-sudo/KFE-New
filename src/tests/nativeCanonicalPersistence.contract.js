@@ -75,6 +75,8 @@ assert.ok(overlayService.includes('native-trip-stage-"+eventId'), 'each durable 
 assert.ok(overlayService.includes('store.commitTripLifecycle('), 'Native overlay lifecycle stages must use the guarded canonical lifecycle transaction.')
 assert.ok(!overlayService.includes('store.putRecord("native-trip-stage-'), 'Native overlay lifecycle stages must not bypass transition guards through generic record writes.')
 assert.match(store, /synchronized Outcome commitTripLifecycle\(/, 'Native canonical store must expose a dedicated lifecycle command boundary.')
+assert.match(store, /Only one canonical Shift may be active at a time/, 'Native canonical storage must prevent a second active Shift.')
+assert.match(store, /A Shift cannot be completed while one of its Trips is active/, 'Native canonical storage must prevent closing a Shift with an active Trip.')
 assert.match(store, /\"CANCEL_RIDE\"\.equals\(action\)/, 'Native lifecycle transaction must own the PWA and overlay cancellation transition.')
 assert.match(read('src/application/work/workService.js'), /lifecycleAction: 'START_RIDE'/, 'PWA START RIDE must use the guarded native lifecycle command.')
 assert.match(read('src/application/work/workService.js'), /lifecycleAction: 'END_RIDE'/, 'PWA END RIDE must use the guarded native lifecycle command.')
