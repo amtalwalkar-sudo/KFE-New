@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { calculateFuelPeriodSummary } from '../domain/math/fuel.js'
-import { tripPeriodTime, locationLabel } from '../application/timeline/activityTimelineReadService.js'
+import { tripPeriodTime, locationLabel, farePresentation } from '../application/timeline/activityTimelineReadService.js'
 
 const fullTank = (id, capturedAt, odometer, amount) => ({ id, vehicleId: 'vehicle-1', capturedAt, odometer, amount, quantityKg: amount / 20, pricePerKg: 20, isFullTank: true })
 const previous = fullTank('previous', '2026-10-01T10:00:00.000Z', 1000, 100)
@@ -21,6 +21,8 @@ const invalidRange = calculateFuelPeriodSummary([current], { from: 'bad', to: 'a
 assert.equal(invalidRange.totalFuelAmount, 0)
 assert.equal(invalidRange.averageCostPerKm, null)
 
+assert.deepEqual(farePresentation({ status: 'CANCELLED', revenue: 300 }), { label: 'Cancellation fee', value: null, state: 'unavailable' }, 'A legacy cancelled Trip fare must never be presented as a cancellation fee.')
+assert.deepEqual(farePresentation({ status: 'CANCELLED', revenue: 300, cancelledRevenue: 20 }), { label: 'Cancellation fee', value: 20, state: 'recorded' })
 const cancelledAt = Date.parse('2026-10-02T18:45:00.000Z')
 assert.equal(tripPeriodTime({ status: 'CANCELLED', tripStartAt: '2026-10-02T17:00:00.000Z', tripEndAt: '2026-10-02T18:45:00.000Z' }), cancelledAt)
 assert.equal(tripPeriodTime({ status: 'CANCELLED', tripStartAt: '2026-10-02T17:00:00.000Z' }), Date.parse('2026-10-02T17:00:00.000Z'))
@@ -53,6 +55,8 @@ assert.match(view, /Pull down to resolve unsaved GPS locality names from the las
 assert.match(view, /@touchend\.passive="onTouchEnd"/)
 assert.match(view, /Average fuel cost\/km/)
 assert.match(view, /Total amount refilled/)
+assert.match(service, /const fee = trip\.cancelledRevenue/)
+assert.doesNotMatch(service, /cancelledRevenue \?\? trip\.revenue/, 'Timeline must not fall back from a missing cancellation fee to a Trip fare.')
 assert.match(service, /pickupArea: pickupName/)
 assert.match(service, /dropArea: trip\.status === 'COMPLETED' \? dropName : 'Location unavailable'/)
 assert.match(service, /trip\?\.status === 'CANCELLED'\) return validTime\(trip\.tripEndAt\)/)
