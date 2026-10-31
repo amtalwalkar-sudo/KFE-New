@@ -243,7 +243,7 @@ General rules:
 
 Work is a driver cockpit, not a generic ERP dashboard. It prioritizes **current state → relevant context → one obvious next action** and uses one canonical state-driven composition.
 
-The current operational sequence is owned by the Work/business contracts: PWA shift start, ready state, pickup, trip start or cancellation, active trip, trip completion and fare entry/skip, next pickup, and PWA shift end. There is no odometer-gap allocation gate, movement reconciliation, shift-review stage or ride-distance calculation.
+The current operational sequence is owned by the Work/business contracts: PWA shift start, ready state, pickup, trip start or cancellation, active trip, trip completion and fare entry/skip, next pickup, and PWA shift end.
 
 Presentation invariants:
 - One Work composition; do not restore a historical Work screen or introduce a parallel/hidden fallback implementation.
