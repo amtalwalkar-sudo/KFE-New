@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../domain/work/shift.js'
+import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../domain/work/shift.js'
 import { validateEndShiftEntry } from '../domain/work/endShift.js'
 import { validateTripCorrection } from '../domain/work/trip.js'
 import { TRIP_STATES, canTransitionTrip, transitionTrip } from '../domain/work/tripLifecycle.js'
@@ -25,20 +25,14 @@ const scenario = (id, fn) => {
   console.log(`PASS ${id} @ ${auditStamp}`)
 }
 
-// A/B/J — shift gates, odometer authority, gap classification and end-shift recovery.
+// A/B/J — shift gates, odometer authority and end-shift recovery.
 scenario('A1/B1', () => {
-  assert.deepEqual(validateShiftStartOdometer(65000, 64990), { valid: true, gapKm: 10 })
+  assert.deepEqual(validateShiftStartOdometer(65000, 64990), { valid: true })
   assert.equal(validateShiftStartOdometer('', 64990).valid, false)
   assert.equal(validateShiftStartOdometer(64989, 64990).valid, false)
 })
-scenario('A1/B2/J3', () => {
-  assert.deepEqual(validateGapAllocation(10, 'PERSONAL'), { valid: true, category: 'PERSONAL', personalKm: 10, deadKm: 0 })
-  assert.deepEqual(validateGapAllocation(10, 'DEAD'), { valid: true, category: 'DEAD', personalKm: 0, deadKm: 10 })
-  assert.equal(validateGapAllocation(10).valid, false)
-  assert.equal(validateGapAllocation(0).valid, true)
-})
 scenario('I5/J5', () => {
-  assert.deepEqual(validateFirstDayShiftStartOdometer(68500, 65000).historicalKm, 3500)
+  assert.deepEqual(validateFirstDayShiftStartOdometer(68500, 65000), { valid: true })
   assert.equal(validateFirstDayShiftStartOdometer(64999, 65000).valid, false)
 })
 scenario('A4/B3/B4/J2', () => {
@@ -101,8 +95,8 @@ scenario('I2', () => {
   const day2 = validateShiftStartOdometer(65040, 65040)
   const day3 = validateShiftStartOdometer(65041, 65040)
   assert.equal(day1.valid, true)
-  assert.equal(day2.gapKm, 0)
-  assert.equal(day3.gapKm, 1)
+  assert.deepEqual(day2, { valid: true })
+  assert.deepEqual(day3, { valid: true })
 })
 
 // C/D/E/F — canonical convergence and persistence/recovery wiring.
@@ -127,7 +121,6 @@ scenario('G5', () => {
 
 // J1/J2/J3/J5/J6/J7 — defensive boundaries.
 scenario('J1/J2/J3/J5/J6/J7', () => {
-  assert.equal(validateGapAllocation(-1).valid, false)
   assert.equal(validateTripCorrection({ revenue: '-1' }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 0, amount: 410 }).valid, false)
   assert.equal(validateFuelEntry({ odometer: 65000, pricePerKg: 82, amount: 0 }).valid, false)
@@ -143,7 +136,7 @@ scenario('K1/K2/K3/K4/K5/K6', () => {
   assert.match(overlay, /String\[\] labels=\{"RIDES",phaseLabel,"REVENUE"\}/)
   assert.match(work, /GO TO PICKUP/); assert.match(work, /START TRIP/); assert.match(work, /END TRIP/)
   assert.match(work, /CNG refuelling/); assert.match(work, /Current odometer/)
-  assert.match(work, /Personal KM/); assert.match(work, /Dead KM/); assert.match(work, /CANCEL TRIP/)
+  assert.doesNotMatch(work, /Personal KM|Dead KM/); assert.match(work, /CANCEL TRIP/)
   assert.doesNotMatch(work, /SHIFT REVIEW|Trip fares not entered|ALL REVENUE CAPTURED/, 'End Shift must not expose the old reconciliation/review stages.')
   assert.equal((work.match(/class="swipe(?:\s|")[^"]*"|class="[^"]*\sswipe(?:\s|")[^"]*"/g) || []).length, 1)
   assert.match(shell, /Kanishka Enterprises/); assert.doesNotMatch(shell, /header-gps|gpsState|checkGps/)
@@ -175,7 +168,7 @@ scenario('I2/I6/I7 — saved history and month-boundary odometer continuity', ()
   assert.equal(shifts[1].endOdometer - shifts[1].startOdometer, 75)
   assert.equal(shifts.reduce((sum, shift) => sum + shift.revenue, 0), 1250)
   assert.equal(validateShiftStartOdometer(5050, 5050).valid, true)
-  assert.equal(validateShiftStartOdometer(5125, 5050).gapKm, 75)
+  assert.deepEqual(validateShiftStartOdometer(5125, 5050), { valid: true })
 })
 scenario('C6/F6/J7 — duplicate/idempotent mutation and recovery', () => {
   const payload = { id: 'trip-recovery-1', status: 'COMPLETED', revenue: 250 }
