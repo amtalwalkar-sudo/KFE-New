@@ -55,15 +55,21 @@ export const CanonicalWorkBoundary = Object.freeze({
     const records = []
     const pageSize = 500
     let offset = 0
-    let totalCount = Infinity
-    while (offset < totalCount) {
+    let expectedTotal = null
+    do {
       const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: pageSize, offset })
       const rows = Array.isArray(page?.records) ? page.records : []
-      totalCount = Number(page?.totalCount ?? page?.count ?? rows.length)
+      if (!Number.isInteger(page?.totalCount) || page.totalCount < 0 || page.offset !== offset) {
+        throw new Error('Native GPS history pagination returned invalid count/offset metadata.')
+      }
+      if (expectedTotal === null) expectedTotal = page.totalCount
+      else if (page.totalCount !== expectedTotal) throw new Error('Native GPS history changed during paginated retrieval.')
+      if (!rows.length && offset < expectedTotal) throw new Error(`Native GPS history stopped at ${offset} of ${expectedTotal} snapshots.`)
       records.push(...rows)
-      if (!rows.length) break
       offset += rows.length
-    }
+      if (records.length > expectedTotal) throw new Error('Native GPS history pagination returned duplicate or extra snapshots.')
+    } while (offset < expectedTotal)
+    if (records.length !== expectedTotal) throw new Error(`Native GPS history is incomplete: expected ${expectedTotal}, read ${records.length}.`)
     return records
   },
   async getEventLocationSnapshot(snapshotId) {
