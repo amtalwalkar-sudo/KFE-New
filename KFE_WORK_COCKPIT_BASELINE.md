@@ -21,7 +21,7 @@
 
 - Capture one-shot snapshots at going to pickup, cancellation, trip start, and trip end.
 - Capture must work offline and must not delay the ride action.
-- No continuous tracking, route tracing, distance calculation, or background location retry.
+- No continuous tracking, route tracing, or distance calculation. Fresh fixes are retried for at most 30 seconds after the event; if no acceptable fix is obtained, retain the durable pending event and retry only on a later eligible trigger (new event, app open, or explicit GPS status refresh). Do not keep an idle foreground service alive for timed retries.
 - Keep provider capture time separate from the ride event timestamp.
 
 ## Architecture
