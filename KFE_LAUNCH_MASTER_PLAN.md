@@ -38,6 +38,10 @@ No retired targets, provisions, forecasts, break-even, profitability, loan amort
 | 13 | Final Release Gate | Latest exact revision has green CI, required device evidence and no unresolved release blocker |
 | Launch | Real-world operation | Phase 13 pass and explicit release authorization |
 
+## Phase 9 — Production Configuration Gate
+
+Verify production PWA assets, Capacitor configuration, Android manifest and release configuration, local backup boundaries, Dropbox live-app backup wiring, and absence of automatic background connectivity or cloud-backup loops. CI evidence is required for the exact candidate revision.
+
 ## Critical device-evidence rule
 
 Physical Android/phone testing is part of Phase 11 and must occur before Phase 12 reconciliation and Phase 13 final release approval. It is not deferred until after the final release gate.
