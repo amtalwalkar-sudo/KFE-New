@@ -15,7 +15,10 @@ export const EventLocationService = {
     if (entityType !== 'TRIP' || !entityId || !RIDE_EVENTS.has(eventType)) return
     void (async () => {
       const prior = (await this.forEntity(entityType, entityId)).find(item => item.eventType === eventType)
-      if (prior) { void EventLocalityService.resolveSnapshot(prior); return }
+      // A duplicate lifecycle delivery must never become an implicit locality retry.
+      // Only the first durable snapshot gets its one immediate lookup; later retries
+      // are initiated explicitly by Timeline pull-to-refresh.
+      if (prior) return
       // Android durably queues the event natively. Browser fallback uses one fix.
       if (await WorkRuntimePorts.tripBoundaryLocation.queueEventLocationCapture(entityType, entityId, eventType, eventAt)) {
         void this.resolveNativeSnapshotAfterCapture(entityId, eventType)
