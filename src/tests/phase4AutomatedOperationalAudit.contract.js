@@ -57,7 +57,7 @@ scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   assert.equal(replay.id, trip.id)
   assert.equal(replay.status, TRIP_STATES.COMPLETED)
   assert.equal(validateTripDetails({ revenue: '250' }).valid, true)
-  const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', revenue: 0 })
+  const cancelled = transitionTrip(trip, TRIP_STATES.CANCELLED, { reason: 'DRIVER_MISTAKE', cancelledRevenue: 0 })
   assert.equal(cancelled.status, TRIP_STATES.CANCELLED)
   assert.equal(cancelled.cancelledRevenue, 0)
   assert.equal(cancelled.revenue, null, 'Cancellation fee remains distinct from Trip fare.')
