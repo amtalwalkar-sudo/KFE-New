@@ -34,7 +34,6 @@ assert.match(indexedDb, /deleteObjectStore\('driver_collected_data'\)/)
 const mutationWriters = [
   'repositories/adminRepository.js',
   'repositories/fuelRepository.js',
-  'repositories/odoGapRepository.js',
   'repositories/shiftTripRepository.js',
   'repositories/locationRepository.js'
 ]
