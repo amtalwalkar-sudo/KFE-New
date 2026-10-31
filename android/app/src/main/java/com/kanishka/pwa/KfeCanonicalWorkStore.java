@@ -435,6 +435,24 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
 
+  private void assertTripFormMutationScope(JSONObject existingTrip, JSONObject incomingTrip, String mode) throws Exception {
+    JSONObject existing = new JSONObject(existingTrip.toString());
+    JSONObject incoming = new JSONObject(incomingTrip.toString());
+    // Retire the legacy marker on the next form write; it is not canonical Trip data.
+    existing.remove("revenueAuthority");
+    incoming.remove("revenueAuthority");
+    String[] allowed = "FARE".equals(mode)
+        ? new String[]{"revenue", "toll", "parking", "fareDetailsSkipped", "updatedAt"}
+        : new String[]{"status", "cancelReason", "cancelledRevenue", "tripEndAt", "updatedAt"};
+    for (String field : allowed) {
+      existing.remove(field);
+      incoming.remove(field);
+    }
+    if (!jsonEquivalent(existing, incoming)) {
+      throw new IllegalArgumentException("Trip form attempted to mutate fields outside its canonical form ownership.");
+    }
+  }
+
   private void validateNativeTripLifecycleTransition(SQLiteDatabase db, String action,
       JSONObject incoming, JSONObject existing, String expectedUpdatedAt, boolean expectAbsent) throws Exception {
     if (incoming == null || empty(incoming.optString("id", "")) || empty(incoming.optString("shiftId", ""))) {
@@ -657,6 +675,8 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           throw new IllegalArgumentException("Cancellation is allowed only before the ride starts and cannot change Trip stage.");
         }
       }
+      trip.remove("revenueAuthority");
+      assertTripFormMutationScope(existingTrip, trip, mode);
       String oldTripVersion = existingTrip.optString("updatedAt", "");
       String newTripVersion = trip.optString("updatedAt", "");
       if (empty(oldTripVersion) || empty(newTripVersion)) {
