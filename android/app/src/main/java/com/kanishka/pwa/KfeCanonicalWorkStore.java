@@ -390,6 +390,9 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           && !jsonEquivalent(tripLifecycleFacts(existingRecord), tripLifecycleFacts(record))) {
         throw new IllegalArgumentException("Trip lifecycle fields must be changed through commitTripLifecycle.");
       }
+      if ("SHIFT".equals(entityType)) {
+        validateNativeShiftLifecycleWrite(db, record, existingRecord, expectedUpdatedAt);
+      }
       if (lifecycleAction != null) {
         validateNativeTripLifecycleTransition(db, lifecycleAction, record, existingRecord,
             expectedUpdatedAt, expectAbsent);
@@ -460,6 +463,45 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     }
     if (!jsonEquivalent(existing, incoming)) {
       throw new IllegalArgumentException("Trip form attempted to mutate fields outside its canonical form ownership.");
+    }
+  }
+
+  private void validateNativeShiftLifecycleWrite(SQLiteDatabase db, JSONObject incoming,
+      JSONObject existing, String expectedUpdatedAt) throws Exception {
+    String incomingStatus = incoming.optString("status", "");
+    if (existing == null) {
+      if (!"ACTIVE".equals(incomingStatus)) return;
+      try (Cursor shifts = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT'", null, null, null, null)) {
+        while (shifts.moveToNext()) {
+          JSONObject current = new JSONObject(shifts.getString(0));
+          if ("ACTIVE".equals(current.optString("status", ""))
+              && !current.has("deletedAt") && !current.optBoolean("deleted", false)) {
+            throw new IllegalArgumentException("Only one canonical Shift may be active at a time.");
+          }
+        }
+      }
+      return;
+    }
+
+    String existingStatus = existing.optString("status", "");
+    if (existingStatus.equals(incomingStatus)) return;
+    if (!"ACTIVE".equals(existingStatus) || !"COMPLETED".equals(incomingStatus)) {
+      throw new IllegalArgumentException("A canonical Shift may only transition from ACTIVE to COMPLETED.");
+    }
+    if (empty(expectedUpdatedAt) || !expectedUpdatedAt.equals(existing.optString("updatedAt", ""))) {
+      throw new IllegalArgumentException("Native Shift completion requires the expected active Shift version.");
+    }
+    try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='TRIP'", null, null, null, null)) {
+      while (trips.moveToNext()) {
+        JSONObject trip = new JSONObject(trips.getString(0));
+        if (incoming.optString("id", "").equals(trip.optString("shiftId", ""))
+            && "ACTIVE".equals(trip.optString("status", ""))
+            && !trip.has("deletedAt") && !trip.optBoolean("deleted", false)) {
+          throw new IllegalArgumentException("A Shift cannot be completed while one of its Trips is active.");
+        }
+      }
     }
   }
 
