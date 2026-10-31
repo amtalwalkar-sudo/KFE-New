@@ -62,7 +62,6 @@ public class KfeOverlayService extends Service {
   private static final String CHANNEL_ID="kfe_overlay";
   private static final int NOTIFICATION_ID=4201;
   private static final String LAST_STATE_KEY="lastOverlayState";
-  private static final String PENDING_GPS_KEY="pendingEventGpsCaptures.v1";
   private static final int BAR_DP=82;
   private static final int COLLAPSED_TOTAL_DP=158;
   private static final int BUBBLE_DP=58;
@@ -127,28 +126,14 @@ public class KfeOverlayService extends Service {
   public static void show(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_SHOW);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   public static void update(Context context,String state){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_UPDATE);i.putExtra(EXTRA_STATE,state==null?"{}":state);ContextCompat.startForegroundService(context,i);}
   static void retryPendingLocations(Context context){Intent i=new Intent(context,KfeOverlayService.class);i.setAction(ACTION_RETRY_PENDING_GPS);ContextCompat.startForegroundService(context,i);}
-  static int pendingEventLocationCount(Context context){
-    try{return new JSONArray(context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]")).length();}
-    catch(Exception ignored){return 0;}
-  }
+  static int pendingEventLocationCount(Context context){return new KfeGpsEventJournal(context).count();}
   static boolean queueEventLocationCapture(Context context,String tripId,String eventType){
     return queueEventLocationCapture(context,"TRIP",tripId,eventType,"");
   }
   static boolean queueEventLocationCapture(Context context,String entityType,String entityId,String eventType,String eventAt){
     if(entityType==null||entityType.trim().isEmpty()||entityId==null||entityId.trim().isEmpty()||!KfeGpsEventPolicy.supports(entityType,eventType))return false;
     try{
-      android.content.SharedPreferences prefs=context.getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE);
-      JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
-      String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
-      boolean found=false;
-      for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key",""))){found=true;break;}}
-      if(!found){
-        JSONObject item=new JSONObject();item.put("key",key);item.put("entityType",entityType);item.put("entityId",entityId);
-        if("TRIP".equals(entityType))item.put("tripId",entityId);
-        item.put("eventType",eventType);item.put("eventAt",eventAt==null?"":eventAt);
-        item.put("queuedAt",java.time.Instant.now().toString());item.put("retryAttempts",0);item.put("nextAttemptAt",0L);items.put(item);
-      }
-      if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
+      if(!new KfeGpsEventJournal(context).enqueue(entityType,entityId,eventType,eventAt))throw new IllegalStateException("Pending GPS event journal was not committed.");
       boolean fine=ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
       boolean background=Build.VERSION.SDK_INT<Build.VERSION_CODES.Q||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
       if(fine&&background)retryPendingLocations(context);
@@ -910,36 +895,19 @@ public class KfeOverlayService extends Service {
   // Each event is journaled in app-private storage before a location request.
   // The original event identity survives timeout, process death, and retry.
   
-  private synchronized boolean enqueuePendingEventLocation(String entityId,String eventType){return enqueuePendingEventLocation("TRIP",entityId,eventType,"");}
-  private synchronized boolean enqueuePendingEventLocation(String entityType,String entityId,String eventType,String eventAt){
-    try{
-      if(!KfeGpsEventPolicy.supports(entityType,eventType))return false;
-      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
-      JSONArray items=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]"));
-      String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
-      for(int i=0;i<items.length();i++){JSONObject item=items.optJSONObject(i);if(item!=null&&key.equals(item.optString("key","")))return true;}
-      JSONObject item=new JSONObject();item.put("key",key);item.put("entityType",entityType);item.put("entityId",entityId);
-      if("TRIP".equals(entityType))item.put("tripId",entityId);
-      item.put("eventType",eventType);item.put("eventAt",eventAt==null?"":eventAt);item.put("queuedAt",java.time.Instant.now().toString());item.put("retryAttempts",0);item.put("nextAttemptAt",0L);items.put(item);
-      if(!prefs.edit().putString(PENDING_GPS_KEY,items.toString()).commit())throw new IllegalStateException("Pending GPS event journal was not committed.");
-      Log.i("KFE-GPS","Durably queued event location "+key);
-      return true;
-    }catch(Exception error){Log.e("KFE-GPS","Could not durably queue event GPS capture.",error);return false;}
+  private KfeGpsEventJournal gpsJournal(){return new KfeGpsEventJournal(this);}
+  private boolean enqueuePendingEventLocation(String entityId,String eventType){return enqueuePendingEventLocation("TRIP",entityId,eventType,"");}
+  private boolean enqueuePendingEventLocation(String entityType,String entityId,String eventType,String eventAt){
+    boolean saved=gpsJournal().enqueue(entityType,entityId,eventType,eventAt);
+    if(saved)Log.i("KFE-GPS","Durably queued event location "+KfeGpsEventPolicy.key(entityType,entityId,eventType));
+    else Log.e("KFE-GPS","Could not durably queue event GPS capture.");
+    return saved;
   }
-  private synchronized void removePendingEventLocation(String entityId,String eventType){removePendingEventLocation("TRIP",entityId,eventType);}
-  private synchronized void removePendingEventLocation(String entityType,String entityId,String eventType){
-    try{
-      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
-      JSONArray current=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]")), next=new JSONArray();
-      String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
-      for(int i=0;i<current.length();i++){JSONObject item=current.optJSONObject(i);if(item!=null&&!key.equals(item.optString("key","")))next.put(item);}
-      prefs.edit().putString(PENDING_GPS_KEY,next.toString()).commit();
-    }catch(Exception error){Log.e("KFE-GPS","Could not update pending GPS event journal.",error);}
+  private void removePendingEventLocation(String entityId,String eventType){removePendingEventLocation("TRIP",entityId,eventType);}
+  private void removePendingEventLocation(String entityType,String entityId,String eventType){
+    if(!gpsJournal().remove(entityType,entityId,eventType))Log.e("KFE-GPS","Could not update pending GPS event journal.");
   }
-  private boolean hasPendingEventLocations(){
-    try{return new JSONArray(getSharedPreferences("kfe_overlay",MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]")).length()>0;}
-    catch(Exception ignored){return false;}
-  }
+  private boolean hasPendingEventLocations(){return gpsJournal().hasPending();}
   private boolean hasBackgroundLocationPermission(){
     if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)return false;
     return Build.VERSION.SDK_INT<Build.VERSION_CODES.Q || ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_BACKGROUND_LOCATION)==PackageManager.PERMISSION_GRANTED;
@@ -952,43 +920,19 @@ public class KfeOverlayService extends Service {
   }
   private void schedulePendingGpsRetry(){
     if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
-    long now=System.currentTimeMillis(),next=Long.MAX_VALUE;
-    try{
-      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
-      for(int i=0;i<items.length();i++){
-        JSONObject item=items.optJSONObject(i);if(item==null)continue;
-        String key=item.optString("key","");
-        if(gpsCaptureInFlight.contains(key))continue;
-        long due=item.optLong("nextAttemptAt",0L);
-        if(due<=0L)due=now;
-        if(due<next)next=due;
-      }
-    }catch(Exception error){Log.w("KFE-GPS","Could not calculate next durable GPS retry.",error);return;}
-    if(next==Long.MAX_VALUE)return;
+    long now=System.currentTimeMillis();
+    JSONObject earliest=gpsJournal().earliestPending(gpsCaptureInFlight,now);
+    if(earliest==null)return;
+    long next=earliest.optLong("nextAttemptAt",0L);
+    if(next<=0L)next=now;
     Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
     handler.removeCallbacks(pendingGpsRetry);
     handler.postDelayed(pendingGpsRetry,Math.max(1000L,next-now));
   }
   private void recordPendingGpsFailure(String tripId,String eventType){recordPendingGpsFailure("TRIP",tripId,eventType);}
   private void recordPendingGpsFailure(String entityType,String entityId,String eventType){
-    try{
-      android.content.SharedPreferences prefs=getSharedPreferences("kfe_overlay",MODE_PRIVATE);
-      JSONArray current=new JSONArray(prefs.getString(PENDING_GPS_KEY,"[]")),next=new JSONArray();
-      String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
-      long now=System.currentTimeMillis();
-      for(int i=0;i<current.length();i++){
-        JSONObject item=current.optJSONObject(i);if(item==null)continue;
-        if(key.equals(item.optString("key",""))){
-          int attempts=Math.max(0,item.optInt("retryAttempts",0))+1;
-          long delay=GPS_RETRY_DELAYS_MS[Math.min(attempts-1,GPS_RETRY_DELAYS_MS.length-1)];
-          item.put("retryAttempts",attempts);
-          item.put("nextAttemptAt",now+delay);
-        }
-        next.put(item);
-      }
-      if(!prefs.edit().putString(PENDING_GPS_KEY,next.toString()).commit())
-        Log.e("KFE-GPS","Could not persist GPS retry backoff; event remains queued.");
-    }catch(Exception error){Log.e("KFE-GPS","Could not persist GPS retry backoff.",error);}
+    if(!gpsJournal().recordFailure(entityType,entityId,eventType,System.currentTimeMillis()))
+      Log.e("KFE-GPS","Could not persist GPS retry backoff; event remains queued.");
   }
   private void retryPendingEventLocations(){
     if(!hasPendingEventLocations())return;
@@ -996,24 +940,16 @@ public class KfeOverlayService extends Service {
     // both precise and background location permissions are granted.
     if(!hasBackgroundLocationPermission())return;
     try{
-      JSONArray items=new JSONArray(getSharedPreferences("kfe_overlay",Context.MODE_PRIVATE).getString(PENDING_GPS_KEY,"[]"));
-      long now=System.currentTimeMillis(),earliest=Long.MAX_VALUE;
-      JSONObject selected=null;
-      for(int i=0;i<items.length();i++){
-        JSONObject item=items.optJSONObject(i);if(item==null)continue;
-        String key=item.optString("key","");
-        if(gpsCaptureInFlight.contains(key))continue;
-        long due=item.optLong("nextAttemptAt",0L);if(due<=0L)due=now;
-        if(due<earliest)earliest=due;
-        if(due<=now&&(selected==null||due<selected.optLong("nextAttemptAt",0L)))selected=item;
-      }
+      long now=System.currentTimeMillis();
+      JSONObject earliest=gpsJournal().earliestPending(gpsCaptureInFlight,now);
+      JSONObject selected=earliest!=null&&earliest.optLong("nextAttemptAt",0L)<=now?earliest:null;
       if(selected!=null){
         String entityType=selected.optString("entityType","TRIP");
         String entityId=selected.optString("entityId",selected.optString("tripId",""));
         String eventType=selected.optString("eventType",""),eventAt=selected.optString("eventAt","");
         if(!entityId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(entityType,entityId,eventType,eventAt);return;}
       }
-      if(earliest!=Long.MAX_VALUE)schedulePendingGpsRetry();
+      if(earliest!=null)schedulePendingGpsRetry();
     }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
   }
   private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){finishPendingGpsAttempt("TRIP",tripId,eventType,saved);}
