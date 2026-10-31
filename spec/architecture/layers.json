@@ -42,8 +42,7 @@
     ],
     "application": [
       "domain",
-      "repositories",
-      "infrastructure"
+      "repositories"
     ],
     "domain": [],
     "repositories": [
@@ -123,6 +122,8 @@
   "notes": [
     "src/services/ is retained only where a verified future migration has not yet occurred; canonical KFE runtime must not depend on it.",
     "UI/UX and shell remain decoupled from infrastructure providers.",
-    "External providers must be reached through replaceable infrastructure adapters."
+    "External providers must be reached through replaceable infrastructure adapters.",
+    "Application may depend on application-owned runtime port contracts; only the infrastructure composition root may bind those ports to platform adapters.",
+    "src/main.js is the composition root and installs infrastructure adapters before mounting the Vue application."
   ]
 }
