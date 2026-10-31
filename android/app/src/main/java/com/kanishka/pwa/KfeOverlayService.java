@@ -917,17 +917,6 @@ public class KfeOverlayService extends Service {
     handler.removeCallbacks(pendingGpsRetry);
     handler.postDelayed(pendingGpsRetry,1000L);
   }
-  private void schedulePendingGpsRetry(){
-    if(!hasPendingEventLocations()||!hasBackgroundLocationPermission())return;
-    long now=System.currentTimeMillis();
-    JSONObject earliest=gpsJournal().earliestPending(gpsCaptureInFlight,now);
-    if(earliest==null)return;
-    long next=earliest.optLong("nextAttemptAt",0L);
-    if(next<=0L)next=now;
-    Handler handler=foregroundHandler!=null?foregroundHandler:new Handler(Looper.getMainLooper());
-    handler.removeCallbacks(pendingGpsRetry);
-    handler.postDelayed(pendingGpsRetry,Math.max(1000L,next-now));
-  }
   private void recordPendingGpsFailure(String tripId,String eventType){recordPendingGpsFailure("TRIP",tripId,eventType);}
   private void recordPendingGpsFailure(String entityType,String entityId,String eventType){
     if(!gpsJournal().recordFailure(entityType,entityId,eventType,System.currentTimeMillis()))
@@ -948,7 +937,7 @@ public class KfeOverlayService extends Service {
         String eventType=selected.optString("eventType",""),eventAt=selected.optString("eventAt","");
         if(!entityId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(entityType,entityId,eventType,eventAt);return;}
       }
-      if(earliest!=null)schedulePendingGpsRetry();
+      if(earliest!=null&&overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
     }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
   }
   private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){finishPendingGpsAttempt("TRIP",tripId,eventType,saved);}
@@ -962,7 +951,9 @@ public class KfeOverlayService extends Service {
       }
     }else{
       recordPendingGpsFailure(entityType,entityId,eventType);
-      schedulePendingGpsRetry();
+      // Do not keep a foreground service alive for timed GPS retries. The durable
+      // journal is resumed only at a later event, app-open, or explicit status refresh.
+      if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
     }
   }
 
@@ -988,7 +979,7 @@ public class KfeOverlayService extends Service {
       }
     }catch(Exception error){
       Log.w("KFE-GPS","Canonical "+entityType+" record could not be verified; pending GPS request remains queued.",error);
-      recordPendingGpsFailure(entityType,entityId,eventType);schedulePendingGpsRetry();return;
+      recordPendingGpsFailure(entityType,entityId,eventType);if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}return;
     }
     if(!hasBackgroundLocationPermission()){
       Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");return;
