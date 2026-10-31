@@ -10,6 +10,10 @@ const readFiles = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(en
   return /\.(js|vue)$/.test(entry.name) ? [target] : []
 })
 
+const architectureContract = fs.readFileSync(path.join(projectRoot, 'docs/KFE-ARCHITECTURE-CONTRACT.md'), 'utf8')
+if (!architectureContract.includes('ONLY NECESSARY PLATFORM ADAPTERS')) violations.push('Architecture authority must describe one semantic owner with necessary platform adapters, not falsely require one physical write path.')
+if (!architectureContract.includes('native command/persistence adapter')) violations.push('Architecture authority must document the native-first Android command and persistence boundary.')
+
 const violations = []
 const assertForbidden = (dirs, patterns, label) => {
   for (const dir of dirs) {
