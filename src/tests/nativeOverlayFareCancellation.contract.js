@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+const formRules = read('android/app/src/main/java/com/kanishka/pwa/KfeNativeTripFormRules.java')
 const store = read('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java')
 const pwa = read('src/views/WorkModuleView.vue')
 const nativeController = read('src/application/work/nativeWorkActionController.js')
@@ -16,6 +17,10 @@ const nativeAcceptance = read('android/app/src/androidTest/java/com/kanishka/pwa
 assert.ok(overlay.includes('private void persistCanonicalTripForm(String mode,String tripId,JSONObject input,String eventId)'), 'Canonical form persistence must accept the durable event ID')
 assert.match(overlay, /native-form-\"\+mode\+\"-\"\+eventId/)
 assert.ok(overlay.includes('canonical.commitTripForm(operationId,mode,trip)'), 'Fare/cancellation must use the atomic canonical transaction.')
+assert.ok(formRules.includes('payload.put("cancelledRevenue",'), 'Native cancellation protocol must name the cancellation fee explicitly.')
+assert.ok(!formRules.includes('payload.put("revenue",'), 'Native cancellation protocol must not overload the Trip fare field.')
+assert.ok(overlay.includes('input.has("cancelledRevenue")?input.optString("cancelledRevenue",""):input.optString("revenue","")'), 'Native adapter must accept already-queued legacy cancellation events while writing only cancelledRevenue.')
+
 assert.ok(!overlay.includes('canonical.putRecord(operationId,"TRIP",trip)'), 'Fare/cancellation must not perform a separate Trip write.')
 assert.match(overlay, /trip\.put\(\"status\",\"COMPLETED\"\)/)
 assert.match(overlay, /trip\.put\(\"status\",\"CANCELLED\"\)/)
@@ -43,6 +48,9 @@ assert.ok(cancelBranch.indexOf('recordPendingAction') < cancelBranch.indexOf('pe
 assert.doesNotMatch(fareBranch + cancelBranch, /new Intent\(this,\s*MainActivity\.class\)|startActivity\(/, 'Native form submit must not launch the main activity')
 
 assert.match(pwa, /if \(stage === 'CANCEL_RIDE'\)/)
+assert.ok(pwa.includes('cancelledRevenue: cancelFare.value'), 'PWA cancellation save must use the explicit cancellation-fee field.')
+assert.ok(pwa.includes('payload.cancelledRevenue ?? payload.revenue'), 'PWA event adapter must retain compatibility with already-queued legacy cancellation payloads.')
+
 assert.match(pwa, /if \(stage === 'ENTER_FARE' && event\?\.input != null\)/)
 assert.match(nativeController, /actions\.acknowledgeAction\(/, 'Durable native acknowledgement is owned by the application controller.')
 const pwaFareSave = pwa.slice(pwa.indexOf('async function saveFare'), pwa.indexOf('async function skipTripDetails'))
