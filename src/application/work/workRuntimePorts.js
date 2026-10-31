@@ -7,7 +7,7 @@ const requiredMethods = Object.freeze({
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
   platform: ['getPlatform', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting'],
   tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
-  locationNames: ['resolveLocationNameDetailed', 'resolveLocationName', 'localityResolutionCacheKey', 'getCachedLocationName'],
+  locationNames: ['resolveLocationNameDetailed', 'resolveLocationName'],
 })
 
 let configuredPorts = null
