@@ -60,6 +60,14 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
     return result
   },
+  async commitTripLifecycle({ operationId, action, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
+    assertNoResetInProgress()
+    requireNative()
+    if (!operationId || !action || !record?.id) throw new Error('operationId, action and record.id are required.')
+    const result = await NativeCanonicalWork.commitTripLifecycle({ operationId, action, record, expectedUpdatedAt, expectAbsent })
+    if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Native Trip lifecycle command was not durably acknowledged.')
+    return result
+  },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
     assertNoResetInProgress()
     requireNative()
