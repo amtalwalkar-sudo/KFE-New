@@ -35,6 +35,7 @@ assert.match(nativeOverlay, /trip\.put\("tripStartAt",new java\.util\.Date\(trip
 assert.match(nativeOverlay, /trip\.put\("tripEndAt",eventTimestamp\)/, 'native trip-end timestamp must use the durable lifecycle event timestamp')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
 assert.match(nativeOverlay, /boolean accuracyValid=!accuracySupplied\|\|/, 'missing accuracy metadata must not discard an otherwise valid GPS fix')
+assert.match(nativeOverlay, /if\(location\.hasAccuracy\(\)\&\&\(/, 'only supplied accuracy metadata is quality-gated')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
 assert.match(fuelRepository, /capturedAt: normalized\.capturedAt \|\| now, createdAt: normalized\.createdAt \|\| now/, 'fuel entry event time and record creation time must be stored independently')
 assert.match(fuelRepository, /capturedAt: existing\.capturedAt/, 'fuel corrections must preserve the original fuel-entry timestamp')
