@@ -1,6 +1,6 @@
 # Android Ride GPS Contract
 
-**Scope:** Native/PWA event-time GPS capture. Timeline locality display is a separate, explicitly user-triggered presentation enrichment.
+**Scope:** Native/PWA event-time GPS capture. After each durable snapshot, the PWA starts one asynchronous locality lookup when online; manual Timeline pull-to-refresh is a fallback for unresolved eligible snapshots. Locality enrichment never blocks ride actions.
 
 KFE captures one GPS snapshot at exactly four ride workflow events:
 
@@ -31,4 +31,4 @@ The PWA owns reverse geocoding and permanent locality persistence. Native Androi
 
 The browser PWA uses one-shot browser geolocation and local snapshot persistence. Android uses the native durable event queue. These are platform adapters for the same four-event snapshot contract, not competing business writers. Android event capture must not require internet.
 
-Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, manual locality refresh online/offline, and that ride timestamps/fares remain unchanged.
+Physical-device verification must test all four events offline, permission denial, app/service reopening, stable event identity, asynchronous locality lookup after capture, manual fallback refresh online/offline, and that ride timestamps/fares remain unchanged.
