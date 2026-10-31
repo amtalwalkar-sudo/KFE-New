@@ -15,6 +15,9 @@ const lowAccuracyService = new LocalityResolutionService({
   primary: { endpoint: 'mock://primary', resolve: async () => 'Unverified area' },
   fallback: { resolve: async () => 'Unverified fallback' },
 })
+const missingAccuracy = await lowAccuracyService.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: null })
+assert.equal(missingAccuracy.placeName, null)
+assert.equal(missingAccuracy.state, 'LOW_ACCURACY')
 const lowAccuracy = await lowAccuracyService.resolveDetailed({ latitude: 19.076, longitude: 72.8777, accuracy: 450 })
 assert.equal(lowAccuracy.placeName, null)
 assert.equal(lowAccuracy.state, 'LOW_ACCURACY')
