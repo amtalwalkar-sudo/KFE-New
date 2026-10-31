@@ -76,17 +76,18 @@ const readAllNativeWorkRecords = async entityType => {
 
 const readNativeWorkSnapshot = async () => {
   if (!WorkRuntimePorts.canonicalWork.isAvailable()) return null
-  const [shifts, trips] = await Promise.all([
+  const [shifts, trips, gps_snapshots] = await Promise.all([
     readAllNativeWorkRecords('SHIFT'),
     readAllNativeWorkRecords('TRIP'),
+    readAllNativeWorkRecords('GPS_SNAPSHOT'),
   ])
-  return { shifts, trips }
+  return { shifts, trips, gps_snapshots }
 }
 
 const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
   if (!nativeSnapshot) return { added: 0, duplicates: 0, conflicts: 0 }
-  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [] }
-  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [] }
+  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [], gps_snapshots: nativeSnapshot.gps_snapshots || [] }
+  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [], gps_snapshots: backup.stores.gps_snapshots || [] }
   const merged = mergeCanonicalBackupSnapshot(current, incoming, { sourceExportedAt: backup.exportedAt })
   let added = 0
   for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP'], ['gps_snapshots', 'GPS_SNAPSHOT']]) {
