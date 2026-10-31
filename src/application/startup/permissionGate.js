@@ -1,4 +1,3 @@
-import { reactive } from 'vue'
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 import { findFirstMissingNativeCheck } from './permissionStartupChecks.js'
 
@@ -8,7 +7,18 @@ const runtimeRequested = new Set()
 let activeRun = null
 let retryCurrent = null
 
-export const permissionGateState = reactive({ status: 'checking', current: null, message: 'KFE is checking the settings needed for the floating work controls.', actionLabel: 'Open setting', error: null })
+export const permissionGateState = { status: 'checking', current: null, message: 'KFE is checking the settings needed for the floating work controls.', actionLabel: 'Open setting', error: null }
+const permissionGateListeners = new Set()
+const updatePermissionGateState = patch => {
+  Object.assign(permissionGateState, patch)
+  for (const listener of permissionGateListeners) listener({ ...permissionGateState })
+}
+export const subscribePermissionGateState = listener => {
+  if (typeof listener !== 'function') throw new TypeError('Permission gate state listener must be a function.')
+  permissionGateListeners.add(listener)
+  listener({ ...permissionGateState })
+  return () => permissionGateListeners.delete(listener)
+}
 
 const OEM_CONFIRMATIONS_KEY = 'kfe.startup.oemSettingsConfirmed.v1'
 
@@ -54,25 +64,25 @@ export function retryStartupPermissionGate() {
 export function runStartupPermissionGate() {
   if (activeRun) return activeRun
   activeRun = (async () => {
-    permissionGateState.status = 'checking'; permissionGateState.error = null
+    updatePermissionGateState({ status: 'checking', error: null })
     while (true) {
       let missing
       try { missing = await getFirstMissing() } catch (error) {
-        permissionGateState.status = 'blocked'; permissionGateState.error = error?.message || String(error); permissionGateState.current = { key: 'unknown', label: 'Required phone setting' }; permissionGateState.message = 'KFE could not verify the required phone settings. Check the permissions, then retry.'; permissionGateState.actionLabel = 'Check again'; await waitForRetry(); permissionGateState.status = 'checking'; continue
+        updatePermissionGateState({ status: 'blocked', error: error?.message || String(error), current: { key: 'unknown', label: 'Required phone setting' }, message: 'KFE could not verify the required phone settings. Check the permissions, then retry.', actionLabel: 'Check again' }); await waitForRetry(); updatePermissionGateState({ status: 'checking' }); continue
       }
-      if (!missing) { permissionGateState.status = 'ready'; permissionGateState.current = null; permissionGateState.message = ''; return true }
-      permissionGateState.current = missing; permissionGateState.message = missing.message; permissionGateState.actionLabel = missing.actionLabel || 'Open setting'
+      if (!missing) { updatePermissionGateState({ status: 'ready', current: null, message: '' }); return true }
+      updatePermissionGateState({ current: missing, message: missing.message, actionLabel: missing.actionLabel || 'Open setting' })
       if (!attempted.has(missing.key)) {
         attempted.add(missing.key)
-        if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); permissionGateState.status = 'checking'; try { await WorkRuntimePorts.platform.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
+        if (native() && missing.request && !runtimeRequested.has(missing.key)) { runtimeRequested.add(missing.key); updatePermissionGateState({ status: 'checking' }); try { await WorkRuntimePorts.platform.requestStartupPermission({ permission: missing.request }) } catch (_) {} continue }
         if (native()) {
-          permissionGateState.status = 'checking'; const returned = waitForForegroundReturn()
-          try { await WorkRuntimePorts.platform.openStartupSetting({ setting: missing.setting }) } catch (error) { permissionGateState.error = error?.message || String(error) }
+          updatePermissionGateState({ status: 'checking' }); const returned = waitForForegroundReturn()
+          try { await WorkRuntimePorts.platform.openStartupSetting({ setting: missing.setting }) } catch (error) { updatePermissionGateState({ error: error?.message || String(error) }) }
           await returned; continue
         }
       }
-      permissionGateState.status = 'blocked'; permissionGateState.message = missing.message; permissionGateState.actionLabel = missing.actionLabel || 'Open setting'
-      await waitForRetry(); permissionGateState.status = 'checking'
+      updatePermissionGateState({ status: 'blocked', message: missing.message, actionLabel: missing.actionLabel || 'Open setting' })
+      await waitForRetry(); updatePermissionGateState({ status: 'checking' })
     }
   })().finally(() => { activeRun = null })
   return activeRun
