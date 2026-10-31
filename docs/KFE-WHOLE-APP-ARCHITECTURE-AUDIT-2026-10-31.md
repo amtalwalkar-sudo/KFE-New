@@ -122,6 +122,24 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** The obsolete matrix was removed. The current form architecture remains defined by the Admin extensibility contract, universal form contract, application/repository save paths and active regression tests.
 
+### 14. Native-first command ownership clarified
+
+**Finding:** The architecture/lifecycle prose had claimed that native overlay actions passed through the PWA WorkService command path. The implementation correctly supports native-first commits while the WebView is unavailable; the PWA later replays the durable event to synchronize and acknowledge, without creating a second commit when the native operation already exists.
+
+**Change:** The current architecture and lifecycle contracts now describe the actual split: PWA actions use WorkService; Android overlay actions use the native command/SQLite transaction adapter; both preserve one canonical Shift/Trip model and one record history. Shift start/end remain PWA-owned. End-to-end assertions now verify native lifecycle commit and durable event publication separately.
+
+### 15. Fuel calculation surface simplified
+
+**Finding:** The fuel store and WorkService still computed and retained unused rolling cost/km, latest mileage, average mileage and per-kg metrics. No current screen consumed these values; the active reporting requirement is selected-period fuel spending plus full-tank interval cost/km.
+
+**Change:** Removed the unused rolling-metric API and store state. Fuel domain math now exposes only quantity conversion and the selected-period full-tank cost/km summary. Partial refills remain included in period spending but never create mileage intervals. Added a focused fuel domain contract covering baseline readings, partial refills, vehicle separation, weighted interval cost/km and missing intervals.
+
+### 16. Cancellation fee calculation corrected
+
+**Finding:** Basic Performance previously fell back from a missing `cancelledRevenue` to the cancelled Trip's `revenue` field. That could incorrectly reuse a prior fare as a cancellation fee, contrary to the canonical rule that a missing cancellation fee is ₹0.
+
+**Change:** Performance now reads only `cancelledRevenue` for cancellation fees. A regression test proves a legacy cancelled Trip with a fare field but no cancellation fee contributes zero.
+
 ## Verification
 
 The following are enforced by regression contracts:
