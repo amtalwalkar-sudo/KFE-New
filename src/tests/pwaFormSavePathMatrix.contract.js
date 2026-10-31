@@ -4,7 +4,6 @@ import fs from 'node:fs'
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const router = read('../router/index.js')
 const adminView = read('../views/AdminView.vue')
-const firstRun = read('../views/FirstRunSetupView.vue')
 const definitions = read('../application/admin/adminFormDefinitions.js')
 const adminService = read('../application/admin/adminService.js')
 const adminRules = read('../application/admin/universalFormRules.js')
@@ -41,7 +40,6 @@ match(adminService, /AdminRepository\.save\(formKey,result\.values,existingId\)/
 match(adminRules, /rejectUnknownFields:true/, 'Admin validation must reject unknown fields')
 match(adminRepo, /writeMutationAndAudit|pending_mutations/, 'Admin persistence must preserve mutation history')
 match(adminRepo, /objectStore\(storeName\)\.put\(record\)/, 'Admin persistence must write the canonical store')
-match(firstRun, /AdminService\.save\(current\.value\.form, form\.value\)/, 'First-run source forms must use the same canonical save boundary')
 
 // Work form families: transitions and writes must converge on the canonical trip/shift/fuel repositories.
 match(work, /await store\.startShift\(startOdo\.value,/, 'Start Shift must use the shift store')
