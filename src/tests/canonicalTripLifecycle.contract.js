@@ -16,7 +16,7 @@ const overlay = fs.readFileSync(path.join(root, '..', 'android', 'app', 'src', '
 console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
 
 const newTrip = createCanonicalTripRecord({ shiftId: 'shift-1', operator: 'Uber' }, { createId: () => 'new-trip', now: '2026-09-24T08:00:00.000Z' })
-assert.equal(newTrip.revenueAuthority, undefined, 'New canonical Trips must not carry obsolete per-Trip revenue authority metadata.')
+assert(newTrip.revenueAuthority === undefined, 'New canonical Trips must not carry obsolete per-Trip revenue authority metadata.')
 const active = { id: 'trip-1', shiftId: 'shift-1', status: TRIP_STATES.ACTIVE, revenue: null }
 const completed = transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' })
 assert(completed.status === 'COMPLETED', 'END_RIDE must produce one COMPLETED canonical Trip')
@@ -25,11 +25,11 @@ assert(completed.tripKm === undefined, 'Ride lifecycle must not calculate or cap
 
 const priced = applyTripDetails({ ...completed, revenueAuthority: 'SUPPORTING_ONLY' }, { id: active.id, revenue: 250, toll: 10, parking: 5, fareDetailsSkipped: false }, '2026-09-24T12:01:00.000Z')
 assert(priced.id === active.id && priced.status === 'COMPLETED', 'Fare must update the same completed Trip, not create another record')
-assert.equal(priced.revenue, 250)
-assert.equal(priced.toll, 10)
-assert.equal(priced.parking, 5)
-assert.equal(priced.updatedAt, '2026-09-24T12:01:00.000Z')
-assert.equal(priced.revenueAuthority, undefined, 'Trip fare remains a supporting fact; obsolete per-Trip revenue authority metadata is not persisted.')
+assert(priced.revenue === 250, 'Fare amount must be saved.')
+assert(priced.toll === 10, 'Toll must be saved.')
+assert(priced.parking === 5, 'Parking must be saved.')
+assert(priced.updatedAt === '2026-09-24T12:01:00.000Z', 'Trip detail update time must be saved.')
+assert(priced.revenueAuthority === undefined, 'Trip fare remains a supporting fact; obsolete per-Trip revenue authority metadata is not persisted.')
 
 const cancelled = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelled.status === 'CANCELLED', 'Cancellation must produce one CANCELLED canonical Trip')
@@ -40,8 +40,8 @@ assert(cancelledBlank.cancelledRevenue === 0 && cancelledBlank.revenue === null,
 const cancelledZero = transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 0, reason: 'DRIVER_MISTAKE' })
 assert(cancelledZero.cancelledRevenue === 0 && cancelledZero.revenue === null, 'Explicit zero cancellation fee remains distinct from Trip fare.')
 const cancelledWithPriorFare = transitionTrip({ ...active, revenue: 300 }, TRIP_STATES.CANCELLED, { revenue: 20, reason: 'PASSENGER' })
-assert.equal(cancelledWithPriorFare.cancelledRevenue, 20)
-assert.equal(cancelledWithPriorFare.revenue, 300, 'Cancellation must not overwrite a pre-existing fare fact with the cancellation fee.')
+assert(cancelledWithPriorFare.cancelledRevenue === 20, 'Cancellation fee must be saved independently.')
+assert(cancelledWithPriorFare.revenue === 300, 'Cancellation must not overwrite a pre-existing fare fact with the cancellation fee.')
 let invalidCancellationRejected = false
 try { transitionTrip(active, TRIP_STATES.CANCELLED, { revenue: 'not-a-number' }) } catch (_) { invalidCancellationRejected = true }
 assert(invalidCancellationRejected, 'Invalid cancellation fee must be rejected')
@@ -59,7 +59,7 @@ assert(!canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), 'A comp
 assert(!canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), 'A cancelled Trip must not be completed into a second terminal record')
 
 assert(repository.includes("import { transitionTrip, transitionTripStage, TRIP_STATES } from '../domain/work/tripLifecycle.js'"), 'Canonical repository must use the shared Trip lifecycle')
-assert.doesNotMatch(canonicalWorkRecords, /revenueAuthority/, 'Canonical Trip factory must not create obsolete revenue authority metadata.')
+assert(!/revenueAuthority/.test(canonicalWorkRecords), 'Canonical Trip factory must not create obsolete revenue authority metadata.')
 assert(repository.includes("import { applyTripDetails } from '../domain/work/trip.js'"), 'Browser repository must use the shared domain Trip detail mutation.')
 assert(workService.includes("applyTripDetails(trip, details, nextCanonicalTimestamp(trip.updatedAt))"), 'Native-first Work service must use the same domain Trip detail mutation.')
 assert(!repository.includes("const applyTripDetails ="), 'Browser repository must not keep a duplicate Trip detail mutation.')
