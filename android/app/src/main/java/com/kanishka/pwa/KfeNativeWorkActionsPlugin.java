@@ -89,11 +89,10 @@ public class KfeNativeWorkActionsPlugin extends Plugin {
   static String recordPendingAction(Context context, String stage, String tripId, String input) {
     // The SQLite event log is the durable bridge between overlay controls and
     // Work. It is intentionally independent of Android notifications.
-    String eventId = KfeNativeEventStore.get(context).append(stage, tripId, input);
-    String packed = stage + "|" + (tripId == null ? "" : tripId) + "|" + (input == null ? "" : input);
-    context.getSharedPreferences(PREFS, 0).edit()
-      .putString(PENDING_KEY, packed).putString("pendingEventId", eventId).apply();
-    return eventId;
+    // New actions have exactly one durable representation: the ordered SQLite event log.
+    // getPendingAction() remains read-only compatibility for a pre-ledger event left by an
+    // older installed version; current actions must not create a second SharedPreferences copy.
+    return KfeNativeEventStore.get(context).append(stage, tripId, input);
   }
 
   @com.getcapacitor.PluginMethod
