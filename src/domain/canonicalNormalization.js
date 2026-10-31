@@ -5,14 +5,23 @@ const first = (...values) => values.find(value => value !== null && value !== un
 export const normalizeShiftInput = input => {
   const value = { ...input }
   value.startOdometer = number(first(input.startOdometer, input.start_odometer, input.openingOdometer, input.opening_odometer), 'startOdometer')
-  if (first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer) !== undefined) value.endOdometer = number(first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer), 'endOdometer')
-  for (const [canonical, aliases] of Object.entries({ openingPersonalKm: ['opening_personal_km'], openingDeadKm: ['opening_dead_km'], openingPersonalToll: ['opening_personal_toll'], openingPersonalParking: ['opening_personal_parking'], totalDistance: ['total_distance'], revenue: ['fare', 'amount'], toll: ['tollCost', 'toll_cost'], parking: ['parkingCost', 'parking_cost'] })) {
-    const source = first(input[canonical], ...aliases.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = number(source, canonical); for (const alias of aliases) delete value[alias]
-  }
+  const endOdometer = first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer)
+  if (endOdometer !== undefined) value.endOdometer = number(endOdometer, 'endOdometer')
   value.shiftStartAt = first(input.shiftStartAt, input.shift_start_at, input.startAt, input.start_at) ?? input.shiftStartAt
   value.shiftEndAt = first(input.shiftEndAt, input.shift_end_at, input.endAt, input.end_at) ?? input.shiftEndAt
-  delete value.tollTreatment; delete value.parkingTreatment; delete value.tollParkingCaptureMode; delete value.tollParkingRevenueTreatment
-  for (const key of ['start_odometer','end_odometer','openingOdometer','opening_odometer','closingOdometer','closing_odometer']) delete value[key]
+
+  // Shift records own only their opening/closing odometer and lifecycle facts.
+  // Old gap-allocation, per-shift fare/toll and supplied distance inputs are not
+  // accepted as new Shift source facts; existing stored records remain untouched.
+  for (const key of [
+    'start_odometer', 'end_odometer', 'openingOdometer', 'opening_odometer',
+    'closingOdometer', 'closing_odometer', 'openingPersonalKm', 'opening_personal_km',
+    'openingDeadKm', 'opening_dead_km', 'openingPersonalToll', 'opening_personal_toll',
+    'openingPersonalParking', 'opening_personal_parking', 'totalDistance', 'total_distance',
+    'revenue', 'fare', 'amount', 'toll', 'tollCost', 'toll_cost', 'parking',
+    'parkingCost', 'parking_cost', 'tollTreatment', 'parkingTreatment',
+    'tollParkingCaptureMode', 'tollParkingRevenueTreatment',
+  ]) delete value[key]
   return value
 }
 
