@@ -9,7 +9,7 @@ This document describes the supporting read architecture and presentation bounda
 ## Ownership
 
 - Read saved canonical records through `PerformanceRepository`.
-- `PhaseOnePerformanceService` coordinates the reporting range, canonical snapshot, and fuel summary.
+- `PhaseOnePerformanceService` coordinates the reporting range, canonical snapshot, and fuel summary. Before reading the IndexedDB snapshot, it asks `WorkService` to reconcile native Android SQLite records so a direct Performance launch cannot calculate from stale pre-overlay data.
 - Domain projection logic derives the view model; the Vue view only presents it.
 - Performance subscribes to canonical changes affecting shifts, trips, fuel logs, and business settings. Notifications received during a read are coalesced into one follow-up snapshot.
 - Keep Performance read-only. It must not mutate rides, shifts, fuel records, or Admin forms.
