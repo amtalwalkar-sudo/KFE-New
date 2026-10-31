@@ -1915,3 +1915,11 @@ table th,table td{border-color:var(--kfe-ui-border)}
 .gps-status__action,.gps-status__close{display:block;box-sizing:border-box;width:100%;min-width:0;min-height:40px;white-space:normal;overflow-wrap:normal;margin-top:10px;border:1px solid var(--kfe-border,var(--kfe-base-border));border-radius:9px;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .gps-status__action{background:var(--kfe-accent,var(--kfe-base-accent));border-color:transparent;color:var(--kfe-ui-on-accent,var(--kfe-base-text))}
 .gps-status__action:disabled{opacity:.65;cursor:wait}
+
+
+/* App shell: permission gate and runtime error presentation. */
+.kfe-permission-gate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:24px;background:var(--kfe-bg,#101820);color:var(--kfe-text,#fff)}
+.kfe-permission-gate__card{box-sizing:border-box;width:min(100%,420px);padding:24px;border-radius:16px;background:var(--kfe-surface,#1d2935);box-shadow:0 12px 40px #0005}
+.kfe-permission-gate__action{width:100%;min-height:48px}
+.kfe-runtime-error{box-sizing:border-box;max-width:760px;margin:24px auto;padding:20px;border:1px solid var(--kfe-danger);border-radius:14px;background:var(--kfe-surface);color:var(--kfe-text)}
+.kfe-runtime-error__details{max-height:55vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border-radius:8px;background:var(--kfe-surface-raised,var(--kfe-bg));font:12px/1.45 ui-monospace,monospace}
