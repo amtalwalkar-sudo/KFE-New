@@ -36,12 +36,12 @@ assert.match(adminRepo, /writeMutationAndAudit/, 'Admin persistence must retain 
 
 // Work form inventory -> store/application service -> canonical repository.
 assert.match(workView, /await store\.startShift\(/, 'Start Shift must use the shift store')
-assert.match(workView, /await store\.updateTrip\(details\)/, 'Trip details must use the shift store')
+assert.match(workView, /await store\.saveTripDetails\(details\)/, 'Trip details must use the shift store')
 assert.match(workView, /await store\.cancelTrip\(/, 'Cancellation must use the shift store')
 assert.match(workView, /WorkService\.recordFuel\(/, 'Fuel must use WorkService')
 assert.match(workView, /await store\.endShift\(/, 'End Shift must use the shift store')
 assert.match(workService, /ShiftTripRepository\.createShift/, 'Start Shift must reach canonical shift persistence')
-assert.match(workService, /ShiftTripRepository\.updateTrip/, 'Trip details must reach canonical trip persistence')
+assert.match(workService, /ShiftTripRepository\.saveTripDetails/, 'Trip details must reach canonical trip persistence')
 assert.match(workService, /ShiftTripRepository\.cancelTrip/, 'Cancellation must reach canonical trip persistence')
 assert.match(fuelService, /FuelRepository\.create/, 'Fuel must reach canonical fuel persistence')
 assert.match(fuelRepo, /objectStore\('fuel_logs'\)/, 'Fuel repository must write fuel_logs')
