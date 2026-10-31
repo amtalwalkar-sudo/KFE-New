@@ -1,105 +1,112 @@
 # Work Android Reliability Acceptance Runbook
 
-This runbook is the required physical-device acceptance test for the KFE Work workflow. Automated CI and emulator smoke checks do not substitute for these tests. Record the exact APK SHA, Android version, device model, battery-optimisation state, permission state and results for every run.
+**Status:** Current physical-device acceptance evidence for the simplified KFE product.  
+**Authorities:** `KFE_ANDROID_RELEASE_GATE.md`, `KFE_BUSINESS_RULES_REGISTER.md`, and `docs/KFE-ARCHITECTURE-CONTRACT.md`.
 
-## Build and evidence
+Automated CI and emulator smoke checks do not substitute for these tests. Record the exact APK SHA-256, Git commit, Android version, device model, permission state, battery-optimisation state and result for every test. Use a dedicated test dataset; never run destructive tests against production records.
 
-1. Install the exact APK from the CI run under test; record its SHA-256 and Git commit.
-2. Use a dedicated test vehicle/driver dataset. Do not run destructive restore/reboot tests against production business records.
-3. Grant location permission required by the app and enable device location. Record whether Android grants background location; do not assume it.
-4. Enable Dropbox backup with a test token and verify the UI reports a successful backup timestamp.
-5. Keep the screen recording and exported canonical backup before/after each destructive test.
+## A — Exact APK and startup
 
-## Test A — Dropbox credential persistence and upload
+1. Install the exact APK produced by the CI run under test; record its SHA-256 and commit.
+2. Launch KFE and confirm the PWA shell, Work, Timeline, Performance and Admin routes load.
+3. Confirm Capacitor plugin registration succeeds and the native overlay can be prepared.
+4. Record startup permission state. Denied permissions must be reported honestly and must not be silently treated as granted.
 
-- Configure Dropbox token and enable automatic backup while online.
-- Force-stop and reopen the app; verify the token-presence status remains true without re-entering the token. Do not expose the token in screenshots/logs.
-- Record a uniquely identifiable test fuel entry; wait for the automatic foreground backup status to update.
-- Verify the Dropbox file's modified time and download/validate the JSON backup.
-- Disable Internet, create another test record, and verify the local record persists. Restore Internet while the app is open; verify the foreground retry uploads the newer record.
-- Expected: credentials survive restart in Android Keystore-backed storage; cloud backup succeeds only when the app is foregrounded/active and network is available. A background upload while the app is closed is not promised by the current architecture.
+## B — Four event-time GPS snapshots, offline
 
-## Test B — screen-off GPS, dead movement
+Keep device Location enabled. First test with required location permission granted, then repeat with permission denied.
 
-- Start a shift and allow the opening odometer gate to complete.
-- Drive a safe, repeatable 1–2 km dead-movement segment between trips.
-- Turn the screen off for at least 10 minutes; do not force-stop the app.
-- Turn the screen on, return to Work and end the shift after entering the correct closing odometer.
-- Verify shift-owned DEAD_MOVEMENT_TRACE points exist in canonical gps_snapshots under entityType=SHIFT, have timestamps spanning the screen-off interval, and are included in movement reconciliation. Compare point counts and trace distance before/after.
-- Expected: native trace is flushed to canonical storage before end-shift reconciliation; no duplicate points on a second open/sync.
+1. Start a shift in the PWA.
+2. Turn on Airplane mode; keep Wi-Fi/mobile data disabled.
+3. Perform GO TO PICKUP, START TRIP, END TRIP and CANCEL RIDE through the native overlay across separate test rides.
+4. Verify exactly one durable GPS snapshot is associated with each applicable event: `PICKUP_START`, `TRIP_START`, `TRIP_END`, and `TRIP_CANCELLED`.
+5. Verify coordinates, provider accuracy, provider fix time (`capturedAt`) and business-event time (`eventAt`) are retained distinctly.
+6. Verify ride actions and their existing business timestamps never wait for GPS; no fare, cancellation value or canonical Trip identity is changed by GPS capture.
+7. Verify capture is event-triggered only, with a bounded fresh-fix window; there is no continuous location tracking, route trace or ride-distance calculation.
+8. With permission denied, verify the ride action still succeeds and no unauthorized background coordinate capture is attempted.
+9. With poor signal/no acceptable fix, verify active location requests stop at the bounded timeout and the durable event remains eligible for a later explicit trigger. Reopen KFE or use the documented GPS status refresh; verify retry does not duplicate the snapshot.
 
-## Test C — process death during an active trip
+Expected: offline event-time capture, no continuous tracking, no GPS dependency in ride transitions, and no changes to established business timestamps.
 
-- Start a shift, go to pickup and start a passenger trip.
-- Confirm the foreground GPS notification is visible and at least two native trace points have been recorded.
-- Kill only the app process (do not use Android Force Stop): adb shell am kill <applicationId>.
-- Reopen the app; verify the active trip and native GPS owner resume without creating a duplicate shift or trip.
-- End the trip; verify the trip reaches its completed/pending-fare state and its native trace is imported under entityType=TRIP.
-- Enter and save the fare once. Confirm exactly one canonical trip and one fare record exist.
+## C — Manual-only locality resolution
 
-## Test D — reboot during an active trip
+1. Keep the device offline and open Timeline. Verify saved labels remain visible and unresolved records show stored coordinates or an honest unavailable state.
+2. Verify app startup, ride capture, foreground/resume, and connectivity restoration do not initiate locality lookup.
+3. Restore internet while KFE is open. Do not pull Timeline; verify no locality lookup occurs automatically.
+4. Explicitly pull down to refresh Timeline. Verify only eligible unresolved snapshots from the latest seven days are considered.
+5. Verify labels are saved by canonical snapshot ID, survive app restart, and are not overwritten by a less accurate or unrelated result.
+6. Verify pickup uses `PICKUP_START`, completed drop uses `TRIP_END`, and cancellation is never shown as a passenger drop-off.
+7. Check a known test coordinate against a trusted map reference; reject a locality label that is not geographically credible.
 
-- Start a test trip and confirm native trace points are being written.
-- Reboot the device normally.
-- Unlock the device, allow boot recovery and reopen KFE. Record whether Android permits the service to resume under the current permission/battery settings.
-- Verify the active trip remains the same, new GPS points resume only when the OS allows them, and the pre-reboot trace remains importable.
-- End the trip and verify trace import, odometer/reconciliation and fare capture.
-- Expected: canonical records survive reboot. GPS resumption is a conditional Android OS behaviour and must be marked FAIL if the service does not restart under the documented permission/settings profile.
+Expected: user-triggered pull-to-refresh is the only locality-resolution trigger. No automatic polling, queued retry or fabricated area name.
 
-## Test E — pending-fare recovery
+## D — PWA / native overlay workflow and recovery
 
-- End a passenger trip, then terminate the WebView/app process before entering the fare.
-- Reopen Work. Verify the same completed trip is presented for fare entry and its draft values are restored only for that trip.
-- Save the fare. Reopen Work and verify the fare form does not reappear for the saved trip and no duplicate fare is created.
-- Repeat with the fare intentionally skipped. Verify an explicitly skipped trip is terminal and is not reopened.
+1. Start a shift in the PWA with a valid opening odometer.
+2. Background or close the PWA WebView while keeping the shift active.
+3. Use the native overlay to perform multiple rides: pickup, trip start, trip end, fare save or explicit skip, cancellation and cancellation-fee save.
+4. Verify every action is durably committed in Android SQLite before the overlay advances and that retry/process interruption does not duplicate the Trip or its fare/cancellation facts.
+5. Kill the app process (not Force Stop), reopen KFE and verify the same active Shift/Trip identities and pending form state are reconstructed.
+6. Reopen the PWA and verify it synchronizes the native-committed canonical records without creating a second write.
+7. Repeat a ride while online and while offline; verify both PWA and overlay use the same lifecycle rules and canonical record model.
+8. Return to the PWA to enter the closing odometer and end the shift. Verify the overlay cannot start or end a shift.
 
-## Test F — restore on a clean installation
+Expected: PWA owns Shift start/end; the native overlay owns ride commands while active; both adapters preserve one canonical business model and one record history.
 
-- Upload a fresh Dropbox backup containing identifiable shift, trip, fuel and GPS records.
-- Install the same app version in a clean Android profile/device and configure Dropbox credentials.
-- Restore the backup and compare store counts and record IDs with the downloaded source backup.
-- Verify the active/pending trip state is restored safely, form drafts are not accidentally replayed, and subsequent writes succeed.
-- Expected: all canonical allowlisted records match; excluded native trace files and form drafts are not assumed to be present in Dropbox. If a required movement trace has not been imported into canonical gps_snapshots, the restore test fails.
+## E — Backup, Dropbox and restore
 
-## Test G — native overlay and Android foreground-service notices
+1. Configure Dropbox with a test credential. Confirm the credential is not exposed in logs/screenshots.
+2. While KFE is open and online, verify the configured foreground Dropbox backup runs and reports its result.
+3. Force-stop and reopen KFE; verify credential-presence state persists without exposing the secret.
+4. Go offline, create a uniquely identifiable Shift, Trip, Fuel and GPS event record, and verify local canonical persistence.
+5. Restore connectivity while KFE is open; verify the configured foreground backup path runs without duplicating or mutating source records.
+6. Export a Phone Backup JSON file and validate that it contains the expected allowlisted records, including native GPS snapshots and persisted locality labels.
+7. Restore into a clean test installation and compare record IDs/counts. Verify drafts are not replayed as canonical business facts.
+8. Verify restore failure retains the pre-restore recovery checkpoint and allows recovery.
 
-- Start a test shift and wait for the startup permission gate to finish. Confirm missing permissions/settings are handled one at a time and KFE rechecks each after returning.
-- Put KFE in the background. Confirm the native overlay appears and the ongoing Android foreground-service notice(s) remain visible as Android permits.
-- Verify foreground-service notices are generic, quiet, and independent of ride stage. Ride transitions, cancellation, and fare entry must be performed only through the Work screen or floating overlay, never through a notification.
-- Verify GPS and dead-KM information remains in the overlay/Work UI, not in notifications. After process death/recovery, confirm the displayed distance is reconstructed from the persisted trace and does not reset. Before any valid distance is available, show an unavailable marker rather than inventing a value.
-- Minimize and drag the floating overlay, then restore it. Confirm it can be moved independently and the persistent notification remains available.
-- Perform GO TO PICKUP, START TRIP and END TRIP using the native swipe. Confirm each action is emitted once, the visible stage does not advance before durable acknowledgement, and reopening KFE recovers any unacknowledged event.
-- End a trip and leave fare entry pending. Confirm the Work/overlay fare flow remains available until saved; notifications must not ask for or submit fare.
-- Disable Android notification permission or the foreground-service notification channels in Settings on a test installation, reopen KFE, and verify the startup gate identifies the missing setting. Re-enable it and confirm the required foreground-service notices return.
-- Repeat with KFE foregrounded, backgrounded, screen off, after process death, and after normal reboot. Record any OEM battery/autostart limitations separately.
+Expected: local operation is independent of internet; Dropbox remains a foreground/live-app backup integration. No native background upload or service-worker cloud polling is required.
 
-Expected: one canonical Work state drives both surfaces. The overlay is the interaction surface; Android notifications exist only to satisfy foreground-service lifecycle requirements and must never manage rides or revenue. No notification or overlay action may create a duplicate trip, silently save form data, or block a trip transition while waiting for GPS.
+## F — Timeline and basic Performance
 
-## Test H — fully offline native ride workflow
+1. Verify Timeline period filters default to Today and include This week and This month.
+2. Verify completed and cancelled rides appear chronologically; cancelled rides are labelled Cancelled.
+3. Verify ride fields are start time, duration, fare, pickup area and drop area. No ride distance, km efficiency or route metrics appear.
+4. Verify fuel totals include partial and full refills in the selected period.
+5. Verify fuel cost/km is unavailable until valid consecutive full-tank odometer readings exist; partial refills do not create mileage intervals.
+6. Verify Performance defaults to Today and shows only recorded fare income, completed ride count, cancellation fees, fuel spending, valid full-tank fuel cost/km and income after fuel.
+7. Verify missing cancellation fees count as zero; income after fuel includes cancellation fees and subtracts recorded fuel spending.
+8. Verify no forecast, target, break-even, provision, amortization, maintenance projection or other retired financial calculation is present.
 
-- Start a test shift while online, wait for all required permissions/settings to be confirmed, and verify the native overlay and required foreground-service notice(s) are visible.
-- Enable Airplane mode; explicitly verify Wi-Fi and mobile data remain disabled. Keep device Location enabled.
-- Run the complete native overlay flow: GO TO PICKUP → START TRIP → END TRIP. Verify the same canonical PWA cancellation/fare forms open when those forms are requested; fare is required, toll and parking are optional.
-- Repeat the ride action sequence from the PWA while still offline. Confirm each surface reflects the same active stage and that exactly one trip is created per ride.
-- Turn the screen off for at least 10 minutes during a pickup/active ride. After waking the device, verify the current stage in the overlay/Work UI, generic foreground-service notice(s), GPS collector status, and locally persisted trace.
-- While still offline, restart the phone normally. Unlock it, wait for boot recovery, and verify the last valid active shift/trip state is restored without creating a new trip. Confirm new GPS points resume when Android grants the service permission to run.
-- Complete the trip and save fare once. Reopen Work and verify the completed trip/fare are not duplicated and the trace is importable locally. Restore internet only after checking local persistence; then verify sync/reconciliation does not duplicate records.
-- Repeat once with an ended shift. After ending the shift, reboot and verify no stale overlay from that ended shift reappears.
+## G — Admin, forms and Android navigation
 
-Expected: native actions and canonical local records do not depend on network access. GPS still depends on device Location being enabled, runtime/background location permissions, and Android allowing the foreground service to run. Mark any missing permission or OS restriction explicitly; never mark the test PASS just because the overlay window is visible.
+1. Verify Admin has exactly Business Setup, Vehicle Records, Finance and Settings.
+2. Verify no Ledger menu entry and no duplicate Settings tiles inside the Settings page.
+3. Open each active form, save valid data, reopen it and verify persisted values and relationships.
+4. Verify older historical dates can be entered where permitted; business start date must not silently reject legitimate older source records.
+5. Verify Loan stores contractual source facts only; it does not calculate EMI, amortization, payment allocation or repayment schedules.
+6. From an Admin detail/form screen press Android Back. Verify it returns to the main Admin menu, not the app exit route.
+7. Verify Save/Cancel actions remain visible and do not overlap on the target phone or with the keyboard open.
 
-## Android lifecycle boundary — force-stop is not process death
+## H — Reset and recovery safeguards
 
-A user/system force-stop is different from ordinary process death. Android can suppress app services, alarms and boot/background receivers for a force-stopped package until the user launches it again. Do not promise automatic overlay/GPS recovery from force-stop. Test ordinary process death separately; for force-stop, verify the next manual app launch recovers durable state and pending actions without duplication.
+1. Export a known-good Phone Backup.
+2. Trigger Data Reset in the test dataset and verify the pre-reset recovery checkpoint is created before destructive clearing.
+3. Verify reset clears business data and restores default preferences without deleting the recovery safeguard.
+4. Restore the known-good backup and compare canonical IDs/counts and key relationships.
+5. Interrupt a restore/reset at supported interruption points and verify the recovery protocol does not report false success or leave a partially accepted state.
+
+## Android lifecycle boundary
+
+Ordinary process death, reboot and user Force Stop are different Android lifecycle cases. Test ordinary process death and reboot separately. Android may suppress services/receivers after Force Stop until the user launches the app again; do not promise automatic recovery from Force Stop. On the next manual launch, verify durable canonical state and pending actions recover without duplication.
 
 ## Result recording
 
-For each test mark PASS/FAIL/NOT RUN and attach:
-- device model, Android version and permission/battery settings;
-- APK SHA-256 and Git commit;
-- before/after backup timestamps and store counts;
-- canonical shift/trip/GPS record IDs and event types;
-- native service logcat excerpt with credentials removed;
-- screenshots of the Work state and backup status.
+For every test mark PASS / FAIL / NOT RUN and retain:
+- device model, Android version, permission and battery settings;
+- APK SHA-256, commit and CI run;
+- Shift, Trip and GPS snapshot IDs/event types;
+- before/after backup timestamps and record counts;
+- relevant logcat excerpts with credentials removed;
+- screenshots of Work, Timeline, Performance, Admin and backup status.
 
-Do not declare the Work section loss-proof until all tests pass on the actual target Android device and the evidence is retained with the release.
+Do not declare Android device acceptance complete until the exact release APK passes all applicable scenarios on the target physical phone and evidence is retained.
