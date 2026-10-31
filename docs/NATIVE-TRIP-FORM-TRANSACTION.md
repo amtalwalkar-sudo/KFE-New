@@ -1,10 +1,10 @@
 # Native Trip Form Transaction
 
-Status: **Canonical transaction implementation merged to main (PR #323); automated CI and WebView-unavailable full-shift acceptance passed. Physical-device GPS snapshot acceptance is a separate open gate and does not block acceptance of this transaction contract.**
+**Status:** SUPPORTING IMPLEMENTATION EVIDENCE — native fare/cancellation transaction boundary. The original PR #323 verification is historical; current code and acceptance must be judged against PR #412, the current architecture contract, and `KFE_ANDROID_RELEASE_GATE.md`. This document does not establish physical-device acceptance.
 
 ## Decision
 
-KFE does not need a headless JavaScript runtime merely to persist ordinary native-overlay fare and cancellation submissions. The overlay submits a bounded command to the existing canonical Android SQLite store. SQLite transactions provide atomicity; native code enforces minimum invariants needed to keep durable records and the financial projection consistent. The PWA retains richer, evolving domain rules, reporting and reconciliation.
+KFE does not need a headless JavaScript runtime merely to persist ordinary native-overlay fare and cancellation submissions. The overlay submits a bounded command to the existing canonical Android SQLite store. SQLite transactions provide atomicity; native code enforces minimum invariants needed to keep durable records and the financial projection consistent. The PWA owns shift start/end, shared Work orchestration, and read-only reporting views. Native Android owns the durable overlay transaction and its persistence-critical validation.
 
 This is the pragmatic split between **simple accumulation** and **complex business rules**. It is not permission for the PWA to repair an accepted fare later: ordinary accepted commands must already be financially correct when committed.
 
@@ -35,6 +35,6 @@ This is the pragmatic split between **simple accumulation** and **complex busine
 
 - The native overlay reads current widget/draft values and invokes `KfeNativeTripFormRules` to build the bounded fare or cancellation payload. The helper owns trimming/null normalization and the explicit INCLUDED/EXCLUDED treatment values; it does not access Android views or commit data.
 - `KfeOverlayService` remains responsible for active-shift verification, durable event identity/queueing, canonical SQLite commit, and reporting the outcome. Payload construction extraction must not move or split that transaction.
-- The WebView-disabled full-shift instrumentation acceptance checks payload values and treatment mapping before continuing through the real native submission workflow.
+- The WebView-disabled native trip-form instrumentation checks payload values and treatment mapping through the native submission workflow; it does not move shift start/end ownership to Android.
 - Native form draft serialization now lives in `KfeNativeTripFormDraftStore`: it loads, saves, and clears draft values and expansion/treatment flags without creating views or committing canonical business records. The overlay remains responsible for applying the restored draft to widgets; canonical trip-form submission remains unchanged.
 - Instrumentation checks the draft save/load/clear boundary alongside the existing WebView-disabled full-shift acceptance, including preservation of entered amounts, cancellation reason, synchronization state, and treatment/expansion flags.
