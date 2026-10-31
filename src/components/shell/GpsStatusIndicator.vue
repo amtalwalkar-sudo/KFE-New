@@ -20,7 +20,7 @@ const state = computed(() => {
   if (!status.value.fineGranted) return { key: 'permission', label: 'Precise location permission required', icon: '!' }
   if (!status.value.backgroundGranted) return { key: 'background-permission', label: status.value.pendingCount ? 'Background permission required · event locations pending' : 'Background location permission required', icon: '!' }
   if (status.value.pendingCount > 0 && !status.value.gpsEnabled) return { key: 'waiting', label: 'Event locations pending · GPS unavailable', icon: '…' }
-  if (status.value.pendingCount > 0) return { key: 'waiting', label: 'Retrying ' + status.value.pendingCount + ' pending event location' + (status.value.pendingCount === 1 ? '' : 's'), icon: '…' }
+  if (status.value.pendingCount > 0) return { key: 'waiting', label: status.value.pendingCount + ' event location' + (status.value.pendingCount === 1 ? '' : 's') + ' pending · waiting for next retry trigger', icon: '…' }
   if (!status.value.gpsEnabled) return { key: 'unavailable', label: 'GPS is switched off or unavailable', icon: '!' }
   return { key: 'ready', label: 'GPS permissions ready for background capture', icon: '✓' }
 })
