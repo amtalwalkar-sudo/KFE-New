@@ -8,6 +8,7 @@ assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:-1},{status:'COMPLET
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300}]),0, 'A legacy cancelled trip with no cancellation fee must not reuse its old fare.')
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300,cancelledRevenue:null}]),0, 'An explicit blank cancellation fee contributes ₹0.')
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300,cancelledRevenue:''}]),0, 'A blank cancellation fee contributes ₹0.')
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150},{status:'CANCELLED',cancelledRevenue:20},{status:'CANCELLED',cancelledRevenue:0},{status:'COMPLETED',revenue:999,fareDetailsSkipped:true}]),420, 'Shared domain vector must match native SQLite full-shift acceptance: two fares plus one cancellation fee; blank/zero/skipped values add zero.')
 assert.equal(SWIPE_CONFIG.commitThresholdPercent,70)
 assert.equal(SWIPE_CONFIG.returnDurationMs,220)
 const view=fs.readFileSync(new URL('../views/WorkModuleView.vue',import.meta.url),'utf8')
