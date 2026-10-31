@@ -268,7 +268,8 @@ public class KfeNativeFullShiftAcceptanceTest {
 
       JSONObject cancellationAfterStart = new JSONObject(started.toString())
           .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
-          .put("cancelledRevenue", 20d).put("updatedAt", java.time.Instant.parse(t2).plusMillis(5).toString());
+          .put("cancelledRevenue", 20d).put("tripEndAt", java.time.Instant.parse(t2).plusMillis(5).toString())
+          .put("updatedAt", java.time.Instant.parse(t2).plusMillis(5).toString());
       boolean cancellationAfterStartRejected = false;
       try { store.commitTripForm("native-lifecycle-guard-cancel-after-start-" + suffix,
           "CANCEL", cancellationAfterStart); }
