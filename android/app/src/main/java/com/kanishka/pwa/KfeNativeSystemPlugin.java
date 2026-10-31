@@ -11,7 +11,6 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
-import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
@@ -53,7 +52,7 @@ public class KfeNativeSystemPlugin extends Plugin {
   public void requestStartupPermission(PluginCall call) {
     String permission = call.getString("permission", "");
     if ("notifications".equals(permission)) {
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
         call.resolve();
         return;
       }
