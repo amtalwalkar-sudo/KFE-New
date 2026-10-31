@@ -9,7 +9,7 @@
 - The Android overlay exposes ride actions only while a canonical Shift is active.
 - The PWA browser runtime persists canonical Work records in IndexedDB.
 - On Android, native SQLite is the durable canonical Work store; the PWA IndexedDB copy is the synchronized read model.
-- The PWA and native overlay must preserve the same transition invariants and stable record identities. Native action events are durable, replay-safe commands/evidence for the same canonical records, not a second set of trips.
+- The PWA and native overlay must preserve the same transition invariants and stable record identities. PWA and Android overlay actions invoke the same authoritative command/mutation path. Native action events are durable, replay-safe commands/evidence for the same canonical records, not a second set of trips.
 - Business meaning is defined only by `KFE_BUSINESS_RULES_REGISTER.md`; stored fields and relationships are defined by `docs/KFE-CANONICAL-DATA-CONTRACT.md`.
 
 ## 2. Canonical lifecycle
