@@ -130,12 +130,12 @@ export const AdminRepository = {
       const store = tx.objectStore(storeName)
       let settled = false
       let remaining = dependencies.length + 1
-      let recordToDelete = null
+      let record = null
       const dependentRows = new Map()
       const fail = error => { if (settled) return; settled = true; try { tx.abort() } catch (_) {}; reject(error) }
       const commit = () => {
         if (settled || remaining > 0) return
-        if (!recordToDelete || isDeleted(recordToDelete)) { fail(new Error(`Cannot delete missing or deleted ${formKey} record.`)); return }
+        if (!record || isDeleted(record)) { fail(new Error(`Cannot delete missing or deleted ${formKey} record.`)); return }
         for (const dependency of dependencies) {
           const linked = dependentRows.get(dependency.store) || []
           if (linked.some(item => !isDeleted(item) && item[dependency.field] === id)) {
@@ -144,15 +144,15 @@ export const AdminRepository = {
           }
         }
         try {
-          recordToDelete.deletedAt = now
-          recordToDelete.updatedAt = now
-          recordToDelete.deleted = true
-          store.put(recordToDelete)
+          record.deletedAt = now
+          record.updatedAt = now
+          record.deleted = true
+          store.put(record)
           writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: formKey, action: 'DELETE', payload: { id, formKey, deletedAt: now }, createdAt: now })
         } catch (error) { fail(error) }
       }
       const request = store.get(id)
-      request.onsuccess = () => { recordToDelete = request.result; remaining--; commit() }
+      request.onsuccess = () => { record = request.result; remaining--; commit() }
       request.onerror = () => fail(request.error || new Error(`Failed to read ${formKey} for deletion.`))
       for (const dependency of dependencies) {
         const childRequest = tx.objectStore(dependency.store).getAll()
