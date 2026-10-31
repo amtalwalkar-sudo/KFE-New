@@ -43,7 +43,7 @@ IndexedDB repository        Native SQLite transaction
  PWA read projection / Timeline / Performance
 ```
 
-The two physical stores are platform-specific persistence adapters. They do not create two business histories or competing business rules. Shift start/end remain PWA-owned. Android overlay ride commands must be durable and executable while the WebView is unavailable; PWA replay synchronizes and acknowledges native events, it is not a prerequisite for the native commit.
+The two physical stores are platform-specific persistence adapters. They do not create two business histories or competing business rules. Shift start/end remain PWA-owned. PWA-originated Android ride transitions and Android overlay ride commands use the same guarded native SQLite lifecycle transaction. Overlay commands must remain durable and executable while the WebView is unavailable; PWA replay synchronizes and acknowledges native events, it is not a prerequisite for the native commit.
 
 ## Golden Ride scenario
 
