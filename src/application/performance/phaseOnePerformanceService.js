@@ -1,4 +1,5 @@
 import { PerformanceRepository } from '../../repositories/performanceRepository.js'
+import { WorkService } from '../work/workService.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, istDayRange, reportingRangeFor } from '../../domain/time/ist.js'
@@ -16,6 +17,9 @@ export const PhaseOnePerformanceService = Object.freeze({
     const selectedPeriod = PERIODS[period] || PERIODS.DAY
     const range = reportingRangeFor(selectedPeriod, now)
     if (!range?.from || !range?.to || range.to < range.from) throw new Error('Performance reporting period could not be resolved.')
+    // Android native SQLite may contain overlay commits newer than IndexedDB.
+    // Reconcile the canonical Work projection before reading the Performance snapshot.
+    await WorkService.ensureCanonicalReadModel()
     const snapshot = await PerformanceRepository.getSnapshot()
     const businessStartRange = snapshot.businessSetup?.businessStartDate ? istDayRange(snapshot.businessSetup.businessStartDate) : null
     const beforeBusinessStart = Boolean(businessStartRange && businessStartRange.from > range.to)
