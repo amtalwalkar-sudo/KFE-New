@@ -9,22 +9,23 @@ KFE captures one GPS snapshot at exactly four ride workflow events:
 - `TRIP_START`: driver swipes to start the ride.
 - `TRIP_END`: driver swipes to end the ride.
 
-Each snapshot records latitude, longitude, accuracy when supplied, the provider's actual fix timestamp (`capturedAt`), and the separate business-event timestamp (`eventAt`). Never substitute one timestamp for the other.
+Each snapshot records latitude, longitude, provider accuracy, the provider's actual fix timestamp (`capturedAt`), and the separate business-event timestamp (`eventAt`). Never substitute one timestamp for the other.
 
-GPS capture is local and does not require internet. Android stores event requests durably and attempts a one-shot provider fix only when required location permissions are already granted. A missing fix must not block the ride transition or alter business data. There is no continuous tracking, route matching, or GPS-based distance calculation.
+GPS capture is local and does not require internet. Android durably queues each event and makes repeated fresh location requests for up to 30 seconds, using enabled GPS and network location providers. Requests are spaced at approximately three-second intervals. A fix at 75 metres accuracy or better is accepted; less accurate fixes are ignored while the bounded window remains. If no acceptable fix is obtained, active requests stop and the durable event remains pending for a later eligible retry. The ride transition never waits for GPS and no business timestamp changes. There is no continuous tracking, route matching, or GPS-based distance calculation.
 
 ## Locality display boundary
 
-The native GPS collector never reverse-geocodes and never performs network requests. Timeline may resolve a saved coordinate to an area/locality name only when the user explicitly pulls the Timeline page down while online.
+The PWA owns reverse geocoding and permanent locality persistence. Native Android stores coordinates only and never performs geocoding.
 
-- No automatic locality retries, polling, background connectivity checks, or queued locality-resolution jobs.
-- Offline refresh leaves saved GPS snapshots intact and reports that locality lookup needs an online manual refresh.
-- A resolved locality is display-only cached enrichment; it must never modify ride business records, event timestamps, or GPS snapshots.
-- Timeline shows a locality only when the resolver returns a valid area/locality label. Otherwise it shows “Location unavailable”.
+- After each of the four event snapshots is durably saved, the PWA starts reverse geocoding asynchronously when available; ride actions never wait for it.
+- All four event types are eligible for locality resolution.
+- New geocoding is limited to events whose `eventAt` is within the most recent seven days.
+- If the PWA is offline, show the saved locality if one exists; otherwise show the saved coordinates. A manual Timeline pull-to-refresh retries unresolved eligible events when online.
+- Successful locality names are saved permanently in PWA IndexedDB, keyed by canonical GPS snapshot ID. They are not keyed only by coordinates and are not subject to a 500-entry cache cap.
+- Existing successful locality names are not silently overwritten by ordinary retries.
+- No continuous network polling, automatic connectivity monitoring, or unbounded retry loop is permitted.
 - A provider result is accepted only when it includes coordinates within the saved GPS fix's accuracy-aware proximity bound (100–300 metres). A locality name without verifiable nearby result coordinates is rejected.
-- Locality cache keys use the current quality-contract version; older cached labels are ignored rather than carried forward.
-- Never present raw coordinates as an area name, reuse legacy trip-location fields, or infer/fabricate a locality.
-- Pickup is sourced only from `PICKUP_START`; a completed trip's drop area is sourced only from `TRIP_END`. A cancellation snapshot must never be presented as a passenger drop-off.
+- Never present guessed/fabricated localities or reuse legacy trip-location fields. Pickup and drop presentation rules remain separate: pickup uses `PICKUP_START`; only a completed ride's drop uses `TRIP_END`. Cancellation location is not a passenger drop-off.
 
 ## Platform adapters and verification
 
