@@ -307,6 +307,12 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** The fuel domain summary now excludes soft-deleted records at its own boundary, including both spending and interval derivation. Tests prove deleted full-tank entries contribute to neither metric.
 
+### 45. Master specification index and runtime architecture summary were imprecise
+
+**Finding:** The master specification had a numbering gap in its authority index and described a single generic local database, which obscured the browser IndexedDB versus Android SQLite durability split.
+
+**Change:** Corrected the authority index and made the product architecture summary explicit: browser-only PWA uses IndexedDB; Android Work/GPS durability and overlay commands use Capacitor/native SQLite; the PWA synchronizes the native canonical projection through configured runtime ports.
+
 ## Verification
 
 The following are enforced by regression contracts:
