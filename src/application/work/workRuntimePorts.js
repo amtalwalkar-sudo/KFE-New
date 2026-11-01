@@ -1,6 +1,6 @@
 const requiredMethods = Object.freeze({
   nativeWorkActions: ['clearPendingAction', 'addListener', 'consumePendingActions', 'consumePendingAction', 'acknowledgeAction', 'recordActionFailure'],
-  canonicalWork: ['putRecord', 'restoreRecord', 'commitTripLifecycle', 'getRecord', 'listRecords', 'getOperation', 'isAvailable', 'prepareCreateIntent', 'completeCreateIntent', 'migrateLegacySnapshot', 'verifyLegacyMigration', 'getMigration', 'beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'releaseCanonicalReset', 'getCanonicalResetState'],
+  canonicalWork: ['putRecord', 'restoreRecord', 'commitTripLifecycle', 'commitTripForm', 'getRecord', 'listRecords', 'getOperation', 'isAvailable', 'prepareCreateIntent', 'completeCreateIntent', 'migrateLegacySnapshot', 'verifyLegacyMigration', 'getMigration', 'beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'releaseCanonicalReset', 'getCanonicalResetState'],
   browserCanonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation'],
   gpsPermissions: ['isNativePlatform', 'getLocationStatus', 'openBackgroundLocationSettings', 'requestLocationPermissions', 'requestBackgroundLocationPermission'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
