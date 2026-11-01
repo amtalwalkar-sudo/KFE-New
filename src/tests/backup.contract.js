@@ -22,8 +22,12 @@ const oldV4 = { ...valid, formatVersion: 4, source: { ...valid.source, dbVersion
 const migratedV4 = BackupService.validateBackup(oldV4)
 assert.equal(migratedV4.formatVersion, BACKUP_FORMAT_VERSION, 'older v4 backups migrate to the current active store set')
 for (const retired of ['days','odoGaps','movement_artifacts','financial_period_snapshots','settlements','loan_payments','prepayments','driver_targets','break_even_inputs']) assert.equal(retired in migratedV4.stores, false, retired + ' must be discarded during backup migration')
-const oldV5 = { ...valid, formatVersion: 5, source: { ...valid.source, dbVersion: 17 }, stores: { ...oldV4Stores, locality_labels: [] } }
-assert.equal(BackupService.validateBackup(oldV5).formatVersion, BACKUP_FORMAT_VERSION, 'format 5 migrates to current format 6')
+const oldV5Stores = { ...oldV4Stores, locality_labels: [], shifts: [{ id: 'active-shift', status: 'COMPLETED' }], loan_payments: [{ id: 'retired-payment', amount: 999 }] }
+const oldV5 = { ...valid, formatVersion: 5, source: { ...valid.source, dbVersion: 17 }, stores: oldV5Stores }
+const migratedV5 = BackupService.validateBackup(oldV5)
+assert.equal(migratedV5.formatVersion, BACKUP_FORMAT_VERSION, 'format 5 migrates to current format 6')
+assert.deepEqual(migratedV5.stores.shifts, oldV5Stores.shifts, 'In-scope canonical records survive legacy backup migration.')
+assert.equal('loan_payments' in migratedV5.stores, false, 'Retired finance payloads are discarded during legacy backup migration.')
 
 assert.equal(typeof BackupService.serializeBackup(withRecord), 'string'); assert.deepEqual(BackupService.validateBackup(BackupService.serializeBackup(withRecord)), withRecord)
 
