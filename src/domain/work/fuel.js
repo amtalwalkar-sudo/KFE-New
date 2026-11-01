@@ -11,7 +11,7 @@ export function calculateFuelQuantity({ pricePerKg, amount }) {
 }
 
 export function validateFuelEntry({ odometer, pricePerKg, amount, isFullTank = true }) {
-  const odo = Number(odometer)
+  const odo = odometer == null || (typeof odometer === 'string' && odometer.trim() === '') ? Number.NaN : Number(odometer)
   if (!Number.isFinite(odo) || odo < 0) return { valid: false, reason: 'ODOMETER_REQUIRED' }
   const quantity = calculateFuelQuantity({ pricePerKg, amount })
   if (!quantity.valid) return quantity
