@@ -8,6 +8,8 @@ assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 24, annualInter
 assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 0, annualInterestRatePercent: 12 }), null)
 assert.equal(calculateLoanEmi({ principal: 0, tenureMonths: 12, annualInterestRatePercent: 12 }), null)
 assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 12, annualInterestRatePercent: -1 }), null)
+assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 12, annualInterestRatePercent: '' }), null, 'blank interest rate must not be silently treated as zero')
+assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 12, annualInterestRatePercent: null }), null, 'missing interest rate must not be silently treated as zero')
 assert.equal(LoanCalculationService.monthlyEmi({ principal: 120000, tenureMonths: 12, annualInterestRatePercent: 0 }), 10000)
 
 const source = (await import('node:fs')).readFileSync('src/views/AdminView.vue', 'utf8')
