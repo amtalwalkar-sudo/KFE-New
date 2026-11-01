@@ -43,6 +43,22 @@ export const EventLocationService = {
   async forEntity(entityType, entityId) {
     return this.forEntities(entityType, [entityId])
   },
+  async allSnapshots() {
+    const [nativeSnapshots, localSnapshots] = await Promise.all([
+      WorkRuntimePorts.canonicalWork.isAvailable()
+        ? CanonicalWorkBoundary.listEventLocationSnapshots()
+        : Promise.resolve([]),
+      LocationRepository.all(),
+    ])
+    const byId = new Map()
+    for (const snapshot of [...localSnapshots, ...nativeSnapshots]) {
+      if (snapshot?.id && snapshot.entityType === 'TRIP' && RIDE_EVENTS.has(snapshot.eventType)) {
+        byId.set(snapshot.id, { ...byId.get(snapshot.id), ...snapshot })
+      }
+    }
+    return [...byId.values()].sort((a, b) =>
+      Date.parse(a.eventAt || a.capturedAt || 0) - Date.parse(b.eventAt || b.capturedAt || 0))
+  },
 
   async forEntities(entityType, entityIds = [], eventTypes = [...RIDE_EVENTS]) {
     const ids = [...new Set((entityIds || []).filter(Boolean))]
