@@ -35,8 +35,6 @@ const reset = async page => {
         r.onblocked = () => reject(new Error('DB delete blocked: ' + name))
       })
     }
-    const { AdminRepository } = await import(location.origin + '/src/repositories/adminRepository.js')
-    await AdminRepository.saveSetting('kfe-first-run-setup', 'firstRunSetup', { version: 1, status: 'completed', steps: {}, completedAt: new Date().toISOString() })
   })
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
