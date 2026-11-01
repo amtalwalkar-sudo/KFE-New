@@ -820,6 +820,10 @@ public class KfeNativeFullShiftAcceptanceTest {
         store.restoreRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
         store.restoreRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
+    // Restoring the Trip refreshes the native Shift revenue projection and may
+    // advance the canonical Shift version. Base the simulated concurrent end
+    // on that authoritative post-projection snapshot, not the stale fixture.
+    JSONObject canonicalShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
 
     AttachedOverlayService service = new AttachedOverlayService();
     service.attach(context);
@@ -835,11 +839,11 @@ public class KfeNativeFullShiftAcceptanceTest {
 
     // Model a concurrent shift-end winning after the outbox append but before
     // the form's canonical write. The native form must fail closed and remain retryable.
-    JSONObject endedShift = new JSONObject(shift.toString())
+    JSONObject endedShift = new JSONObject(canonicalShift.toString())
         .put("status", "COMPLETED").put("updatedAt", "2099-01-01T00:00:00.000Z");
     assertTrue("Concurrent shift end must commit through the guarded versioned transition.",
         store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift,
-            shift.getString("updatedAt"), false).accepted);
+            canonicalShift.getString("updatedAt"), false).accepted);
     try {
       invoke(service, "persistCanonicalTripForm",
           new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
