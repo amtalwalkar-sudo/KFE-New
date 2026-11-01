@@ -227,6 +227,14 @@ public class KfeNativeFullShiftAcceptanceTest {
       catch (IllegalArgumentException expected) { genericLifecycleWriteRejected = true; }
       assertTrue("Generic native Trip writes must not bypass commitTripLifecycle.", genericLifecycleWriteRejected);
 
+      JSONObject genericTripCreate = new JSONObject().put("id", "generic-trip-create-" + suffix)
+          .put("shiftId", shiftId).put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      boolean genericTripCreateRejected = false;
+      try { store.putRecord("generic-trip-create-op-" + suffix, "TRIP", genericTripCreate, null, true); }
+      catch (IllegalArgumentException expected) { genericTripCreateRejected = true; }
+      assertTrue("Generic native Trip creation must be rejected; only lifecycle commands may create a Trip.", genericTripCreateRejected);
+
       JSONObject cancelPickup = new JSONObject().put("id", cancelledTripId).put("shiftId", shiftId)
           .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
           .put("createdAt", t0).put("updatedAt", t0);
