@@ -6,6 +6,7 @@ import AdminShell from '../components/admin/AdminShell.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
 import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
 import { AdminService } from '../application/admin/adminService.js'
+import { LoanCalculationService } from '../application/admin/loanCalculationService.js'
 import { FormDraftService } from '../application/forms/formDraftService.js'
 import { BackupService } from '../application/backup/backupService.js'
 import { ApplicationSettingsService } from '../presentation/settings/settingsPreferenceService.js'
@@ -63,6 +64,7 @@ async function clearFormDraft(identity) {
   catch (_) { notice.value = (notice.value ? notice.value + ' ' : '') + 'Saved successfully; an unfinished draft could not be cleared. Reopen the form and verify before continuing.' }
 }
 const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const loanEmi = record => LoanCalculationService.monthlyEmi(record?.values || record || {})
 const clone=v=>structuredClone(toRaw(v))
 function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
 const currentItem=computed(()=>items.find(x=>x.key===selected.value)||null)
@@ -237,7 +239,7 @@ onBeforeUnmount(()=>{
 </div>
 <template v-else>
 <div class="admin-list-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="recordSearch" type="search" :placeholder="'Search '+currentItem.title.toLowerCase()+' records…'" :aria-label="'Search '+currentItem.title+' records'"></label><span class="admin-search-hint">{{filteredRecords.length}} {{filteredRecords.length===1?'record':'records'}}<template v-if="recordSearch"> found</template></span></div>
-<div class="detail-actions"><button class="primary" @click="add">＋ Create {{currentDefinition?.createLabel||currentItem.title}}</button></div><div v-if="loading&&!records.length" class="empty">Loading…</div><div v-else-if="filteredRecords.length" class="record-list"><article v-for="record in filteredRecords" :key="record.id" class="clean-card record-card"><div class="record-top"><div><strong>{{label(selected,record)}}</strong><span>{{record.updatedAt||'—'}}</span></div><button class="text-button" :aria-label="`Edit ${label(selected,record)}`" @click="edit(record)">Edit</button></div><div class="record-footer"><button class="text-button" :aria-label="`Delete ${label(selected,record)}`" @click="remove(record)">Delete</button></div></article></div><div v-else-if="!loading" class="empty">{{recordSearch ? 'No '+currentItem.title.toLowerCase()+' records match your search.' : 'No records yet. Create the first record to get started.'}}</div>
+<div class="detail-actions"><button class="primary" @click="add">＋ Create {{currentDefinition?.createLabel||currentItem.title}}</button></div><div v-if="loading&&!records.length" class="empty">Loading…</div><div v-else-if="filteredRecords.length" class="record-list"><article v-for="record in filteredRecords" :key="record.id" class="clean-card record-card"><div class="record-top"><div><strong>{{label(selected,record)}}</strong><span>{{record.updatedAt||'—'}}</span></div><button class="text-button" :aria-label="`Edit ${label(selected,record)}`" @click="edit(record)">Edit</button></div><small v-if="selected==='loan'" class="loan-summary-line">₹{{Number(record.values?.principal||0).toLocaleString('en-IN')}} · {{record.values?.tenureMonths||'—'}} months · {{record.values?.annualInterestRatePercent??'—'}}% p.a. · Estimated monthly EMI {{money(loanEmi(record))}}</small><div class="record-footer"><button class="text-button" :aria-label="`Delete ${label(selected,record)}`" @click="remove(record)">Delete</button></div></article></div><div v-else-if="!loading" class="empty">{{recordSearch ? 'No '+currentItem.title.toLowerCase()+' records match your search.' : 'No records yet. Create the first record to get started.'}}</div>
 </template>
 </template>
 </section>
