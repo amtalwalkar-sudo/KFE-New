@@ -217,23 +217,35 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** PWA Start Trip now commits its durable create intent through the same `GO_TO_PICKUP` lifecycle transaction as the overlay. Native SQLite rejects a second active Shift and rejects ACTIVE-to-COMPLETED Shift writes while any non-deleted Trip remains active. Instrumentation covers both invariants and verifies that a rejected close leaves the Shift active.
 
-### 21. Native event read failure could masquerade as an empty queue
+### 27. Native event read failure could masquerade as an empty queue
 
 **Finding:** The native event plugin correctly rejected SQLite queue-read failures, but the JavaScript adapter caught those failures and returned an empty array. Work startup could therefore proceed without replaying a pending native ride action. The view also had no recovery gate to prevent a new PWA mutation while that queue remained unread.
 
 **Change:** The adapter now propagates SQLite and legacy-slot read failures. The application controller owns FIFO replay and the pre-ledger compatibility fallback; it stops at the first unconfirmed event. The Work view disables mutating controls until recovery completes, retries only on startup/foreground/native-action triggers, and does not synchronize stale PWA state into the overlay while recovery is blocked.
 
-### 26. Backup and database schema still retained retired workflow stores
+### 28. Backup and database schema still retained retired workflow stores
 
 **Finding:** The active app no longer used `days`, `odoGaps`, `movement_artifacts`, `loan_payments`, `prepayments`, `settlements`, `driver_targets`, `break_even_inputs` or `financial_period_snapshots`, but IndexedDB still created them and BackupService exported them. The canonical data contract and Admin audit therefore described obsolete backup compatibility as an active retention requirement.
 
 **Change:** Bumped IndexedDB to schema 18 and backup format to 6. The upgrade drops the retired object stores and the old Trip `dayId` index. New phone, Dropbox and internal recovery backups contain only current Work, Fuel, GPS, Admin source records and recovery/audit stores. Backup formats 1–5 remain structurally validated; their retired payloads are discarded before restore, while current in-scope records are retained. Added migration contracts for v1–v5.
 
-### 27. Generic native record API still exposed a Trip creation bypass
+### 29. Generic native record API still exposed a Trip creation bypass
 
 **Finding:** Existing native storage prevented generic updates from changing Trip lifecycle fields, but a generic `putRecord` create could still insert a new Trip without the guarded GO_TO_PICKUP transaction. Backup restore also used that generic API, making it unsafe to close the bypass without a separate restore boundary.
 
 **Change:** Generic native Trip writes now fail at the store, plugin adapter and shared application boundary. Normal Trip writes must use lifecycle/form transactions. Backup restore uses an explicit insert-only command that permits only Shift, Trip and GPS snapshot records, requires the Trip's parent Shift to exist, and rejects overwrites. Backup merge now calls that restore boundary. Android instrumentation tests cover generic create/update rejection and restore fixture behavior.
+
+### 30. The active Loan EMI estimate was missing from the simplified Admin surface
+
+**Finding:** The Loan form retained principal, tenure and annual interest rate as source facts, but the simplified Admin surface no longer displayed the one derived monthly EMI estimate that belongs in the current scope. Restoring the old loan engine would be excessive and would reintroduce retired repayment workflows.
+
+**Change:** Added one pure domain function for the fixed-rate monthly EMI formula and a thin Admin application service. The Loan list displays the derived estimate beside the saved terms. EMI is never persisted. No amortization schedule, payment history, remaining balance, prepayment, payment allocation or ledger was restored. A deterministic contract covers zero-interest, positive-interest, invalid-input and rounding cases; the suite runner explicitly includes it.
+
+### 31. Architecture and test contracts were stale after the guarded lifecycle/restore split
+
+**Finding:** Several contracts still expected generic native `putRecord` for backup restore, omitted the new `restoreRecord` and `commitTripLifecycle` runtime ports, or matched obsolete timestamp and matrix wording. One persistence contract also contained a malformed regular expression. These stale assertions obscured the actual boundary rather than testing it.
+
+**Change:** Updated the contracts to assert the dedicated insert-only restore command, the guarded lifecycle port, the current timestamp path and the current Golden Ride matrix wording. The Android recovery fixture now uses canonical Trip revenue facts rather than the retired `fare` field. The lifecycle storage guard test now exercises a permitted generic Shift write so it reaches the Android fail-closed guard instead of being rejected earlier by the intentional generic-Trip prohibition.
 
 ## Verification
 
@@ -245,6 +257,8 @@ The following are enforced by regression contracts:
 - one JavaScript domain revenue formula;
 - no retired Work gap-allocation/reconciliation/trip-distance paths;
 - native-first persistence ordering and browser-only PWA fallback;
-- canonical record, backup/recovery, GPS, and UI isolation contracts.
+- canonical record, backup/recovery, GPS, and UI isolation contracts;
+- the minimal Loan EMI formula and application/UI boundary;
+- native lifecycle transition, active-Shift, pre-ride cancellation and insert-only restore guards.
 
 CI is being rerun against the latest PR head. A passing emulator gate does not replace physical-device verification of the four GPS event moments, native overlay navigation, Android Back behavior, and Admin form/backup flows.
