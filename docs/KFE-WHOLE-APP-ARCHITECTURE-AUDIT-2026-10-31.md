@@ -265,6 +265,30 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** The runtime fixture now seeds only active Shift, Trip, Fuel and GPS snapshot stores, verifies separate GPS evidence and uses no retired calculation fields. Deleted the unreferenced Phase 4 continuity script and updated the GPS contract to target the single domain fix validator.
 
+### 38. PWA domain completion was less strict than the native lifecycle transaction
+
+**Finding:** The native SQLite lifecycle command rejected END_RIDE unless the canonical Trip was already at RIDE_STARTED. The shared JavaScript `transitionTrip` checked only ACTIVE status, so browser-PWA completion could bypass the same stage invariant.
+
+**Change:** The shared domain transition now rejects completion before RIDE_STARTED. PWA domain tests cover END_RIDE-before-START_RIDE rejection, and existing valid Golden Ride fixtures advance through the shared stage transition first. Both runtimes now enforce the same ordered lifecycle.
+
+### 39. Timeline reads performed an unnecessary connectivity check
+
+**Finding:** Opening or refreshing the read-only Timeline called the platform connectivity port solely to decide whether unresolved coordinates should be displayed. That made ordinary Timeline reads perform a connectivity check despite locality resolution being manual-only.
+
+**Change:** Removed connectivity detection from the Timeline read model. A saved verified locality is shown when available; otherwise valid stored coordinates remain visible without a network-state check. Invalid coordinates and supplied accuracy worse than 75 metres remain unavailable. Only the explicit pull-to-refresh locality service checks connectivity and contacts providers.
+
+### 40. Native canonical Work reads could silently truncate at 1,000 records
+
+**Finding:** Work reconciliation and post-write refresh read only one fixed 1,000-record page, while GPS history and backup had separate pagination implementations. A long-lived canonical history could therefore be partially projected into IndexedDB, and the same pagination responsibility had multiple owners.
+
+**Change:** Added one application-boundary `CanonicalWorkBoundary.listAllRecords` implementation with validated page offsets, stable total counts, unique record IDs and complete row counts. Work reconciliation, post-write refresh, GPS history and backup now reuse it. Incomplete, changing or duplicate pages fail closed; a fixed first page is never treated as the full history.
+
+### 41. Soft-deleted Work rows could influence active-state decisions
+
+**Finding:** Several repository lifecycle checks selected ACTIVE Shift/Trip rows without excluding soft-deleted records. The Android end-shift guard also considered a deleted active Trip.
+
+**Change:** Added one repository live-record predicate and applied it to active Shift/Trip creation, stage/form transitions, shift completion, active-state reads and last-record lookups. Active Trip reads are now scoped to the selected live active Shift, and Android Shift closure ignores deleted Trip rows.
+
 ## Verification
 
 The following are enforced by regression contracts:
