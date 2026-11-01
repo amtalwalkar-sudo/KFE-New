@@ -218,6 +218,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** PWA Start Trip now commits its durable create intent through the same `GO_TO_PICKUP` lifecycle transaction as the overlay. Native SQLite rejects a second active Shift and rejects ACTIVE-to-COMPLETED Shift writes while any non-deleted Trip remains active. Instrumentation covers both invariants and verifies that a rejected close leaves the Shift active.
 
+### 21. Native event read failure could masquerade as an empty queue
+
+**Finding:** The native event plugin correctly rejected SQLite queue-read failures, but the JavaScript adapter caught those failures and returned an empty array. Work startup could therefore proceed without replaying a pending native ride action. The view also had no recovery gate to prevent a new PWA mutation while that queue remained unread.
+
+**Change:** The adapter now propagates SQLite and legacy-slot read failures. The application controller owns FIFO replay and the pre-ledger compatibility fallback; it stops at the first unconfirmed event. The Work view disables mutating controls until recovery completes, retries only on startup/foreground/native-action triggers, and does not synchronize stale PWA state into the overlay while recovery is blocked.
+
 ## Verification
 
 The following are enforced by regression contracts:
