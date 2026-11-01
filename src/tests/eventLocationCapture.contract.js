@@ -23,6 +23,10 @@ assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, '
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/)
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/)
 assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED'/)
+assert.match(workService, /eventAt = data\?\.tripEndAt \|\| trip\.tripEndAt \|\| now/, 'Native Trip end capture must reuse the exact persisted lifecycle timestamp.')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END', eventAt\)/, 'Trip end GPS capture must receive the committed event timestamp.')
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_CANCELLED', eventAt\)/, 'Cancellation GPS capture must receive the committed event timestamp.')
+
 assert.doesNotMatch(workService, /captureAndPersistEventLocation\('(SHIFT|FUEL)'/)
 assert.doesNotMatch(eventLocationService, /EventLocalityService|resolveSnapshot|resolveNativeSnapshotAfterCapture|setTimeout|setInterval/,
   'GPS capture must never trigger or poll for locality resolution')
