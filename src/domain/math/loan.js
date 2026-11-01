@@ -6,6 +6,7 @@
 export function calculateLoanEmi({ principal, tenureMonths, annualInterestRatePercent } = {}) {
   const amount = Number(principal)
   const months = Number(tenureMonths)
+  if (annualInterestRatePercent == null || (typeof annualInterestRatePercent === 'string' && annualInterestRatePercent.trim() === '')) return null
   const annualRate = Number(annualInterestRatePercent)
   if (!Number.isFinite(amount) || amount <= 0
     || !Number.isInteger(months) || months <= 0
