@@ -1,6 +1,7 @@
 import { LocationRepository } from '../../repositories/locationRepository.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
+import { isValidEventGpsTimestamp } from '../../domain/location/eventGpsPolicy.js'
 
 const RIDE_EVENTS = new Set(['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END'])
 const stableId = (entityType, entityId, eventType) => `event-location-${entityType}-${entityId}-${eventType}`
@@ -52,7 +53,7 @@ export const EventLocationService = {
     ])
     const byId = new Map()
     for (const snapshot of [...localSnapshots, ...nativeSnapshots]) {
-      if (snapshot?.id && snapshot.entityType === 'TRIP' && RIDE_EVENTS.has(snapshot.eventType)) {
+      if (snapshot?.id && snapshot.entityType === 'TRIP' && RIDE_EVENTS.has(snapshot.eventType) && isValidEventGpsTimestamp(snapshot.eventAt, snapshot.capturedAt)) {
         byId.set(snapshot.id, { ...byId.get(snapshot.id), ...snapshot })
       }
     }
@@ -71,7 +72,9 @@ export const EventLocationService = {
       : []
     const localGroups = await Promise.all(ids.map(id => LocationRepository.forEntity(entityType, id).catch(() => [])))
     const byId = new Map()
-    for (const item of [...localGroups.flat().filter(item => requestedEvents.includes(item.eventType)), ...nativeReads.filter(Boolean)]) {
+    const candidates = [...localGroups.flat(), ...nativeReads].filter(item =>
+      item && requestedEvents.includes(item.eventType) && isValidEventGpsTimestamp(item.eventAt, item.capturedAt))
+    for (const item of candidates) {
       if (item?.id) byId.set(item.id, { ...byId.get(item.id), ...item })
     }
     return [...byId.values()]
