@@ -809,6 +809,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     String shiftId = "form-outbox-shift-" + suffix;
     String tripId = "form-outbox-trip-" + suffix;
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    clearPriorActiveTestShiftFixtures(store);
     JSONObject shift = new JSONObject()
         .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
         .put("updatedAt", "2020-01-01T00:00:00.000Z");
@@ -1994,4 +1995,49 @@ public class KfeNativeFullShiftAcceptanceTest {
       db.delete("canonical_audit", "operation_id=?", new String[]{shiftOperationId});
     }
   }
+  /**
+   * Instrumentation tests share the app SQLite database. Remove only active Shift
+   * fixtures created by this test class before exercising the single-active-Shift
+   * invariant; never touch user/business records or weaken production validation.
+   */
+  private static void clearPriorActiveTestShiftFixtures(KfeCanonicalWorkStore store) throws Exception {
+    String[] fixturePrefixes = new String[]{
+        "create-retry-shift-record-", "active-projection-collision-shift-",
+        "gps-contract-shift-", "atomic-form-shift-", "webview-off-shift-",
+        "native-full-shift-", "form-outbox-shift-", "form-sql-failure-shift-",
+        "stale-overlay-shift-", "lifecycle-process-death-shift-",
+        "lifecycle-fault-shift-", "interrupted-fare-shift-",
+        "fare-process-death-shift-", "stale-overlay-resume-shift-",
+        "active-overlay-resume-shift-"
+    };
+    SQLiteDatabase db = store.getWritableDatabase();
+    java.util.ArrayList<String> staleShiftIds = new java.util.ArrayList<>();
+    try (android.database.Cursor cursor = db.query("canonical_records",
+        new String[]{"entity_id", "payload"}, "entity_type='SHIFT'",
+        null, null, null, null)) {
+      while (cursor.moveToNext()) {
+        JSONObject record = new JSONObject(cursor.getString(1));
+        String id = cursor.getString(0);
+        if (!"ACTIVE".equals(record.optString("status", ""))) continue;
+        for (String prefix : fixturePrefixes) {
+          if (id.startsWith(prefix)) {
+            staleShiftIds.add(id);
+            break;
+          }
+        }
+      }
+    }
+    db.beginTransaction();
+    try {
+      for (String shiftId : staleShiftIds) {
+        db.delete("canonical_records", "entity_type='TRIP' AND json_extract(payload, '$.shiftId')=?",
+            new String[]{shiftId});
+        db.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+      }
+      db.setTransactionSuccessful();
+    } finally {
+      db.endTransaction();
+    }
+  }
+
 }
