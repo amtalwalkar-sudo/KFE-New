@@ -69,7 +69,7 @@ assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
 assert.equal(BACKUP_FORMAT_VERSION, 6)
 assert.match(backupSource, /backup\.formatVersion < BACKUP_FORMAT_VERSION/)
 assert.match(backupSource, /driver_collected_data: _driverCollected/)
-assert.match(dataContract, /Preserve those records during scope cleanup and backup\/restore/)
+assert.match(dataContract, /retired store payloads are discarded/)
 assert.match(dataContract, /Hard deletion of canonical business records requires an explicit data-destruction action/)
 assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target domain owns|monthly break-even result/)
 
