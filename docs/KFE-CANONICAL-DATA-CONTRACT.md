@@ -90,7 +90,7 @@ Maintenance and Compliance records are authoritative Admin-entered source facts.
 
 ### Loan and historical finance records
 
-The current model retains Loan terms as source facts only. Historical loan-payment, prepayment, settlement, driver-target, and break-even-input stores are retired and removed by the schema 18 migration. Legacy backup formats remain readable as migration inputs, but those retired store payloads are discarded and are not restored. The active Admin UI exposes only the basic Loan source form.
+The current model retains Loan terms as source facts. The Admin UI may display a derived monthly EMI estimate from principal, tenure and annual interest rate; the estimate is not persisted. Historical loan-payment, prepayment, settlement, driver-target, and break-even-input stores are retired and removed by the schema 18 migration. Legacy backup formats remain readable as migration inputs, but those retired store payloads are discarded and are not restored. No payment schedule, payment history, remaining-balance tracking, prepayment, payment allocation or loan ledger is active.
 
 ### GPS event snapshots
 
