@@ -9,6 +9,8 @@ const eventLocations = read('src/application/location/eventLocationService.js')
 const workService = read('src/application/work/workService.js')
 const timeline = read('src/views/ActivityTimelineView.vue')
 const workRecords = read('src/domain/work/canonicalWorkRecords.js')
+const eventGpsPolicy = read('src/domain/location/eventGpsPolicy.js')
+const gpsJournal = read('android/app/src/main/java/com/kanishka/pwa/KfeGpsEventJournal.java')
 
 for (const event of ['PICKUP_START','TRIP_CANCELLED','TRIP_START','TRIP_END']) {
   assert.ok(overlay.includes(`\"${event}\"`), `Native overlay must capture the ${event} event.`)
