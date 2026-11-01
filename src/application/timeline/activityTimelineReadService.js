@@ -75,7 +75,7 @@ export const ActivityTimelineReadService = Object.freeze({
     // the first screen opened after a native overlay action or process restart.
     await WorkService.ensureCanonicalReadModel()
     const [allTrips, allFuelLogs] = await Promise.all([
-      ShiftTripRepository.getAllTrips(),
+      ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true }),
       FuelRepository.getAll(),
     ])
     const trips = (Array.isArray(allTrips) ? allTrips : []).filter(trip => !trip?.deletedAt && trip?.deleted !== true)
