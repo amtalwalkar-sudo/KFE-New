@@ -5,7 +5,6 @@ import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { LocalityRepository } from '../../repositories/localityRepository.js'
-import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -24,7 +23,7 @@ export const tripPeriodTime = trip => {
 }
 const recordTime = record => validTime(record?.capturedAt) ?? validTime(record?.createdAt)
 const inRange = (time, range) => time != null && time >= range.from.getTime() && time <= range.to.getTime()
-export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offline = false) => {
+export const locationLabel = (snapshot, localityBySnapshotId = new Map()) => {
   const hasCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
   if (!snapshot || !hasCoordinate(snapshot.latitude) || !hasCoordinate(snapshot.longitude)) return 'Location unavailable'
   const latitude = Number(snapshot.latitude)
@@ -38,7 +37,7 @@ export const locationLabel = (snapshot, localityBySnapshotId = new Map(), offlin
   const localityEligible = hasAccuracy && Number.isFinite(accuracy) && accuracy <= 75
   const saved = localityEligible ? localityBySnapshotId.get(snapshot.id)?.placeName : null
   if (typeof saved === 'string' && saved.trim()) return saved.trim()
-  return offline ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : 'Location unavailable'
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
 }
 const durationMs = trip => {
   const start = validTime(trip?.tripStartAt)
@@ -80,7 +79,6 @@ export const ActivityTimelineReadService = Object.freeze({
     const tripLocations = await EventLocationService.forEntities('TRIP', periodTrips.map(trip => trip?.id), ['PICKUP_START', 'TRIP_END'])
     const localityRows = await LocalityRepository.forSnapshotIds(tripLocations.map(location => location.id))
     const localityBySnapshotId = new Map(localityRows.map(row => [row.snapshotId, row]))
-    const offline = !WorkRuntimePorts.platform.isOnline()
     const locationsByTrip = new Map()
     for (const snapshot of tripLocations) {
       if (!snapshot?.entityId) continue
@@ -96,8 +94,8 @@ export const ActivityTimelineReadService = Object.freeze({
       .map(({ trip, time }) => {
         const fare = farePresentation(trip)
         const locations = locationsByTrip.get(trip.id) || {}
-        const pickupName = locationLabel(locations.pickup, localityBySnapshotId, offline)
-        const dropName = locationLabel(locations.end, localityBySnapshotId, offline)
+        const pickupName = locationLabel(locations.pickup, localityBySnapshotId)
+        const dropName = locationLabel(locations.end, localityBySnapshotId)
         return {
           id: trip.id,
           status: trip.status,
