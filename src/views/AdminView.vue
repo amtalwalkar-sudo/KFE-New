@@ -86,7 +86,14 @@ async function openItem(key){
 function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
 function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
 function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
-function back(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};clearMessages()}
+function resetAdminSelection(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};clearMessages()}
+function back(){
+  if(adminBackEntryActive && window.history.state?.kfeAdminDetail){
+    window.history.back()
+    return
+  }
+  resetAdminSelection()
+}
 function chooseSetting(key){settingsSelected.value=key;clearMessages()}
 async function add(){
   if(saving.value)return
@@ -133,8 +140,12 @@ async function load(){
 }
 // The Android system Back button must unwind Admin's in-view selection before the WebView exits.
 let stopAdminBackStateWatch = null
+let adminBackEntryActive = false
 function handleAdminPopState() {
-  if (selected.value || settingsOpen.value) back()
+  if (adminBackEntryActive || selected.value || settingsOpen.value) {
+    adminBackEntryActive = false
+    resetAdminSelection()
+  }
 }
 function resetAdminViewport() {
   // KFE scrolls inside the shell's main region, not the document body.
@@ -143,15 +154,23 @@ function resetAdminViewport() {
   window.dispatchEvent(new Event('kfe:shell-scroll-top'))
 }
 onMounted(()=>{
+  // A route return may restore the old history entry while Admin itself starts
+  // on its home screen. Clear that stale detail marker before accepting input.
+  if (window.history.state?.kfeAdminDetail && !selected.value && !settingsOpen.value) {
+    const state = { ...window.history.state }
+    delete state.kfeAdminDetail
+    window.history.replaceState(state, '', window.location.href)
+  }
   load()
   window.addEventListener('popstate', handleAdminPopState)
   stopAdminBackStateWatch = watch([selected, settingsOpen], ([section, settings]) => {
-    if (section || settings) {
+    if ((section || settings) && !adminBackEntryActive) {
       window.history.pushState(
         { ...(window.history.state && typeof window.history.state === 'object' ? window.history.state : {}), kfeAdminDetail: true },
         '',
         window.location.href
       )
+      adminBackEntryActive = true
     }
   })
 })
