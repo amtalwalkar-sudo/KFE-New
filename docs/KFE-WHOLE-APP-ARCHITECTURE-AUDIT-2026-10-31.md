@@ -295,6 +295,18 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Added `EventLocationService.allSnapshots` to combine complete native paginated GPS history with browser-local snapshots. Explicit Timeline pull-to-refresh now submits all four event types to the seven-day eligibility rule, independently of the selected display period. Ordinary Timeline reads still do not perform locality resolution or connectivity checks.
 
+### 43. Blank numeric form inputs could be coerced into valid zero values
+
+**Finding:** A blank fuel odometer was converted by `Number('')` to zero, and a blank/missing loan interest rate could be interpreted as an explicit 0% rate. Both cases could produce misleading saved facts or derived EMI.
+
+**Change:** Fuel entry now distinguishes an explicitly entered zero odometer from a blank value. Loan EMI requires a supplied interest rate; explicit 0% remains valid. Regression contracts cover both cases.
+
+### 44. The fuel domain summary trusted callers to remove soft-deleted rows
+
+**Finding:** Performance and Timeline services already filtered deleted fuel rows, but the shared fuel calculation itself did not. A future caller could include deleted refills in total spending or full-tank intervals.
+
+**Change:** The fuel domain summary now excludes soft-deleted records at its own boundary, including both spending and interval derivation. Tests prove deleted full-tank entries contribute to neither metric.
+
 ## Verification
 
 The following are enforced by regression contracts:
