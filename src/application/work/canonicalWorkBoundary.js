@@ -34,9 +34,25 @@ export const CanonicalWorkBoundary = Object.freeze({
       expectAbsent: input?.expectAbsent === true,
     }
     if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record)) throw new Error('record must be an object.')
+    if (normalized.entityType === 'TRIP') throw new Error('Generic Trip writes are prohibited; use commitTripLifecycle or commitTripForm.')
     const nativeAvailable = requireCanonicalWriteRoute()
     if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
     return WorkRuntimePorts.browserCanonicalWork.putRecord(normalized)
+  },
+  async restoreRecord(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      entityType: requireText(input?.entityType, 'entityType'),
+      record: input?.record,
+    }
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical restore record is required.')
+    }
+    if (!['SHIFT', 'TRIP', 'GPS_SNAPSHOT'].includes(normalized.entityType)) {
+      throw new Error('Unsupported canonical restore entity type.')
+    }
+    if (!requireCanonicalWriteRoute()) throw new Error('Canonical restore requires native SQLite storage.')
+    return WorkRuntimePorts.canonicalWork.restoreRecord(normalized)
   },
   async commitTripLifecycle(input) {
     const normalized = {
