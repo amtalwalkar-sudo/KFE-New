@@ -1,6 +1,6 @@
 /**
- * Serializes durable Android overlay actions and acknowledges only confirmed
- * Work commits. Event IDs remain the sole replay/idempotency identity.
+ * Owns FIFO replay of the durable Android event journal and acknowledges only
+ * confirmed Work commits. The native event ID is the sole replay identity.
  */
 export const createNativeWorkActionController = ({ actions, handleAction, isVisible = () => true }) => {
   if (!actions || typeof actions.consumePendingActions !== 'function'
@@ -10,7 +10,6 @@ export const createNativeWorkActionController = ({ actions, handleAction, isVisi
     throw new TypeError('Native Work action controller dependencies are incomplete.')
   }
 
-  let queue = Promise.resolve()
   let replayRunning = false
   const inFlight = new Set()
 
@@ -40,22 +39,30 @@ export const createNativeWorkActionController = ({ actions, handleAction, isVisi
     }
   }
 
-  const enqueue = event => {
-    const next = queue.then(() => process(event))
-    queue = next.catch(() => {})
-    return next
-  }
-
   const replay = async () => {
-    if (!isVisible() || replayRunning) return
+    if (!isVisible() || replayRunning) return false
     replayRunning = true
     try {
+      // Propagate queue-read failures. An unreadable SQLite journal is not empty.
       const pending = await actions.consumePendingActions()
-      for (const event of pending) await enqueue(event)
+      for (const event of pending) {
+        if (!await process(event)) return false
+      }
+
+      // Only consult the pre-ledger compatibility slot after SQLite has been
+      // read successfully and found empty.
+      if (!pending.length && typeof actions.consumePendingAction === 'function') {
+        const legacy = await actions.consumePendingAction()
+        if (legacy) {
+          if (!await handleAction(legacy)) return false
+          if (typeof actions.clearPendingAction !== 'function' || !await actions.clearPendingAction()) return false
+        }
+      }
+      return true
     } finally {
       replayRunning = false
     }
   }
 
-  return Object.freeze({ process, enqueue, replay })
+  return Object.freeze({ process, replay })
 }
