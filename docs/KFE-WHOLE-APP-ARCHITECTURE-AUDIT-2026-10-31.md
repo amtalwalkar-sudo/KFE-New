@@ -337,6 +337,24 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Journal count and retry reads now fail closed. The native retry entry point catches the read failure as a recovery-blocked state and does not proceed as though the queue were empty. Android instrumentation corrupts the persisted journal deliberately and verifies both read paths throw rather than discard pending work.
 
+### 49. GPS retry could attach a later location to an earlier ride event
+
+**Finding:** The native 30-second request timeout was measured from the time a retry began. A pending event reopened much later could therefore accept a fresh fix from a different place and store it as the original pickup/start/end/cancellation location. The PWA Timeline and locality eligibility checks also did not enforce the event-to-fix time boundary.
+
+**Change:** The 30-second window is now measured from the original event timestamp. Native and browser capture reject fixes before the event or at/after the event-time boundary; expired pending requests are discarded. Timeline reads and manual locality resolution independently reject snapshots outside the same window. No later location is attached to an old event.
+
+### 50. Locality cache identity did not verify the underlying GPS snapshot version
+
+**Finding:** A locality label keyed only by snapshot ID could be reused if an invalid/stale snapshot was replaced under the same canonical ID.
+
+**Change:** Saved locality labels are now bound to the exact eventAt/capturedAt pair. Timeline displays a label only when both timestamps match the current snapshot; manual resolution invalidates a mismatched cached label before resolving the replacement.
+
+### 51. Native GPS retry backoff conflicted with the event-time capture window
+
+**Finding:** The first retry backoff began at 30 seconds, which was already at the end of the intended capture window. The journal also carried escalating retry metadata that was unnecessary for the event-scoped workflow.
+
+**Change:** Removed retry-delay metadata and backoff. A later ride event, app open, or explicit GPS-status refresh may resume pending captures only while the original event-time window remains open. Eligible pending event requests are started as bounded one-shot captures; foreground location mode is retained until all active requests finish. No idle or timed retry service is introduced.
+
 ## Verification
 
 The following are enforced by regression contracts:
@@ -349,6 +367,8 @@ The following are enforced by regression contracts:
 - native-first persistence ordering and browser-only PWA fallback;
 - canonical record, backup/recovery, GPS, and UI isolation contracts;
 - the minimal Loan EMI formula and application/UI boundary;
-- native lifecycle transition, active-Shift, pre-ride cancellation and insert-only restore guards.
+- native lifecycle transition, active-Shift, pre-ride cancellation and insert-only restore guards;
+- strict 30-second event-to-fix timestamp parity across native capture, browser capture, Timeline reads and locality eligibility;
+- locality cache binding to the exact GPS snapshot timestamp pair.
 
 CI is being rerun against the latest PR head. A passing emulator gate does not replace physical-device verification of the four GPS event moments, native overlay navigation, Android Back behavior, and Admin form/backup flows.
