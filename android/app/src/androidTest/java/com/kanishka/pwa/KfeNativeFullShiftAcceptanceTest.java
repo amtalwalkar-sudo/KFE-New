@@ -392,29 +392,34 @@ public class KfeNativeFullShiftAcceptanceTest {
     }
   }
 
-  @Test public void nativeGpsCaptureRejectsProviderFixesThatPreDateTheRideEvent() throws Exception {
+  @Test public void nativeGpsCaptureRejectsFixesOutsideOriginalEventWindow() throws Exception {
     long eventAt = System.currentTimeMillis();
-    assertFalse("A cached fix from before the swipe must not be attached to the event.",
-        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt - 1L));
-    assertTrue("A fix at the event timestamp is valid.",
-        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt));
-    assertTrue("The first subsequent provider fix is valid.",
-        KfeOverlayService.isEventGpsFixAtOrAfter(java.time.Instant.ofEpochMilli(eventAt).toString(), eventAt + 1L));
-    assertFalse("An invalid event timestamp must fail closed.",
-        KfeOverlayService.isEventGpsFixAtOrAfter("not-an-instant", eventAt + 1L));
-    assertFalse("A provider fix without a timestamp must fail closed.",
-        KfeOverlayService.isEventGpsFixAtOrAfter("", 0L));
-    assertFalse("A provider fix without an event timestamp must fail closed.",
-        KfeOverlayService.isEventGpsFixAtOrAfter("", eventAt + 1L));
     String eventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
+    assertFalse("A cached fix from before the swipe must not be attached to the event.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt - 1L));
+    assertTrue("A fix at the event timestamp is valid.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt));
+    assertTrue("A fix just before the 30-second boundary is valid.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt + 29_999L));
+    assertFalse("A fix at or after the event-time window must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt + 30_000L));
+    assertFalse("An invalid event timestamp must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow("not-an-instant", eventAt + 1L));
+    assertFalse("A provider fix without a timestamp must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow("", 0L));
+    String snapshotEventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
     JSONObject staleSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
-        .put("eventAt", eventTime).put("capturedAt", java.time.Instant.ofEpochMilli(eventAt - 1L).toString());
+        .put("eventAt", snapshotEventTime).put("capturedAt", java.time.Instant.ofEpochMilli(eventAt - 1L).toString());
     assertFalse("An already-persisted pre-event snapshot must not be treated as complete.",
         KfeOverlayService.isValidPersistedEventGpsSnapshot(staleSnapshot));
     JSONObject freshSnapshot = new JSONObject(staleSnapshot.toString())
         .put("capturedAt", java.time.Instant.ofEpochMilli(eventAt + 1L).toString());
-    assertTrue("A persisted subsequent fix is a valid event snapshot.",
+    assertTrue("A persisted subsequent fix inside the event window is valid.",
         KfeOverlayService.isValidPersistedEventGpsSnapshot(freshSnapshot));
+    JSONObject staleLaterSnapshot = new JSONObject(freshSnapshot.toString())
+        .put("capturedAt", java.time.Instant.ofEpochMilli(eventAt + 30_000L).toString());
+    assertFalse("A later location must never be treated as the original event location.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(staleLaterSnapshot));
   }
 
   @Test public void fourEventGpsSnapshotsRemainSeparateFromTripBusinessVersions() throws Exception {
@@ -431,7 +436,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         new JSONObject().put("id", gpsFirstTrip).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", initialVersion)).accepted);
 
-    String eventAt = java.time.Instant.now().minusSeconds(30).toString();
+    String eventAt = java.time.Instant.now().minusSeconds(5).toString();
     String capturedAt = java.time.Instant.now().toString();
     JSONObject pickup = new JSONObject().put("id", "gps-first-pickup-" + suffix)
         .put("entityType", "TRIP").put("entityId", gpsFirstTrip).put("eventType", "PICKUP_START")
