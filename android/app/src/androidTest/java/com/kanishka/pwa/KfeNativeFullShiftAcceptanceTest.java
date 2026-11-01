@@ -1171,22 +1171,6 @@ public class KfeNativeFullShiftAcceptanceTest {
         }
 
         prepareSnapshot(prefs, shiftId, tripId);
-        // START_RIDE and END_RIDE must begin from a real canonical Trip at
-        // their respective prior stages. The production command boundary
-        // intentionally rejects synthetic status-only lifecycle jumps.
-        if (stageIndex > 0) {
-          String fixtureVersion = java.time.Instant.now().toString();
-          JSONObject priorTrip = new JSONObject()
-              .put("id", tripId).put("shiftId", shiftId)
-              .put("status", "ACTIVE")
-              .put("tripStage", stageIndex == 1 ? "GOING_TO_PICKUP" : "RIDE_STARTED")
-              .put("createdAt", fixtureVersion).put("updatedAt", fixtureVersion);
-          if (stageIndex == 2) {
-            priorTrip.put("tripStartAt", new java.util.Date(startAt).toInstant().toString());
-          }
-          assertTrue("Lifecycle fault fixture prior Trip must commit.",
-              store.putRecord("lifecycle-fault-trip-create-" + tripId, "TRIP", priorTrip).accepted);
-        }
         AttachedOverlayService firstAttempt = new AttachedOverlayService();
         firstAttempt.attach(context);
         setField(firstAttempt, "actionStage", eventStage);
