@@ -241,16 +241,46 @@ export const WorkService = Object.freeze({
   },
   async completeTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'COMPLETED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, lifecycleAction: 'END_RIDE' }); return true })() : await ShiftTripRepository.completeTrip({ ...data }); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint()
-    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())
+    let eventAt = data?.tripEndAt || ''
+    const result = nativeAvailable ? await (async () => {
+      const trip = await findNativeRecord('TRIP', data?.id)
+      if (!trip) throw new Error('Trip not found.')
+      const now = new Date().toISOString()
+      const next = transitionTrip(trip, 'COMPLETED', data)
+      eventAt = data?.tripEndAt || trip.tripEndAt || now
+      next.tripEndAt = eventAt
+      next.updatedAt = nextCanonicalTimestamp(trip.updatedAt)
+      await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, lifecycleAction: 'END_RIDE' })
+      return true
+    })() : await ShiftTripRepository.completeTrip({ ...data })
+    if (!nativeAvailable) {
+      await mirrorCanonicalTripById(data?.id)
+      eventAt = eventAt || new Date().toISOString()
+    }
+    checkpoint()
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', eventAt)
     return result
   },
   async cancelTrip(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId, lifecycleAction: 'CANCEL_RIDE' }); return true })() : await ShiftTripRepository.cancelTrip(data)
-    if (!nativeAvailable) await mirrorCanonicalTripById(data?.id)
+    let eventAt = data?.tripEndAt || ''
+    const result = nativeAvailable ? await (async () => {
+      const trip = await findNativeRecord('TRIP', data?.id)
+      if (!trip) throw new Error('Trip not found.')
+      const now = new Date().toISOString()
+      const next = transitionTrip(trip, 'CANCELLED', data)
+      eventAt = data?.tripEndAt || trip.tripEndAt || now
+      next.tripEndAt = eventAt
+      next.updatedAt = nextCanonicalTimestamp(trip.updatedAt)
+      await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId, lifecycleAction: 'CANCEL_RIDE' })
+      return true
+    })() : await ShiftTripRepository.cancelTrip(data)
+    if (!nativeAvailable) {
+      await mirrorCanonicalTripById(data?.id)
+      eventAt = eventAt || new Date().toISOString()
+    }
     checkpoint()
-    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', data?.tripEndAt || new Date().toISOString())
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', eventAt)
     return result
   },
   async saveTripDetails(data, operationId = '') {
