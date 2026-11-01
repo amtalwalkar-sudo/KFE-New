@@ -77,6 +77,18 @@ export const NativeCanonicalWorkService = Object.freeze({
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Native Trip lifecycle command was not durably acknowledged.')
     return result
   },
+  async commitTripForm({ operationId, mode, record } = {}) {
+    assertNoResetInProgress()
+    requireNative()
+    if (!operationId || !['FARE', 'CANCEL'].includes(mode) || !record?.id) {
+      throw new Error('operationId, supported form mode and record.id are required.')
+    }
+    const result = await NativeCanonicalWork.commitTripForm({ operationId, mode, record })
+    if (result?.accepted !== true || !(result?.outcome?.record || result?.outcome?.trip)) {
+      throw new Error('Native Trip form command was not durably acknowledged.')
+    }
+    return result
+  },
   async migrateLegacySnapshot({ migrationId, snapshot } = {}) {
     assertNoResetInProgress()
     requireNative()
