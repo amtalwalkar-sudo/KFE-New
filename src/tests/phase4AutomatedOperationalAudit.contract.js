@@ -47,7 +47,8 @@ scenario('A4/B3/B4/J2', () => {
 // A/B/E — one canonical trip identity, completion/cancellation, optional fare detail and idempotent terminal replay.
 scenario('A2/A3/B5/E1/E2/E3/J7', () => {
   let trip = { id: 'audit-trip-1', shiftId: 'audit-shift-1', status: TRIP_STATES.ACTIVE, tripStage: 'GOING_TO_PICKUP', revenue: null }
-  const completed = transitionTrip(trip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z' })
+  const startedTrip = transitionTripStage(trip, 'RIDE_STARTED', { at: '2026-09-25T07:30:00.000Z' })
+  const completed = transitionTrip(startedTrip, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-25T08:00:00.000Z' })
   const priced = { ...completed, revenue: 250 }
   assert.equal(priced.id, trip.id)
   assert.equal(priced.status, TRIP_STATES.COMPLETED)
