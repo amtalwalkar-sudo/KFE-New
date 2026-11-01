@@ -52,6 +52,22 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void restoreRecord(PluginCall call) {
+    String operationId = call.getString("operationId", "");
+    String entityType = call.getString("entityType", "");
+    JSObject record = call.getObject("record");
+    try {
+      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
+          .restoreRecord(operationId, entityType, record);
+      call.resolve(new JSObject(outcome.toJson().toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_RESTORE_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical record restore failed.", "CANONICAL_RESTORE_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void commitTripLifecycle(PluginCall call) {
     String operationId = call.getString("operationId", "");
     String action = call.getString("action", "");
