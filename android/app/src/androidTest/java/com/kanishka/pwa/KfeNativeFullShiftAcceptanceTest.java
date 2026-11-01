@@ -187,7 +187,7 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("A corrupt GPS journal must not be reported as an empty queue.", countFailedClosed);
 
       boolean retryReadFailedClosed = false;
-      try { journal.earliestPending(new java.util.HashSet<>(), System.currentTimeMillis()); }
+      try { journal.pending(new java.util.HashSet<>()); }
       catch (IllegalStateException expected) { retryReadFailedClosed = true; }
       assertTrue("A corrupt GPS journal must block retry recovery instead of returning no pending event.", retryReadFailedClosed);
     } finally {
