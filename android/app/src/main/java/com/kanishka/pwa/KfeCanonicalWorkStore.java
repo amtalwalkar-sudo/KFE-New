@@ -832,7 +832,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       double revenue = shift.optDouble("revenue", 0d);
 
       JSONObject result = new JSONObject().put("operationId", operationId).put("mode", mode)
-          .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip)
+          .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip).put("record", trip)
           .put("shift", shift).put("revenue", revenue).put("committedAt", now);
       ContentValues operation = new ContentValues();
       operation.put("operation_id", operationId);
