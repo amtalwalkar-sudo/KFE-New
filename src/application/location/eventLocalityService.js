@@ -1,6 +1,7 @@
 import { LocalityRepository } from '../../repositories/localityRepository.js'
 import { resolveLocationNameDetailed } from './locationNameService.js'
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
+import { isValidEventGpsTimestamp } from '../../domain/location/eventGpsPolicy.js'
 
 export const LOCALITY_RESOLUTION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 const EVENTS = new Set(['PICKUP_START', 'TRIP_START', 'TRIP_END', 'TRIP_CANCELLED'])
@@ -19,6 +20,7 @@ export const isEligibleForLocalityResolution = (snapshot, now = Date.now()) => {
   if (!snapshot || !EVENTS.has(snapshot.eventType) || !validCoordinates(snapshot)) return false
   const eventTime = Date.parse(snapshot.eventAt || '')
   return Number.isFinite(eventTime) && eventTime > 0 && eventTime <= now
+    && isValidEventGpsTimestamp(snapshot.eventAt, snapshot.capturedAt)
     && now - eventTime <= LOCALITY_RESOLUTION_MAX_AGE_MS
 }
 
