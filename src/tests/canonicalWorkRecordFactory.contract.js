@@ -32,6 +32,8 @@ const trip = createCanonicalTripRecord({
   shiftId: 'generated-1',
   operator: 'DRIVER',
   tripStage: 'GOING_TO_PICKUP',
+  tripStartLocation: { latitude: 19.07, longitude: 72.87 },
+  tripEndLocation: { latitude: 19.08, longitude: 72.88 },
 }, { createId, now: fixedNow })
 assert.equal(trip.id, 'generated-2')
 assert.equal(trip.shiftId, 'generated-1')
@@ -41,8 +43,10 @@ assert.equal(trip.tripKm, undefined, 'Ride distance is not part of the active ca
 assert.equal(trip.tripKmAuthority, undefined, 'Ride distance authority is retired')
 assert.equal(trip.revenueAuthority, undefined, 'New canonical Trips must not carry obsolete revenue-authority metadata')
 assert.equal(trip.revenueProvenance, undefined, 'New canonical Trips must not carry unused revenue provenance metadata.')
-assert.equal(trip.tripStartLocationStatus, 'MISSING')
-assert.equal(trip.tripEndLocationStatus, 'MISSING')
+assert.equal(trip.tripStartLocation, undefined, 'Canonical Trips must not embed GPS snapshots.')
+assert.equal(trip.tripEndLocation, undefined, 'Canonical Trips must not embed GPS snapshots.')
+assert.equal(trip.tripStartLocationStatus, undefined, 'Embedded GPS resolution state is retired.')
+assert.equal(trip.tripEndLocationStatus, undefined, 'Embedded GPS resolution state is retired.')
 assert.equal(trip.createdAt, fixedNow)
 assert.equal(trip.updatedAt, fixedNow)
 
