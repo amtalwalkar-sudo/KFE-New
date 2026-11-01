@@ -11,7 +11,7 @@ const keyFor = l => { if (l?.latitude == null || l.latitude === '' || l?.longitu
 const formatProperties = p => {
   if (!p || typeof p !== 'object') return null
   // Display only locality/sub-locality fields, never a POI, street or broad district.
-  const area = [p.subLocality, p.sub_locality, p.suburb, p.neighbourhood, p.neighborhood, p.locality, p.city_district, p.area, p.village, p.town]
+  const area = [p.subLocality, p.sub_locality, p.suburb, p.neighbourhood, p.neighborhood, p.quarter, p.locality, p.village, p.town]
     .find(value => typeof value === 'string' && value.trim())
   if (!area) return null
   const parts = [area.trim()]
