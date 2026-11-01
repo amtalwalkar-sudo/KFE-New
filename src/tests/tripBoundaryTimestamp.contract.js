@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { normalizeTripBoundaryLocation } from '../application/work/tripBoundaryLocation.js'
+import { normalizeTripBoundaryLocation } from '../domain/location/tripBoundaryLocation.js'
 
 const valid = normalizeTripBoundaryLocation({ latitude: 19.076, longitude: 72.8777, accuracy: 12, capturedAt: '2026-10-22T05:30:00.000Z' })
 assert.equal(valid.capturedAt, '2026-10-22T05:30:00.000Z', 'the original GPS fix timestamp must be preserved')
