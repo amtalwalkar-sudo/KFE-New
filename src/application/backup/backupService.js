@@ -61,7 +61,7 @@ export const validateBackup = input => {
     const ids = new Set()
     for (const record of records) {
       const validKey = storeName === 'financial_period_snapshots'
-        ? typeof record?.periodKey === 'string' && /^\\d{4}-\\d{2}$/.test(record.periodKey)
+        ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey)
         : typeof record?.id === 'string' && record.id.trim()
       if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`)
       const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id
