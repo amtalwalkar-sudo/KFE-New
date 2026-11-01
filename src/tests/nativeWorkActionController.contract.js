@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
+import fs from 'node:fs'
 
 const calls = []
 const pending = [
@@ -48,5 +49,21 @@ visible = true
 await controller.replay()
 assert.deepEqual(calls.filter(call => call.startsWith('handle:')), ['handle:evt-1', 'handle:evt-2'])
 assert.ok(calls.indexOf('handle:evt-1') < calls.indexOf('handle:evt-2'), 'replay must preserve durable event order')
+
+const unavailable = createNativeWorkActionController({
+  actions: {
+    async consumePendingActions() { throw new Error('Injected SQLite queue read failure.') },
+    async acknowledgeAction() { throw new Error('Must not acknowledge when queue read fails.') },
+    async recordActionFailure() {},
+  },
+  async handleAction() { throw new Error('No event should be handled when the queue read fails.') },
+})
+await assert.rejects(unavailable.replay(), /Injected SQLite queue read failure/, 'A failed native event read must propagate rather than become an empty queue.')
+
+const workView = fs.readFileSync(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
+assert.match(workView, /const nativeRecoveryReady = ref\(!nativeAndroid\)/, 'Android Work actions must start blocked until native event recovery is confirmed.')
+assert.match(workView, /Native ride recovery is incomplete/, 'Work must surface an explicit recovery-blocked state.')
+assert.match(workView, /if \(!nativeWritesAllowed\(\)\) return/, 'Overlay synchronization must not overwrite native workflow state before recovery completes.')
+assert.match(workView, /:disabled="!nativeRecoveryReady"/, 'Primary Work controls must remain disabled while native recovery is incomplete.')
 
 console.log('PASS: native Work events replay FIFO and acknowledge only confirmed commits')
