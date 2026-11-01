@@ -9,7 +9,7 @@ import { WorkflowTimerService, WorkWorkflowSessionService } from '../presentatio
 import { WorkRuntimePorts } from '../application/work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../application/work/canonicalWorkBoundary.js'
 import { isAcceptedNativeTripFormOperation } from '../application/work/nativeTripFormRecovery.js'
-import { deriveLiveRevenue } from '../application/work/liveRevenueReadModel.js'
+import { LiveRevenueReadModel } from '../application/work/liveRevenueReadModel.js'
 import { SWIPE_CONFIG } from '../presentation/work/swipeConfiguration.js'
 import { deriveWorkCockpitState, WORK_COCKPIT_STATES } from '../application/work/workCockpit.js'
 import WorkContextForm from '../components/work/WorkContextForm.vue'
@@ -176,7 +176,7 @@ watch([closingOdo, endStage, largeDistanceConfirmation], () => {
 const startOdometerValidation = computed(() => store.validateStartOdometer(startOdo.value))
 
 const completed = computed(() => store.completedTrips.filter(t => t.status === 'COMPLETED'))
-const liveRevenue = computed(() => deriveLiveRevenue(store.registeredTrips.filter(trip => trip.shiftId === store.shift?.id)))
+const liveRevenue = computed(() => LiveRevenueReadModel.forShift(store.registeredTrips, store.shift?.id || ''))
 const pendingFare = computed(() => {
   if (fareTripId.value) {
     const selected = completed.value.find(t => t.id === fareTripId.value)
@@ -286,7 +286,7 @@ async function syncOverlay() {
     trips = await WorkService.getTripsForShift(store.shift.id)
   } catch (_) {}
 
-  const revenue = money(deriveLiveRevenue(trips))
+  const revenue = money(LiveRevenueReadModel.forTrips(trips))
   const recoveredPendingFareId = pendingFare.value?.id || [...trips]
     .filter(t => t.status === 'COMPLETED' && t.revenue == null && t.fareDetailsSkipped !== true)
     .sort((a, b) => Date.parse(b.tripEndAt || b.updatedAt || '') - Date.parse(a.tripEndAt || a.updatedAt || ''))[0]?.id || ''
