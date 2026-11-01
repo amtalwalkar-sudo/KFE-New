@@ -255,19 +255,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (record == null || empty(record.optString("id", ""))) {
       throw new IllegalArgumentException("Restored canonical record requires an id.");
     }
-    if ("TRIP".equals(entityType)) {
-      String shiftId = record.optString("shiftId", "");
-      if (empty(shiftId)) throw new IllegalArgumentException("Restored Trip requires its canonical Shift identity.");
-      try (Cursor shiftCursor = getReadableDatabase().query("canonical_records", new String[]{"payload"},
-          "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
-        if (!shiftCursor.moveToFirst()) throw new IllegalArgumentException("Restored Trip requires its canonical Shift to be restored first.");
-        JSONObject shift = new JSONObject(shiftCursor.getString(0));
-        if ("ACTIVE".equals(record.optString("status", "")) && !"ACTIVE".equals(shift.optString("status", ""))) {
-          throw new IllegalArgumentException("Restored ACTIVE Trip requires an ACTIVE canonical Shift.");
-        }
-      }
-    }
-    return putRecordInternal(operationId, entityType, record, null, true, null);
+    return putRecordInternal(operationId, entityType, record, null, true, null, true);
   }
 
   /**
@@ -285,6 +273,11 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   private Outcome putRecordInternal(String operationId, String entityType, JSONObject record,
       String expectedUpdatedAt, boolean expectAbsent, String lifecycleAction) throws Exception {
+    return putRecordInternal(operationId, entityType, record, expectedUpdatedAt, expectAbsent, lifecycleAction, false);
+  }
+
+  private Outcome putRecordInternal(String operationId, String entityType, JSONObject record,
+      String expectedUpdatedAt, boolean expectAbsent, String lifecycleAction, boolean restoreCommand) throws Exception {
     assertNoPendingReset();
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
@@ -412,6 +405,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
 
+      if (restoreCommand && "TRIP".equals(entityType)) {
+        validateRestoredTripParentShift(db, record);
+      }
+
       if ("TRIP".equals(entityType) && lifecycleAction == null && existingRecord != null
           && !jsonEquivalent(tripLifecycleFacts(existingRecord), tripLifecycleFacts(record))) {
         throw new IllegalArgumentException("Trip lifecycle fields must be changed through commitTripLifecycle.");
@@ -471,6 +468,19 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     }
   }
 
+
+  private void validateRestoredTripParentShift(SQLiteDatabase db, JSONObject trip) throws Exception {
+    String shiftId = trip.optString("shiftId", "");
+    if (empty(shiftId)) throw new IllegalArgumentException("Restored Trip requires its canonical Shift identity.");
+    try (Cursor shiftCursor = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+      if (!shiftCursor.moveToFirst()) throw new IllegalArgumentException("Restored Trip requires its canonical Shift to be restored first.");
+      JSONObject shift = new JSONObject(shiftCursor.getString(0));
+      if ("ACTIVE".equals(trip.optString("status", "")) && !"ACTIVE".equals(shift.optString("status", ""))) {
+        throw new IllegalArgumentException("Restored ACTIVE Trip requires an ACTIVE canonical Shift.");
+      }
+    }
+  }
 
   private void assertTripFormMutationScope(JSONObject existingTrip, JSONObject incomingTrip, String mode) throws Exception {
     JSONObject existing = new JSONObject(existingTrip.toString());
