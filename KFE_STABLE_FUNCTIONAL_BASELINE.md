@@ -22,7 +22,7 @@ KFE consists only of these capabilities:
 - GPS capture must not block a ride action or invent a location.
 - GPS capture never starts locality lookup. The only locality-resolution entry point is explicit Timeline pull-to-refresh while online. New lookup is limited to the most recent seven days; successful names are saved permanently by snapshot ID. No automatic lookup, retry loop, polling, background connectivity checks, or queued geocoding jobs.
 - GPS fix acquisition is separately bounded to 30 seconds, then remains durably pending for a later eligible trigger; it must not keep an idle foreground service alive.
-- Timeline never mutates business facts. Unreliable or unresolved locality is shown as `Location unavailable`.
+- Timeline never mutates business facts. A saved verified locality is shown when available; otherwise valid stored coordinates remain visible without a connectivity check. Invalid coordinates or supplied accuracy worse than 75 metres are shown as `Location unavailable`.
 
 ## Data and reporting invariants
 
