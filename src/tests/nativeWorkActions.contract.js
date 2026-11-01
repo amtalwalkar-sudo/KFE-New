@@ -57,7 +57,7 @@ assert.match(overlayService, /persistOneShotEventLocation/)
 assert.match(overlayService, /activateOneShotLocationForeground/)
 assert.match(overlayService, /restoreOverlayForegroundType/)
 assert.match(overlayService, /requestLocationUpdates\(provider,3000L,0f/)
-assert.match(overlayService, /handler\.postDelayed\(stop,30000L/)
+assert.match(overlayService, /handler\.postDelayed\(stop,remainingWindowMs/)
 assert.match(overlayService, /removeUpdates\(this\)/)
 assert.doesNotMatch(overlayService, /startLocationUpdates/)
 
