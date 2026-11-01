@@ -20,9 +20,13 @@ assert.match(readService, /\['PICKUP_START', 'TRIP_END'\]/, 'Timeline reads only
 assert.match(readService, /LocalityRepository\.forSnapshotIds/)
 assert.match(readService, /locationLabel\(locations\.pickup, localityBySnapshotId\)/)
 assert.match(readService, /locationLabel\(locations\.end, localityBySnapshotId\)/)
-const savedLabel = new Map([['gps-1', { placeName: 'Verified locality' }]])
-const accurateSnapshot = { id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 75 }
+const eventAt = '2026-10-31T12:00:00.000Z'
+const capturedAt = '2026-10-31T12:00:01.000Z'
+const savedLabel = new Map([['gps-1', { placeName: 'Verified locality', eventAt, capturedAt }]])
+const accurateSnapshot = { id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 75, eventAt, capturedAt }
 assert.equal(locationLabel(accurateSnapshot, savedLabel), 'Verified locality')
+assert.equal(locationLabel({ ...accurateSnapshot, capturedAt: '2026-10-31T12:00:02.000Z' }, savedLabel), '19.07600, 72.87770',
+  'A locality label saved for an earlier fix must not be reused after the snapshot changes.')
 assert.equal(locationLabel({ ...accurateSnapshot, accuracy: null }, savedLabel), '19.07600, 72.87770',
   'A locality label without recorded GPS accuracy must not be displayed.')
 assert.equal(locationLabel({ ...accurateSnapshot, accuracy: null }, savedLabel), '19.07600, 72.87770',
@@ -38,6 +42,8 @@ assert.match(eventLocalityService, /WorkRuntimePorts\.platform\.isOnline\(\)/)
 assert.doesNotMatch(eventLocalityService, /navigator\.onLine/)
 assert.match(localityRepository, /snapshotId/)
 assert.match(localityRepository, /store\.add\(saved\)/)
+assert.match(localityRepository, /deleteForSnapshot/)
+assert.match(readService, /savedRecord\?\.eventAt === snapshot\.eventAt && savedRecord\?\.capturedAt === snapshot\.capturedAt/)
 assert.match(indexedDb, /createObjectStore\('locality_labels', \{ keyPath: 'snapshotId' \}\)/)
 assert.match(timelineView, /EventLocalityService\.resolveSnapshots\(snapshots\)/)
 assert.match(timelineView, /EventLocationService\.allSnapshots\(\)/)
