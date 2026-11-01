@@ -299,7 +299,7 @@ export const WorkService = Object.freeze({
       const snapshot = await readNativeWorkSnapshot()
       const shift = snapshot.shifts.find(item => item.id === data?.shiftId && item.status === 'ACTIVE')
       if (!shift) return { ok: false, reason: 'Active shift not found.' }
-      const activeTrip = snapshot.trips.find(item => item.shiftId === shift.id && item.status === 'ACTIVE')
+      const activeTrip = snapshot.trips.find(item => item.shiftId === shift.id && !item?.deletedAt && item?.deleted !== true && item.status === 'ACTIVE')
       if (activeTrip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
       const validation = validateEndShiftEntry({
         closingOdometer: data?.closingOdometer,
