@@ -58,10 +58,11 @@ assert.equal(await photonNearby.resolve({ latitude: 19.025, longitude: 72.842, a
 const broadOnly = new PhotonLocationNameAdapter({
   endpoint: 'mock://photon',
   fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ properties: {
-    district: 'Mumbai Suburban', county: 'Mumbai', city: 'Mumbai', state: 'Maharashtra'
+    district: 'Mumbai Suburban', city_district: 'Mumbai Suburban',
+    area: 'Mumbai Metropolitan Region', county: 'Mumbai', city: 'Mumbai', state: 'Maharashtra'
   } }] }) }),
 })
 assert.equal(await broadOnly.resolve({ latitude: 19.025, longitude: 72.842, accuracy: 10 }), null,
-  'district/city-only results must not be presented as an area')
+  'district, city-district, generic-area and city-only results must not be presented as a neighbourhood')
 
 console.log('PASS: locality provider validates accuracy and proximity; coordinate-only temporary caching is retired')
