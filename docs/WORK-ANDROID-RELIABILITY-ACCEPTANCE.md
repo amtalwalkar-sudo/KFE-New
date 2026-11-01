@@ -83,7 +83,7 @@ Expected: local operation is independent of internet; Dropbox remains a foregrou
 2. Verify no Ledger menu entry and no duplicate Settings tiles inside the Settings page.
 3. Open each active form, save valid data, reopen it and verify persisted values and relationships.
 4. Verify older historical dates can be entered where permitted; business start date must not silently reject legitimate older source records.
-5. Verify Loan stores contractual source facts only; it does not calculate EMI, amortization, payment allocation or repayment schedules.
+5. Verify Loan stores contractual source facts and displays only the derived fixed-rate monthly EMI estimate from principal, tenure and annual interest rate. It must not persist EMI or calculate amortization, payment allocation, repayment schedules or a balance ledger.
 6. From an Admin detail/form screen press Android Back. Verify it returns to the main Admin menu, not the app exit route.
 7. Verify Save/Cancel actions remain visible and do not overlap on the target phone or with the keyboard open.
 
