@@ -31,9 +31,12 @@ assert.doesNotMatch(eventLocationService, /EventLocalityService|resolveSnapshot|
   'GPS capture must never trigger or poll for locality resolution')
 assert.match(eventLocationService, /if \(prior\) return/)
 assert.match(eventLocationService, /queueEventLocationCapture\(entityType, entityId, eventType, eventAt\)/)
+assert.match(eventLocationService, /async allSnapshots\(\)/, 'Manual locality refresh must read all four event types independent of the selected display period.')
+assert.match(eventLocationService, /CanonicalWorkBoundary\.listEventLocationSnapshots\(\)/, 'Native locality refresh must use complete paginated GPS history.')
+assert.match(eventLocationService, /LocationRepository\.all\(\)/, 'Browser locality refresh must include all locally saved GPS snapshots.')
 assert.match(eventLocationService, /CanonicalWorkBoundary\.getEventLocationSnapshot/,
   'Timeline reads discover native snapshots without a capture-time polling loop')
-assert.match(timeline, /EventLocalityService\.resolveSnapshots\(eligible\)/,
+assert.match(timeline, /EventLocalityService\.resolveSnapshots\(snapshots\)/,
   'only the explicit Timeline refresh handler may resolve localities')
 assert.match(locationRepository, /GPS snapshot requires the location provider fix timestamp/)
 assert.match(locationRepository, /capturedAt: new Date\(fixTimestamp\)\.toISOString\(\)/)
