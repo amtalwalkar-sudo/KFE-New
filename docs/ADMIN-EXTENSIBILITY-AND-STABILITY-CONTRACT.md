@@ -18,7 +18,7 @@ The current Admin surface consists of:
 
 The visible navigation grouping is Business Setup (Business Setup, Vehicle, Driver), Vehicle Records (Compliance, Maintenance), Finance (Loan), and Settings (Backup & Restore, Application Settings, Data Reset).
 
-Forms store source facts. Loan terms are saved as facts only; no EMI, amortization, repayment schedule, payment allocation, prepayment or loan-payment workflow is active. Compliance and Maintenance store their recorded source facts only; no provisions, settlements or projected costs are calculated. There is no Ledger, target, break-even, diagnostics/calculations or financial dashboard workflow.
+Forms store source facts. A loan record may show one derived monthly EMI estimate from principal, tenure and annual interest rate; the estimate is calculated by the pure domain function and is not persisted. No amortization, repayment schedule/history, remaining-balance tracking, payment allocation, prepayment or loan-payment workflow is active. Compliance and Maintenance store their recorded source facts only; no provisions, settlements or projected costs are calculated. There is no Ledger, target, break-even, diagnostics/calculations or financial dashboard workflow.
 
 Historical records for retired workflows may remain in compatibility/recovery data where required to preserve backups. Their presence does not reactivate the former UI or calculation.
 
