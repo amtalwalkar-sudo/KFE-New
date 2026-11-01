@@ -170,7 +170,7 @@ Semantic tokens cover background, surfaces, primary/secondary/muted text, border
 
 Visual language:
 - Clean, calm, professional and highly readable; avoid decoration that does not improve comprehension.
-- Information hierarchy: current state → important target/metric → primary action → critical status → supporting detail.
+- Information hierarchy: current state → important metric → primary action → critical status → supporting detail.
 - Reuse typography hierarchy, spacing scale, radii, icon treatment, focus states and semantic colors.
 - Light mode uses readable near-white surfaces; dark mode uses dark charcoal/navy and readable off-white text rather than pure-black glare.
 - Semantic color is never the only indicator; pair it with text, icon or structure.
@@ -306,9 +306,9 @@ Every changed surface must record evidence for each applicable row. A non-applic
 | Shell | Header, primary nav, content host, fixed regions | One shell; no duplicated nav/header; no overlap |
 | Work | All applicable operational states | State/context/action remain correct; no workflow change from layout |
 | Timeline | Day/week/month and empty/no-result states | Correct route, period controls and reporting semantics |
-| Performance | Metrics, period controls, details and provision/loan views | Canonical values/units/rounding unchanged |
-| Admin | Home, forms, finance and management areas | Fields/actions remain reachable; validation authority unchanged |
-| Theme | Auto, Light, Dark | No unreadable text, missing state or hard-coded conflicting surface |
+| Performance | Basic recorded-data metrics and period controls | Only recorded revenue, completed rides, cancellation fees, fuel spending, fuel cost/km and income after fuel are shown |
+| Admin | Four navigation categories, six source forms and essential settings/recovery | Fields/actions remain reachable; validation authority unchanged |
+| Theme | Dark-only appearance | No light/auto theme controls or conflicting alternate surfaces |
 | Viewport | Narrow/wide and short/tall viewport | No clipping, unintended page scroll or unreachable control |
 | Keyboard | Native numeric/text keyboard open/closed | Focused field and completion action visible; short forms do not scroll |
 | Scrolling | Screen and local regions | Exactly intended region scrolls; fixed controls remain visible |
@@ -347,7 +347,7 @@ A green build or import-impact check alone is not UI or E2E sign-off.
 
 A request may be expressed as one concise change instruction, for example:
 
-> “Move the Work swipe bar below the target card. Keep its size, rightward gesture, threshold, command, state transitions, fixed navigation and Android overlay behavior unchanged.”
+> “Move the Work swipe bar below the current shift context. Keep its size, rightward gesture, threshold, command, state transitions, fixed navigation and Android overlay behavior unchanged.”
 
 Implementation must then:
 1. Identify the semantic component/region and its owning screen.
