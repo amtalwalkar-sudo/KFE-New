@@ -19,7 +19,7 @@ for (const [file, stores] of [
 const db = read('utils/indexedDB.js')
 for (const store of ['shifts','trips','fuel_logs','vehicles','drivers','settings','pending_mutations','audit_history','gps_snapshots']) assert.ok(db.includes(`'${store}'`), `Canonical store missing: ${store}`)
 assert.match(db, /indexedDB\.open\(name, CANONICAL_DB_VERSION\)/)
-assert.match(db, /deleteObjectStore\('driver_collected_data'\)/)
+assert.match(db, /db\.deleteObjectStore\(retiredStore\)/)
 
 const mutation = buildMutationRecord({ entityId: 'shift-1', entityType: 'SHIFT', action: 'CREATE', payload: { revenue: 100 }, createdAt: '2026-10-30T00:00:00.000Z' })
 assert.ok(mutation.id && mutation.id !== mutation.entityId)
