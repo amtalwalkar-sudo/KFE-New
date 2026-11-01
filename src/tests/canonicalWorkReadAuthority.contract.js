@@ -52,6 +52,7 @@ assert.match(canonicalBoundary, /page\.totalCount !== expectedTotal/, 'Paginated
 assert.match(canonicalBoundary, /seenIds\.has\(row\.id\)/, 'Paginated reads must reject duplicate record identities.')
 assert.match(canonicalBoundary, /records\.length !== expectedTotal/, 'Paginated reads must fail closed on incomplete canonical snapshots.')
 assert.ok(service.includes("CanonicalWorkBoundary.listAllRecords('SHIFT')") && service.includes("CanonicalWorkBoundary.listAllRecords('TRIP')"), 'Work reconciliation and post-write refresh must read every native page.')
+assert.match(service, /return \{\s*shifts: \{ records: shifts \ },\s*trips: \{ records: trips \ },\s*\}/, 'Canonical recovery must adapt paginated arrays to the recovery snapshot records contract.')
 assert.doesNotMatch(service, /canonicalWork\.listRecords\(\{ entityType: '(SHIFT|TRIP)', limit: 1000/ , 'Work reads must not silently truncate at a fixed 1,000-record window.')
 assert.ok(backupService.includes('CanonicalWorkBoundary.listAllRecords(entityType)'), 'Backup must reuse the same complete native pagination boundary.')
 assert.ok(canonicalBoundary.includes("return this.listAllRecords('GPS_SNAPSHOT')"), 'Timeline GPS history must use the same complete pagination owner.')
