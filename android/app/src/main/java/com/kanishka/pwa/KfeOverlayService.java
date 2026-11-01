@@ -914,14 +914,15 @@ public class KfeOverlayService extends Service {
       Log.e("KFE-GPS","Could not persist GPS retry backoff; event remains queued.");
   }
   private void retryPendingEventLocations(){
-    if(!hasPendingEventLocations())return;
-    // Permission is a hard gate: never start a background location request until
-    // both precise and background location permissions are granted.
-    if(!hasBackgroundLocationPermission()){
-      if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
-      return;
-    }
     try{
+      // A journal read failure is a recovery-blocked state, never an empty queue.
+      if(!hasPendingEventLocations())return;
+      // Permission is a hard gate: never start a background location request until
+      // both precise and background location permissions are granted.
+      if(!hasBackgroundLocationPermission()){
+        if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+        return;
+      }
       long now=System.currentTimeMillis();
       JSONObject earliest=gpsJournal().earliestPending(gpsCaptureInFlight,now);
       JSONObject selected=earliest!=null&&earliest.optLong("nextAttemptAt",0L)<=now?earliest:null;
@@ -932,7 +933,7 @@ public class KfeOverlayService extends Service {
         if(!entityId.isEmpty()&&!eventType.isEmpty()){captureOneShotEventLocation(entityType,entityId,eventType,eventAt);return;}
       }
       if(earliest!=null&&overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
-    }catch(Exception error){Log.e("KFE-GPS","Pending event location retry failed.",error);}
+    }catch(Exception error){Log.e("KFE-GPS","Pending event location recovery is blocked because the durable journal could not be read.",error);}
   }
   private void finishPendingGpsAttempt(String tripId,String eventType,boolean saved){finishPendingGpsAttempt("TRIP",tripId,eventType,saved);}
   private void finishPendingGpsAttempt(String entityType,String entityId,String eventType,boolean saved){
