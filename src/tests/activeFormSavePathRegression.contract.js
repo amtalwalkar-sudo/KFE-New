@@ -47,6 +47,7 @@ match(shiftStore, /const startShift = async/, 'Shift store must own Start Shift'
 match(workService, /async startShift\(data\)[\s\S]*ShiftTripRepository\.createShift/, 'Start Shift must reach shift repository')
 match(work, /await store\.saveTripDetails\(details, operationId\)/, 'Trip details must update the existing trip')
 match(workService, /async saveTripDetails\(data, operationId = ''\)[\s\S]*ShiftTripRepository\.saveTripDetails/, 'Trip update must reach canonical trip repository')
+match(shiftRepo, /const next = applyTripDetails\(record, data, now\); trips\.put\(next\); saveMutation\(mutations, audit, next\.id, 'TRIP', 'UPDATE', next, now\)/, 'Trip details repository must persist and audit the domain-returned canonical record, not the stale pre-update object.')
 match(work, /await store\.cancelTrip\(\{/, 'Cancellation must use canonical lifecycle')
 match(shiftStore, /const cancelTrip = async/, 'Cancellation must be store-owned')
 match(work, /WorkService\.recordFuel\(\{/, 'Fuel form must use WorkService')
