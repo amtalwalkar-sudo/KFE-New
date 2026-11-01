@@ -57,13 +57,14 @@ for (const [method, nextMethod, nativeCall, browserCall] of [
 }
 
 const noop = async () => ({})
+assert.match(boundary, /async commitTripForm\\(input\\)[\\s\\S]*?WorkRuntimePorts\\.canonicalWork\\.commitTripForm\\(normalized\\)/, 'Android Trip forms must route through the native form transaction.')
 configureWorkRuntimePorts({
   nativeWorkActions: {
     clearPendingAction: noop, addListener: noop, consumePendingActions: noop,
     consumePendingAction: noop, acknowledgeAction: noop, recordActionFailure: noop,
   },
   canonicalWork: {
-    putRecord: noop, restoreRecord: noop, commitTripLifecycle: noop, getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
+    putRecord: noop, restoreRecord: noop, commitTripLifecycle: noop, commitTripForm: noop, getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
     prepareCreateIntent: noop, completeCreateIntent: noop, migrateLegacySnapshot: noop, verifyLegacyMigration: noop, getMigration: noop,
     beginCanonicalReset: noop, clearCanonicalReset: noop, completeCanonicalReset: noop, releaseCanonicalReset: noop, getCanonicalResetState: noop,
   },
