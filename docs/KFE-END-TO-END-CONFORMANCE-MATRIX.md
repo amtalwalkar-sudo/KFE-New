@@ -17,7 +17,7 @@ A requirement is conformant only when it has a canonical owner, an implementatio
 | 4 | Complete Work state machine | Deterministic Golden Ride across PWA and native adapter paths | CI |
 | 5 | Interruption/recovery | Durable native action journal, atomic native canonical commits, PWA synchronization/acknowledgement and reload recovery | CI + emulator |
 | 6 | Identity invariants | Stable Shift/Trip/snapshot IDs, idempotency keys, stale-command rejection and fare/cancellation association | CI + emulator |
-| 7 | Calculation convergence | Domain calculation contracts plus browser/native persistence-projection parity | CI |
+| 7 | Calculation convergence | Fuel quantity/period cost per km, Performance totals, PWA/native revenue-projection parity, and the pure fixed-rate monthly Loan EMI calculation | CI |
 | 8 | Requirement → implementation → test → evidence coverage | This matrix and executable coverage assertions | CI |
 | 9 | Proof levels are separated | Repository, emulator and physical-device evidence explicitly tracked | CI/release + device gate |
 | 10 | Golden Ride | Shift start, multiple completed/cancelled rides, fare/skip, fuel entry and PWA shift end | CI + emulator |
