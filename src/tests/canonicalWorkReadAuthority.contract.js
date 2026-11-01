@@ -90,7 +90,7 @@ assert.match(service, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip lifecy
 assert.match(overlay, /captureOneShotEventLocation/, 'Native overlay location capture must use the shared event pathway.')
 assert.doesNotMatch(service + view, /nativeGps|MovementTraceService|captureLifecycleLocation|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/)
 assert.match(overlay, /requestLocationUpdates\(provider,3000L,0f/)
-assert.match(overlay, /handler\.postDelayed\(stop,30000L/)
+assert.match(overlay, /handler\.postDelayed\(stop,remainingWindowMs/)
 assert.match(overlay, /removeUpdates\(this\)/)
 
 const endShiftImplementation = service.slice(service.indexOf('async endShift(data)'), service.indexOf('async recordFuel(data)'))
