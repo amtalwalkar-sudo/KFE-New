@@ -12,9 +12,11 @@ assert.ok(commit.indexOf('await CanonicalWorkBoundary.putRecord') < commit.index
 assert.ok(commit.includes('result?.accepted !== true || !result?.outcome?.record'), 'unacknowledged native commits must fail closed')
 assert.ok(commit.includes('const durableOperationId ='), 'native operation identity must be stable for the record version')
 assert.ok(commit.includes('await CanonicalWorkBoundary.commitTripLifecycle('), 'PWA-originated Android lifecycle writes must use the guarded native transition boundary.')
-for (const action of ["lifecycleAction: 'START_RIDE'", "lifecycleAction: 'END_RIDE'", "lifecycleAction: 'CANCEL_RIDE'"]) {
+for (const action of ["lifecycleAction: 'START_RIDE'", "lifecycleAction: 'END_RIDE'"]) {
   assert.ok(service.includes(action), `PWA Android lifecycle must route ${action} through the native guard.`)
 }
+assert.ok(service.includes("formMode: 'FARE'") && service.includes("formMode: 'CANCEL'"), 'PWA Android fare and cancellation forms must route through the dedicated native form transaction.')
+assert.ok(commit.includes('CanonicalWorkBoundary.commitTripForm('), 'native-first form writes must use the guarded Trip-form command.')
 for (const [method, nextMethod] of [
   ['async startShift(data)', 'async startTrip(data)'],
   ['async startTrip(data)', 'async startRide(data)'],
