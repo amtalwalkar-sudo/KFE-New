@@ -803,7 +803,7 @@ public class KfeOverlaySmokeTest {
     }
     String shiftId = "offline-gps-shift-" + System.currentTimeMillis();
     String tripId = "offline-gps-trip-" + System.currentTimeMillis();
-    String tripStartAt = java.time.Instant.now().minusSeconds(30).toString();
+    String tripStartAt = java.time.Instant.now().minusSeconds(1).toString();
     String tripEndAt = java.time.Instant.now().toString();
     seedCanonicalShift(shiftId);
     seedCanonicalTrip(new JSONObject()
@@ -832,7 +832,7 @@ public class KfeOverlaySmokeTest {
     assertTrue("GPS_PROVIDER must remain enabled with networking disabled.",
       locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER));
 
-    final long gpsFixWaitMillis = 35000L;
+    final long gpsFixWaitMillis = 20000L;
     String[] eventTypes = new String[] {"TRIP_START", "TRIP_END"};
     String[] capturedAtValues = new String[eventTypes.length];
     for (int eventIndex = 0; eventIndex < eventTypes.length; eventIndex++) {
