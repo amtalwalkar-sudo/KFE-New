@@ -308,7 +308,7 @@ Every changed surface must record evidence for each applicable row. A non-applic
 | Timeline | Day/week/month and empty/no-result states | Correct route, period controls and reporting semantics |
 | Performance | Basic recorded-data metrics and period controls | Only recorded revenue, completed rides, cancellation fees, fuel spending, fuel cost/km and income after fuel are shown |
 | Admin | Four navigation categories, six source forms and essential settings/recovery | Fields/actions remain reachable; validation authority unchanged |
-| Theme | Dark-only appearance | No light/auto theme controls or conflicting alternate surfaces |
+| Theme | Dark Only | No light/auto theme controls or conflicting alternate surfaces |
 | Viewport | Narrow/wide and short/tall viewport | No clipping, unintended page scroll or unreachable control |
 | Keyboard | Native numeric/text keyboard open/closed | Focused field and completion action visible; short forms do not scroll |
 | Scrolling | Screen and local regions | Exactly intended region scrolls; fixed controls remain visible |
