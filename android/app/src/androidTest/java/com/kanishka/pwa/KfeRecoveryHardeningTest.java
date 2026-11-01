@@ -67,10 +67,11 @@ public class KfeRecoveryHardeningTest {
     JSONObject shift = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
         .put("revenue", 400).put("updatedAt", t2);
 
+    assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
     JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("fare", 999);
     try {
-      store.putRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
+      store.restoreRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
       fail("Expected operation-ID reuse with a changed payload to be rejected.");
     } catch (IllegalArgumentException expected) {
       assertTrue("Unexpected rejection: " + expected.getMessage(),
@@ -81,7 +82,6 @@ public class KfeRecoveryHardeningTest {
     assertEquals("Rejected operation-ID reuse must not change the committed fare.", 250,
         store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
-    assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
 
     assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
     assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("fare"));
@@ -104,11 +104,15 @@ public class KfeRecoveryHardeningTest {
 
   private static void assertLostAckRetryIsIdempotent(KfeCanonicalWorkStore store, String operationId,
       String entityType, JSONObject record) throws Exception {
-    KfeCanonicalWorkStore.Outcome committed = store.putRecord(operationId, entityType, record);
+    KfeCanonicalWorkStore.Outcome committed = "TRIP".equals(entityType)
+        ? store.restoreRecord(operationId, entityType, record)
+        : store.putRecord(operationId, entityType, record);
     assertTrue("First write must commit before the simulated acknowledgement is lost.", committed.accepted);
     // The process/bridge loses the response after SQLite commits. Retrying the
     // same operation ID must return the persisted outcome instead of applying it twice.
-    KfeCanonicalWorkStore.Outcome retry = store.putRecord(operationId, entityType, record);
+    KfeCanonicalWorkStore.Outcome retry = "TRIP".equals(entityType)
+        ? store.restoreRecord(operationId, entityType, record)
+        : store.putRecord(operationId, entityType, record);
     assertTrue("Retry must report the already committed operation as accepted.", retry.accepted);
     assertTrue("Retry must be identified as a duplicate operation.", retry.duplicate);
     assertTrue(store.getOperation(operationId).getBoolean("found"));
