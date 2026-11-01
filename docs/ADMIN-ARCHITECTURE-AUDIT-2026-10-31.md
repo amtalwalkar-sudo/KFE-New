@@ -51,7 +51,7 @@ Presentation owns navigation, transient UI state and input rendering. AdminServi
 
 The legacy Admin calculation/dashboard components and old Admin/Loan read-model files are absent from the current PR branch and are not imported by the production Admin route. The production router exposes only Work, Timeline, Performance and Admin.
 
-Legacy finance stores (including historical loan-payment, prepayment, settlement, target and break-even stores) remain in the backup compatibility set. This is intentional data preservation, not an active Admin workflow. Removing UI or calculations must not silently erase historical records or break restore of older backups.
+Legacy finance, target, settlement, day, odometer-gap, movement-artifact and financial-period stores are removed from schema 18 and from backup format 6. Older backup formats remain readable, but retired store payloads are deliberately discarded; only active in-scope records are restored.
 
 No business records, existing ride records, fares, cancellation values or event timestamps were edited by this Admin audit. No destructive database migration was introduced.
 
