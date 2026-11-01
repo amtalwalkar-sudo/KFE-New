@@ -30,7 +30,12 @@ export const EventLocalityService = Object.freeze({
       return { placeName: null, state: 'NOT_ELIGIBLE' }
     }
     const existing = await LocalityRepository.getBySnapshotId(snapshot.id)
-    if (existing?.placeName) return { ...existing, state: 'RESOLVED', cacheHit: true }
+    if (existing?.placeName && existing.eventAt === snapshot.eventAt && existing.capturedAt === snapshot.capturedAt) {
+      return { ...existing, state: 'RESOLVED', cacheHit: true }
+    }
+    // A snapshot ID can be re-used when an earlier invalid/stale fix is replaced.
+    // Never reuse its locality label for a different event-time fix.
+    if (existing) await LocalityRepository.deleteForSnapshot(snapshot.id)
     if (!WorkRuntimePorts.platform.isOnline()) return { placeName: null, state: 'OFFLINE' }
     if (inFlight.has(snapshot.id)) return inFlight.get(snapshot.id)
     const attempt = (async () => {
