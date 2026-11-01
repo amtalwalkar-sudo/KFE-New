@@ -76,6 +76,7 @@ assert(mutation.includes('structuredClone(payload)'), 'Mutation payload cloning 
 assert(mutation.includes('buildAuditRecord'), 'Audit coupling missing')
 
 for (const forbidden of ['supabase','firebase','@google/genai','google drive']) assert(!db.toLowerCase().includes(forbidden), `Local DB provider coupling found: ${forbidden}`)
-assert(contract.includes('Remote synchronization is not part of the current product scope'), 'Remote synchronization must remain out of scope')
+assert(contract.includes('Remote synchronization and multi-device live data sync are not part of the current product scope'), 'Remote synchronization must remain out of scope')
+assert(contract.includes('Dropbox is retained only as an optional backup provider while KFE is open and online'), 'Dropbox must remain an optional foreground backup provider without becoming a canonical data dependency.')
 
 console.log('✅ Phase 2 Local-First Persistence Contract Tests Passed Successfully!')
