@@ -60,11 +60,11 @@ const refreshLocationNames = async () => {
   refreshMessage.value = ''
   refreshing.value = true
   try {
-    const rideIds = snapshot.value.rides.map(ride => ride.id).filter(Boolean)
-    const visibleRideById = new Map(snapshot.value.rides.map(ride => [ride.id, ride]))
-    const locations = await EventLocationService.forEntities('TRIP', rideIds)
-    const eligible = locations.filter(location => visibleRideById.has(location.entityId))
-    const results = await EventLocalityService.resolveSnapshots(eligible)
+    // Manual refresh is intentionally independent of the selected Timeline
+    // display period: every eligible event snapshot from the last seven days
+    // is considered, including TRIP_START and TRIP_CANCELLED.
+    const snapshots = await EventLocationService.allSnapshots()
+    const results = await EventLocalityService.resolveSnapshots(snapshots)
     const resolvedCount = results.filter(result => result?.state === 'RESOLVED' && !result.cacheHit).length
     const attemptedCount = results.filter(result => !['NOT_ELIGIBLE', 'OFFLINE'].includes(result?.state) && !result?.cacheHit).length
     await load()
