@@ -52,7 +52,7 @@ Rules:
 - Timeline is read-only and must not mutate ride records.
 - GPS snapshot capture never starts reverse geocoding. The PWA resolves all four event types only after an explicit Timeline pull-to-refresh, without blocking ride actions. New reverse geocoding is restricted to event timestamps within the latest seven days.
 - Save successful locality names permanently in PWA IndexedDB by canonical snapshot ID; do not silently overwrite them. Native Android stores coordinates only.
-- If the PWA is offline, show a saved locality or, when unresolved, the stored coordinates. Manual Timeline pull-to-refresh retries unresolved eligible snapshots when online. No continuous connectivity polling, automatic locality retry loop, or background locality queue.
+- Show a saved verified locality when available; otherwise show valid stored coordinates without checking connectivity. Only explicit Timeline pull-to-refresh checks connectivity and attempts locality resolution. No automatic connectivity polling, locality retry loop, or background locality queue.
 - Show only provider-verified locality names. Reject missing accuracy, invalid coordinates, distant provider results, and broad-only results. Never guess or fabricate a locality.
 - A cancellation snapshot is not a drop-off location.
 
@@ -61,7 +61,7 @@ Rules:
 - Timeline displays saved rides and fuel records for the selected period.
 - Cancelled rides remain visible and are clearly labelled as cancelled.
 - Do not calculate ride-distance metrics because ride distance is not an authoritative recorded input.
-- Show saved pickup/drop locality when reliably resolved; when offline and unresolved, show the saved coordinates. Unresolved locations remain Location unavailable (or stored coordinates offline) until the user explicitly refreshes Timeline while online.
+- Show a saved pickup/drop locality only when reliably resolved; otherwise show valid stored coordinates. Invalid coordinates or supplied accuracy worse than 75 metres remain `Location unavailable`. Timeline never checks connectivity just to decide what to display.
 - Fuel spending includes recorded partial refills. Fuel cost per kilometre is calculated only from consecutive valid full-tank odometer readings. Partial refills do not create a mileage interval.
 - Timeline must not invent or backfill business facts.
 
