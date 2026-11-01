@@ -864,7 +864,6 @@ const nativeActionController = createNativeWorkActionController({
   handleAction: handleNativeAction,
   isVisible: () => document.visibilityState === 'visible',
 })
-const processNativeEvent = nativeActionController.process
 const replayFailedNativeActions = () => {
   if (!nativeAndroid) { nativeRecoveryReady.value = true; return Promise.resolve(true) }
   if (document.visibilityState !== 'visible') return Promise.resolve(false)
@@ -873,21 +872,8 @@ const replayFailedNativeActions = () => {
   nativeRecoveryAttempt = (async () => {
     replayingNativeEvents = true
     try {
-      // The SQLite event log is the sole current recovery source. A failed read
-      // must not be mistaken for an empty queue or allow another Work mutation.
-      const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-      for (const event of pendingEvents) {
-        if (!await processNativeEvent(event)) throw new Error('A pending native ride action could not be confirmed.')
-      }
-      // Read the pre-ledger compatibility slot only after the authoritative
-      // SQLite queue was read successfully and found empty.
-      if (!pendingEvents.length) {
-        const pending = await WorkRuntimePorts.nativeWorkActions.consumePendingAction()
-        if (pending) {
-          if (!await handleNativeAction(pending)) throw new Error('A legacy native ride action could not be confirmed.')
-          if (!await WorkRuntimePorts.nativeWorkActions.clearPendingAction()) throw new Error('The legacy native ride action could not be acknowledged.')
-        }
-      }
+      const recovered = await nativeActionController.replay()
+      if (!recovered) throw new Error('A pending native ride action remains unconfirmed.')
       nativeRecoveryReady.value = true
       error.value = ''
       return true
