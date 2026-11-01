@@ -83,8 +83,8 @@ public class KfeRecoveryHardeningTest {
         store.getRecord("TRIP", tripA).getJSONObject("record").getInt("revenue"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
 
-    assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
-    assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("fare"));
+    assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("revenue"));
+    assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("revenue"));
     assertEquals(400, store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
     assertEquals("A repeated read after an acknowledgement retry must not increment revenue again.", 400,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
