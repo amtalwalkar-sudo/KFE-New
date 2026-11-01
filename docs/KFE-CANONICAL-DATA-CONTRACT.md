@@ -146,7 +146,7 @@ Timeline is a read-only projection of saved ride and fuel records. It must not c
 - GPS capture never starts reverse geocoding. The only locality-resolution entry point is an explicit user-initiated Timeline pull-to-refresh; it may resolve eligible unresolved snapshots when online. Ride actions, app startup, resume, and native snapshot discovery never initiate lookup.
 - New reverse geocoding is limited to event timestamps within the latest seven days. Native Android stores coordinates only.
 - Successful locality names are stored permanently in PWA IndexedDB keyed by canonical GPS snapshot ID. A saved name is not silently overwritten by ordinary retries.
-- If the PWA is offline, show a saved locality when available or the original coordinates when unresolved. Manual Timeline pull-to-refresh is the only action that requests locality resolution; no automatic retry or connectivity polling is permitted.
+- Show a saved verified locality when available or the original valid coordinates when unresolved, regardless of network state. Timeline reads never check connectivity; only explicit pull-to-refresh requests locality resolution. No automatic retry or connectivity polling is permitted.
 - Do not use continuous connectivity polling, automatic locality retry loops, or a background geocoding queue. Reject unreliable accuracy, invalid coordinates, distant provider matches, and broad-only locality results.
 - Location evidence keeps the provider capture timestamp (`capturedAt`) distinct from the ride event timestamp (`eventAt`).
 - A cancellation location is cancellation evidence, not a drop-off location.
