@@ -56,7 +56,7 @@ PWA START SHIFT (opening odometer)
 → FARE SAVE OR EXPLICIT SKIP
 → NEXT RIDE OR CANCELLATION
 → CANCEL FEE SAVE (if applicable)
-→ PWA END SHIFT (closing odometer)
+→ END SHIFT (PWA; closing odometer)
 → REOPEN / RECONSTRUCT FROM CANONICAL RECORDS
 ```
 
