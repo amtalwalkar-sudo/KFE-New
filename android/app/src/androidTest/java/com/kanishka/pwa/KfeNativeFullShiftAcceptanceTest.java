@@ -172,6 +172,31 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(1000d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("startOdometer"), 0.001d);
   }
 
+  @Test public void corruptGpsEventJournalMustNotMasqueradeAsAnEmptyQueue() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    SharedPreferences preferences = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    String key = "pendingEventGpsCaptures.v1";
+    boolean hadPrior = preferences.contains(key);
+    String prior = preferences.getString(key, null);
+    try {
+      assertTrue(preferences.edit().putString(key, "{malformed").commit());
+      KfeGpsEventJournal journal = new KfeGpsEventJournal(context);
+      boolean countFailedClosed = false;
+      try { journal.count(); }
+      catch (IllegalStateException expected) { countFailedClosed = true; }
+      assertTrue("A corrupt GPS journal must not be reported as an empty queue.", countFailedClosed);
+
+      boolean retryReadFailedClosed = false;
+      try { journal.earliestPending(new java.util.HashSet<>(), System.currentTimeMillis()); }
+      catch (IllegalStateException expected) { retryReadFailedClosed = true; }
+      assertTrue("A corrupt GPS journal must block retry recovery instead of returning no pending event.", retryReadFailedClosed);
+    } finally {
+      SharedPreferences.Editor restore = preferences.edit();
+      if (hadPrior) restore.putString(key, prior); else restore.remove(key);
+      assertTrue("GPS journal test fixture must be restored.", restore.commit());
+    }
+  }
+
   @Test public void nativeLifecycleStoreRejectsInvalidTransitionsAndRequiresAnActiveShift() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
