@@ -30,12 +30,12 @@ assert.equal(tripPeriodTime({ status: 'COMPLETED', tripStartAt: '2026-10-02T17:0
 for (const snapshot of [null, {}, { latitude: null, longitude: 72.8 }, { latitude: 19.1, longitude: null }, { latitude: '', longitude: 72.8 }, { latitude: 91, longitude: 72.8 }, { latitude: 19.1, longitude: 181 }]) {
   assert.equal(locationLabel(snapshot), 'Location unavailable')
 }
-assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map(), true), '19.07600, 72.87770',
-  'coordinates are the offline fallback only')
-assert.equal(locationLabel({ id: 'gps-unknown-accuracy', latitude: 19.076, longitude: 72.8777 }, new Map(), true), '19.07600, 72.87770', 'missing provider accuracy may retain raw coordinates offline')
-assert.equal(locationLabel({ id: 'gps-poor-accuracy', latitude: 19.076, longitude: 72.8777, accuracy: 100 }, new Map(), true), 'Location unavailable', 'poor-accuracy coordinates must not be shown as reliable')
-assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map(), false), 'Location unavailable')
-assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map([['gps-1', { placeName: 'Verified locality' }]]), false), 'Verified locality')
+assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map()), '19.07600, 72.87770',
+  'unresolved coordinates remain visible without checking connectivity')
+assert.equal(locationLabel({ id: 'gps-unknown-accuracy', latitude: 19.076, longitude: 72.8777 }, new Map()), '19.07600, 72.87770', 'missing provider accuracy may retain raw coordinates but is never eligible for locality resolution')
+assert.equal(locationLabel({ id: 'gps-poor-accuracy', latitude: 19.076, longitude: 72.8777, accuracy: 100 }, new Map()), 'Location unavailable', 'poor-accuracy coordinates must not be shown as reliable')
+assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map()), '19.07600, 72.87770')
+assert.equal(locationLabel({ id: 'gps-1', latitude: 19.076, longitude: 72.8777, accuracy: 10 }, new Map([['gps-1', { placeName: 'Verified locality' }]])), 'Verified locality')
 
 const service = fs.readFileSync('src/application/timeline/activityTimelineReadService.js', 'utf8')
 const view = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
@@ -63,4 +63,4 @@ assert.match(service, /dropArea: trip\.status === 'COMPLETED' \? dropName : 'Loc
 assert.match(service, /trip\?\.status === 'CANCELLED'\) return validTime\(trip\.tripEndAt\)/)
 assert.match(router, /path: '\/timeline', name: 'Timeline', component: ActivityTimelineView/)
 assert.match(router, /path: '\/performance', name: 'Performance', component: PerformanceView/)
-console.log('PASS: Timeline is read-only, period-scoped, permanently locality-backed, and offline-coordinate aware')
+console.log('PASS: Timeline is read-only, period-scoped, permanently locality-backed, and connectivity-check free')
