@@ -55,7 +55,10 @@ final class KfeGpsEventJournal {
 
   boolean hasPending() { return count() > 0; }
   int count() {
-    synchronized (LOCK) { try { return read().length(); } catch (Exception error) { return 0; } }
+    synchronized (LOCK) {
+      try { return read().length(); }
+      catch (Exception error) { throw new IllegalStateException("GPS event journal could not be read.", error); }
+    }
   }
 
   /** Returns the earliest pending item, including future-due items, or null. */
@@ -75,7 +78,7 @@ final class KfeGpsEventJournal {
           if (due < earliest) { earliest = due; selected = new JSONObject(item.toString()); }
         }
         return selected;
-      } catch (Exception error) { return null; }
+      } catch (Exception error) { throw new IllegalStateException("GPS event journal could not be read for retry.", error); }
     }
   }
 
