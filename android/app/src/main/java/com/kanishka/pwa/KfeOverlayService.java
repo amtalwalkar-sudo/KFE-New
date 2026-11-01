@@ -245,7 +245,7 @@ public class KfeOverlayService extends Service {
     }
     String action=intent.getAction();
     if(ACTION_RETRY_PENDING_GPS.equals(action)){
-      if(!hasPendingEventLocations() || !hasBackgroundLocationPermission()){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;}
+      // retryPendingEventLocations owns journal error handling and the permission gate.
       retryPendingEventLocations();return START_STICKY;
     }
     // An explicit restart may arrive with an Intent whose action is null. Restore
