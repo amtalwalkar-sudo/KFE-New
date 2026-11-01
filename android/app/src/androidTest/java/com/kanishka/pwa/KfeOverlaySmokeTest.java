@@ -23,12 +23,16 @@ import org.junit.runner.RunWith;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class KfeOverlaySmokeTest {
   private Context context;
+  private final Set<String> fixtureShiftIds = new HashSet<>();
 
   @Before public void setUp() {
+    fixtureShiftIds.clear();
     MainActivity.isResumed = false;
     context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     context.stopService(new Intent(context, KfeOverlayService.class));
@@ -40,6 +44,27 @@ public class KfeOverlaySmokeTest {
   @After public void tearDown() {
     context.stopService(new Intent(context, KfeOverlayService.class));
     MainActivity.isResumed = true;
+    if (fixtureShiftIds.isEmpty()) return;
+    try {
+      KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+      org.json.JSONArray trips = store.listRecords("TRIP", 1000).getJSONArray("records");
+      android.database.sqlite.SQLiteDatabase db = store.getWritableDatabase();
+      for (int i = 0; i < trips.length(); i++) {
+        JSONObject trip = trips.optJSONObject(i);
+        if (trip == null || !fixtureShiftIds.contains(trip.optString("shiftId", ""))) continue;
+        String tripId = trip.optString("id", "");
+        db.delete("canonical_records", "entity_type='TRIP' AND entity_id=?", new String[]{tripId});
+        db.delete("canonical_operations", "entity_type='TRIP' AND entity_id=?", new String[]{tripId});
+        db.delete("canonical_audit", "entity_type='TRIP' AND entity_id=?", new String[]{tripId});
+      }
+      for (String shiftId : fixtureShiftIds) {
+        db.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+        db.delete("canonical_operations", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+        db.delete("canonical_audit", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+      }
+    } catch (Exception error) {
+      throw new AssertionError("Overlay smoke fixtures must not leak canonical active Shifts.", error);
+    }
   }
 
   @Test public void stalePwaSnapshotCannotResetNativeTripTimerAfterRecovery() throws Exception {
@@ -378,6 +403,7 @@ public class KfeOverlaySmokeTest {
     JSONObject shift = state.optJSONObject("shift");
     String shiftId = shift == null ? "" : shift.optString("id", "");
     if (!shiftId.isEmpty()) {
+      fixtureShiftIds.add(shiftId);
       JSONObject existing = KfeCanonicalWorkStore.get(context).getRecord("SHIFT", shiftId);
       if (!existing.optBoolean("found", false)) {
         seedCanonicalShift(shiftId);
@@ -394,14 +420,19 @@ public class KfeOverlaySmokeTest {
     JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
       .put("revenue", 0).put("liveFareRevenue", 0)
       .put("updatedAt", java.time.Instant.now().toString());
+    fixtureShiftIds.add(shiftId);
     KfeCanonicalWorkStore.get(context).putRecord(
       "test-active-shift-" + shiftId + "-" + java.util.UUID.randomUUID(), "SHIFT", shift);
   }
 
   private void seedCanonicalTrip(JSONObject trip) throws Exception {
     if (!trip.has("updatedAt")) trip.put("updatedAt", java.time.Instant.now().toString());
-    KfeCanonicalWorkStore.get(context).putRecord(
-      "test-trip-seed-" + trip.optString("id") + "-" + java.util.UUID.randomUUID(), "TRIP", trip);
+    String operationId = "test-trip-seed-" + trip.optString("id") + "-" + java.util.UUID.randomUUID();
+    if ("COMPLETED".equals(trip.optString("status", ""))) {
+      KfeCanonicalWorkStore.get(context).restoreRecord(operationId, "TRIP", trip);
+    } else {
+      KfeCanonicalWorkStore.get(context).commitTripLifecycle(operationId, "GO_TO_PICKUP", trip, null, true);
+    }
   }
 
   private KfeOverlayService waitForService() {
@@ -670,14 +701,15 @@ public class KfeOverlaySmokeTest {
     JSONObject activeShift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
       .put("updatedAt", oldVersion).put("revenue", 0).put("liveFareRevenue", 0)
       .put("revenueSource", "TRIP_FARES");
+    fixtureShiftIds.add(shiftId);
     assertTrue("Active shift seed must commit",
       store.putRecord("projection-seed-" + shiftId, "SHIFT", activeShift).accepted);
 
     JSONObject trip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
       .put("status", "COMPLETED").put("fareDetailsSkipped", false).put("revenue", 250)
       .put("updatedAt", java.time.Instant.now().toString());
-    assertTrue("Completed trip must commit and refresh native revenue",
-      store.putRecord("projection-trip-write-" + tripId, "TRIP", trip).accepted);
+    assertTrue("Completed trip fixture must restore and refresh native revenue",
+      store.restoreRecord("projection-trip-write-" + tripId, "TRIP", trip).accepted);
     JSONObject projected = store.getRecord("SHIFT", shiftId).getJSONObject("record");
     assertEquals(250d, projected.getDouble("revenue"), 0.001d);
     assertTrue("Trip projection must advance the native shift version",
@@ -914,6 +946,7 @@ public class KfeOverlaySmokeTest {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     assertTrue(store.putRecord("overlay-shift-" + suffix, "SHIFT",
       new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", now)).accepted);
+    fixtureShiftIds.add(shiftId);
 
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
