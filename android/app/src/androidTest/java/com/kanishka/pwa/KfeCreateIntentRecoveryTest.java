@@ -143,6 +143,7 @@ public class KfeCreateIntentRecoveryTest {
     assertTrue(replay.accepted);
     assertTrue(replay.duplicate);
     assertEquals(recordId, store.getRecord("SHIFT", recordId).getJSONObject("record").getString("id"));
+    cleanupCreateFixture(store, recordId, "", operationId, "", first.getString("intentId"), "");
   }
 
 
