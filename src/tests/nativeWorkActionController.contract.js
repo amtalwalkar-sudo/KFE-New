@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 import fs from 'node:fs'
+import { createNativeWorkActionController } from '../application/work/nativeWorkActionController.js'
 
 const calls = []
 const pending = [
@@ -8,9 +8,11 @@ const pending = [
   { eventId: 'evt-2', stage: 'START_RIDE', tripId: 'trip-1' },
 ]
 let visible = true
-let handleGate
+let legacyPending = null
 const actions = {
   async consumePendingActions() { calls.push('consume'); return pending },
+  async consumePendingAction() { calls.push('legacy-read'); return legacyPending },
+  async clearPendingAction() { calls.push('legacy-clear'); return true },
   async acknowledgeAction(id) { calls.push('ack:' + id); return id !== 'evt-3' },
   async recordActionFailure(id, reason) { calls.push('failure:' + id + ':' + reason) },
 }
@@ -18,20 +20,15 @@ const controller = createNativeWorkActionController({
   actions,
   isVisible: () => visible,
   async handleAction(event) {
-    calls.push('handle:' + event.eventId)
-    if (event.eventId === 'evt-1' && handleGate) await handleGate
+    calls.push('handle:' + (event.eventId || event.stage))
     return event.eventId !== 'evt-4'
   },
 })
 
-let release
-handleGate = new Promise(resolve => { release = resolve })
-const first = controller.enqueue(pending[0])
-const second = controller.enqueue(pending[1])
-release()
-assert.equal(await first, true)
-assert.equal(await second, true)
-assert.deepEqual(calls.slice(0, 4), ['handle:evt-1', 'ack:evt-1', 'handle:evt-2', 'ack:evt-2'])
+assert.equal(await controller.replay(), true)
+assert.deepEqual(calls, [
+  'consume', 'handle:evt-1', 'ack:evt-1', 'handle:evt-2', 'ack:evt-2',
+], 'Durable native events must replay FIFO and acknowledge only confirmed commits.')
 
 calls.length = 0
 await controller.process({ eventId: 'evt-3', stage: 'END_RIDE', tripId: 'trip-1' })
@@ -43,12 +40,19 @@ assert.ok(calls.some(call => call.startsWith('failure:evt-4:Work did not confirm
 
 calls.length = 0
 visible = false
-await controller.replay()
+assert.equal(await controller.replay(), false)
 assert.deepEqual(calls, [], 'hidden Work view must not replay')
 visible = true
-await controller.replay()
-assert.deepEqual(calls.filter(call => call.startsWith('handle:')), ['handle:evt-1', 'handle:evt-2'])
-assert.ok(calls.indexOf('handle:evt-1') < calls.indexOf('handle:evt-2'), 'replay must preserve durable event order')
+
+calls.length = 0
+legacyPending = { stage: 'GO_TO_PICKUP', tripId: 'legacy-trip' }
+const legacyController = createNativeWorkActionController({
+  actions: { ...actions, async consumePendingActions() { calls.push('consume-empty'); return [] } },
+  async handleAction(event) { calls.push('handle:' + event.tripId); return true },
+})
+assert.equal(await legacyController.replay(), true)
+assert.deepEqual(calls, ['consume-empty', 'legacy-read', 'handle:legacy-trip', 'legacy-clear'],
+  'Pre-ledger compatibility is consulted only after a successful empty SQLite read and is cleared only after a confirmed action.')
 
 const unavailable = createNativeWorkActionController({
   actions: {
@@ -58,7 +62,8 @@ const unavailable = createNativeWorkActionController({
   },
   async handleAction() { throw new Error('No event should be handled when the queue read fails.') },
 })
-await assert.rejects(unavailable.replay(), /Injected SQLite queue read failure/, 'A failed native event read must propagate rather than become an empty queue.')
+await assert.rejects(unavailable.replay(), /Injected SQLite queue read failure/,
+  'A failed native event read must propagate rather than become an empty queue.')
 
 const workView = fs.readFileSync(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
 assert.match(workView, /const nativeRecoveryReady = ref\(!nativeAndroid\)/, 'Android Work actions must start blocked until native event recovery is confirmed.')
@@ -66,4 +71,4 @@ assert.match(workView, /Native ride recovery is incomplete/, 'Work must surface 
 assert.match(workView, /if \(!nativeWritesAllowed\(\)\) return/, 'Overlay synchronization must not overwrite native workflow state before recovery completes.')
 assert.match(workView, /:disabled="!nativeRecoveryReady"/, 'Primary Work controls must remain disabled while native recovery is incomplete.')
 
-console.log('PASS: native Work events replay FIFO and acknowledge only confirmed commits')
+console.log('PASS: native Work event replay is FIFO, fail-closed and compatibility-safe')
