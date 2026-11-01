@@ -136,7 +136,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(store.putRecord("active-projection-collision-shift-create-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE")
             .put("startOdometer", 1000).put("revenue", 0).put("updatedAt", shiftStart)).accepted);
-    assertTrue(store.putRecord("active-projection-collision-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("active-projection-collision-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("revenue", 250d).put("fareDetailsSkipped", false).put("updatedAt", tripVersion)).accepted);
 
@@ -394,7 +394,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     assertTrue(store.putRecord("gps-contract-shift-create-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", initialVersion)).accepted);
-    assertTrue(store.putRecord("gps-first-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("gps-first-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", gpsFirstTrip).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", initialVersion)).accepted);
 
@@ -415,7 +415,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(store.commitTripForm("gps-first-fare-op-" + suffix, "FARE", fareAfterGps).accepted);
     assertEquals(250d, store.getRecord("TRIP", gpsFirstTrip).getJSONObject("record").getDouble("revenue"), 0.001d);
 
-    assertTrue(store.putRecord("fare-first-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("fare-first-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", fareFirstTrip).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", initialVersion)).accepted);
     JSONObject fareBeforeGps = new JSONObject(store.getRecord("TRIP", fareFirstTrip).getJSONObject("record").toString())
@@ -456,7 +456,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(store.putRecord("atomic-form-shift-create-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE")
             .put("revenue", 0).put("updatedAt", earlier)).accepted);
-    assertTrue(store.putRecord("atomic-form-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
 
@@ -479,7 +479,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(450d, savedOperation.getJSONObject("outcome").getDouble("revenue"), 0.001d);
 
     String skippedTripId = "atomic-form-skipped-trip-" + suffix;
-    assertTrue(store.putRecord("atomic-form-skipped-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-skipped-create-" + suffix, "TRIP",
         new JSONObject().put("id", skippedTripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
     JSONObject skippedFareTrip = new JSONObject().put("id", skippedTripId).put("shiftId", shiftId)
@@ -493,12 +493,12 @@ public class KfeNativeFullShiftAcceptanceTest {
 
     // Legacy cancelled trips without a fee field must not fall back to an old trip fare.
     String legacyBlankCancelId = "atomic-form-legacy-blank-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-legacy-blank-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-legacy-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", legacyBlankCancelId).put("shiftId", shiftId).put("status", "CANCELLED")
             .put("revenue", 999d).put("cancelReason", "PASSENGER").put("updatedAt", earlier)).accepted);
 
     String blankCancelId = "atomic-form-blank-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", blankCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
             .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject blankCancellation = new JSONObject().put("id", blankCancelId).put("shiftId", shiftId)
@@ -516,7 +516,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(0d, store.getRecord("TRIP", blankCancelId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
 
     String paidCancelId = "atomic-form-paid-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", paidCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
             .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject paidCancellation = new JSONObject().put("id", paidCancelId).put("shiftId", shiftId)
@@ -779,7 +779,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Initial active shift must commit.",
         store.putRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
-        store.putRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
+        store.restoreRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
 
     AttachedOverlayService service = new AttachedOverlayService();
     service.attach(context);
@@ -856,7 +856,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Initial shift must commit.",
         store.putRecord("form-sql-failure-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
-        store.putRecord("form-sql-failure-trip-create-" + suffix, "TRIP", trip).accepted);
+        store.restoreRecord("form-sql-failure-trip-create-" + suffix, "TRIP", trip).accepted);
 
     JSONObject payload = new JSONObject()
         .put("fare", "275").put("toll", "0").put("parking", "0")
@@ -943,7 +943,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Active shift fixture must commit.",
         store.putRecord("stale-overlay-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Canonical trip fixture must commit.",
-        store.putRecord("stale-overlay-trip-create-" + suffix, "TRIP", canonicalTrip).accepted);
+        store.restoreRecord("stale-overlay-trip-create-" + suffix, "TRIP", canonicalTrip).accepted);
 
     // Deliberately seed an older PWA snapshot with conflicting values. It may
     // fill fields absent from native canonical storage, but cannot roll back
@@ -1159,7 +1159,7 @@ public class KfeNativeFullShiftAcceptanceTest {
               .put("createdAt", initialVersion).put("updatedAt", initialVersion);
           if (stageIndex == 2) priorTrip.put("tripStartAt", new java.util.Date(startAt).toInstant().toString());
           assertTrue("Fault fixture must seed the canonical prior Trip stage.",
-              store.putRecord("lifecycle-fault-trip-create-" + tripId, "TRIP", priorTrip).accepted);
+              store.restoreRecord("lifecycle-fault-trip-create-" + tripId, "TRIP", priorTrip).accepted);
         }
 
         prepareSnapshot(prefs, shiftId, tripId);
@@ -1623,7 +1623,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Active shift must be durable before the fare workflow.", 
         store.putRecord("interrupted-fare-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Trip completion must survive independently of the fare save.",
-        store.putRecord("interrupted-fare-trip-complete-" + suffix, "TRIP", completedTrip).accepted);
+        store.restoreRecord("interrupted-fare-trip-complete-" + suffix, "TRIP", completedTrip).accepted);
 
     JSONObject payload = new JSONObject().put("fare", "275").put("toll", "0").put("parking", "0")
         .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
@@ -1715,7 +1715,7 @@ public class KfeNativeFullShiftAcceptanceTest {
             new JSONObject().put("id", shiftId).put("status", "ACTIVE")
                 .put("revenue", 0d).put("updatedAt", now)).accepted);
     assertTrue("Completed trip must be durable before fare submission.",
-        store.putRecord("fare-process-death-trip-complete-" + suffix, "TRIP",
+        store.restoreRecord("fare-process-death-trip-complete-" + suffix, "TRIP",
             new JSONObject().put("id", tripId).put("shiftId", shiftId)
                 .put("status", "COMPLETED").put("tripStage", "COMPLETED")
                 .put("fareDetailsSkipped", false).put("updatedAt", now)).accepted);
