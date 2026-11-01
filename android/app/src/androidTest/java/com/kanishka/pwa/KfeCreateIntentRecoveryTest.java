@@ -18,17 +18,41 @@ import org.junit.runner.RunWith;
 /** Crash/retry contract for the durable SQLite create-intent journal. */
 @RunWith(AndroidJUnit4.class)
 public class KfeCreateIntentRecoveryTest {
+  private static KfeCanonicalWorkStore.Outcome commitPreparedCreate(
+      KfeCanonicalWorkStore store, String operationId, String entityType, JSONObject record) throws Exception {
+    if ("TRIP".equals(entityType)) {
+      return store.commitTripLifecycle(operationId, "GO_TO_PICKUP", record, null, true);
+    }
+    return store.putRecord(operationId, entityType, record, null, true);
+  }
+
+  private static void cleanupCreateFixture(KfeCanonicalWorkStore store, String recordId,
+      String parentShiftId, String operationId, String parentShiftOperationId,
+      String intentId, String secondaryIntentId) {
+    android.database.sqlite.SQLiteDatabase db = store.getWritableDatabase();
+    db.delete("canonical_records", "entity_id IN (?,?)", new String[]{recordId, parentShiftId});
+    db.delete("canonical_operations", "operation_id IN (?,?)", new String[]{operationId, parentShiftOperationId});
+    db.delete("canonical_audit", "operation_id IN (?,?)", new String[]{operationId, parentShiftOperationId});
+    db.delete("canonical_create_intents", "intent_id IN (?,?)", new String[]{intentId, secondaryIntentId});
+  }
+
   @Test public void pendingCreateIntentReusesIdentityAndOperationAfterLostAcknowledgement() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
     String suffix = Long.toString(System.currentTimeMillis());
     String intentKey = "crash-retry-trip-" + suffix;
+    String shiftId = "shift-" + suffix;
+    String shiftOperationId = "crash-retry-shift-create-" + suffix;
+    String now = java.time.Instant.now().toString();
+    assertTrue("The Trip create-intent fixture must have a canonical active Shift.",
+        store.putRecord(shiftOperationId, "SHIFT", new JSONObject().put("id", shiftId)
+            .put("status", "ACTIVE").put("startOdometer", 12000).put("revenue", 0d)
+            .put("updatedAt", now), null, true).accepted);
     JSONObject firstProposal = new JSONObject()
         .put("id", "trip-proposal-a-" + suffix)
-        .put("shiftId", "shift-" + suffix)
-        .put("status", "ACTIVE")
-        .put("createdAt", "2026-10-24T12:00:00.000Z")
-        .put("updatedAt", "2026-10-24T12:00:00.000Z");
+        .put("shiftId", shiftId)
+        .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+        .put("createdAt", now).put("updatedAt", now);
 
     JSONObject first = store.prepareCreateIntent("TRIP", intentKey, firstProposal);
     assertFalse("First request must create a new pending intent.", first.getBoolean("reused"));
@@ -39,10 +63,9 @@ public class KfeCreateIntentRecoveryTest {
 
     JSONObject retryProposal = new JSONObject()
         .put("id", "trip-proposal-b-" + suffix)
-        .put("shiftId", "shift-" + suffix)
-        .put("status", "ACTIVE")
-        .put("createdAt", "2026-10-24T12:00:05.000Z")
-        .put("updatedAt", "2026-10-24T12:00:05.000Z");
+        .put("shiftId", shiftId)
+        .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+        .put("createdAt", now).put("updatedAt", now);
 
     // Simulate process death after journaling but before the canonical write.
     store.close();
@@ -54,8 +77,7 @@ public class KfeCreateIntentRecoveryTest {
 
     // Simulate the native write succeeding but the app/process losing its acknowledgement
     // before it can mark the intent complete.
-    KfeCanonicalWorkStore.Outcome committed = store.putRecord(
-        durableOperationId, "TRIP", durableRecord, null, true);
+    KfeCanonicalWorkStore.Outcome committed = commitPreparedCreate(store, durableOperationId, "TRIP", durableRecord);
     assertTrue(committed.accepted);
 
     // Close the SQLiteOpenHelper and reopen it on the retry path. This verifies
@@ -67,8 +89,8 @@ public class KfeCreateIntentRecoveryTest {
     assertEquals(durableOperationId, retry.getString("operationId"));
     assertEquals(durableRecordId, retry.getJSONObject("record").getString("id"));
 
-    KfeCanonicalWorkStore.Outcome replay = store.putRecord(
-        retry.getString("operationId"), "TRIP", retry.getJSONObject("record"), null, true);
+    KfeCanonicalWorkStore.Outcome replay = commitPreparedCreate(store,
+        retry.getString("operationId"), "TRIP", retry.getJSONObject("record"));
     assertTrue("Lost-ack retry must be accepted.", replay.accepted);
     assertTrue("Replay must not create a second canonical operation.", replay.duplicate);
     assertEquals(durableRecordId, store.getRecord("TRIP", durableRecordId).getJSONObject("record").getString("id"));
@@ -87,6 +109,8 @@ public class KfeCreateIntentRecoveryTest {
     assertFalse("A new submission token must create a new intent.", nextIntent.getBoolean("reused"));
     assertTrue("A new create must receive a new identity.",
         !durableRecordId.equals(nextIntent.getJSONObject("record").getString("id")));
+    cleanupCreateFixture(store, durableRecordId, shiftId, durableOperationId, shiftOperationId,
+        first.getString("intentId"), nextIntent.getString("intentId"));
   }
   @Test public void shiftCreateIntentAlsoSurvivesRestartAndReusesRecordIdentity() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -174,8 +198,8 @@ public class KfeCreateIntentRecoveryTest {
         .commit();
 
     if (boundary.equals("AFTER_CANONICAL")) {
-      KfeCanonicalWorkStore.Outcome committed = store.putRecord(
-          operationId, entityType, intent.getJSONObject("record"), null, true);
+      KfeCanonicalWorkStore.Outcome committed = commitPreparedCreate(
+          store, operationId, entityType, intent.getJSONObject("record"));
       assertTrue("Canonical record must commit before the simulated lost completion acknowledgement.", committed.accepted);
       assertTrue("Initial canonical commit must not be classified as a retry.", !committed.duplicate);
     } else {
@@ -232,8 +256,8 @@ public class KfeCreateIntentRecoveryTest {
           beforeReplay.optBoolean("found", false));
     }
 
-    KfeCanonicalWorkStore.Outcome replay = store.putRecord(
-        retryIntent.getString("operationId"), entityType, retryIntent.getJSONObject("record"), null, true);
+    KfeCanonicalWorkStore.Outcome replay = commitPreparedCreate(
+        store, retryIntent.getString("operationId"), entityType, retryIntent.getJSONObject("record"));
     assertTrue("Recovery replay must be accepted.", replay.accepted);
     assertEquals("Replay is duplicate only when canonical commit preceded process death.",
         boundary.equals("AFTER_CANONICAL"), replay.duplicate);
@@ -266,6 +290,10 @@ public class KfeCreateIntentRecoveryTest {
         .remove("createIntentDeathKey").remove("createIntentDeathParentShiftId")
         .remove("createIntentDeathIntentId").remove("createIntentDeathOperationId")
         .remove("createIntentDeathRecordId").remove("createIntentDeathReady").commit();
+    String parentShiftOperationId = entityType.equals("TRIP")
+        ? "create-intent-parent-create-" + parentShiftId.substring("create-intent-parent-shift-".length()) : "";
+    cleanupCreateFixture(store, expectedRecordId, parentShiftId, expectedOperationId,
+        parentShiftOperationId, expectedIntentId, "");
   }
 
 }
