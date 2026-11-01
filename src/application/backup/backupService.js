@@ -1,6 +1,6 @@
 import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
-import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
+import { CANONICAL_DB_VERSION, RETIRED_CANONICAL_STORES } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 6
 
@@ -70,19 +70,10 @@ export const validateBackup = input => {
     }
   }
   if (backup.formatVersion < BACKUP_FORMAT_VERSION) {
-    const {
-      driver_collected_data: _driverCollected,
-      odoGaps: _odoGaps,
-      days: _days,
-      movement_artifacts: _movementArtifacts,
-      financial_period_snapshots: _financialSnapshots,
-      settlements: _settlements,
-      loan_payments: _loanPayments,
-      prepayments: _prepayments,
-      driver_targets: _driverTargets,
-      break_even_inputs: _breakEvenInputs,
-      ...activeStores
-    } = backup.stores
+    const retiredStores = new Set(RETIRED_CANONICAL_STORES)
+    const activeStores = Object.fromEntries(
+      Object.entries(backup.stores).filter(([storeName]) => !retiredStores.has(storeName)),
+    )
     if (backup.formatVersion === 1) activeStores.audit_history = []
     if (!activeStores.locality_labels) activeStores.locality_labels = []
     backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: activeStores }
