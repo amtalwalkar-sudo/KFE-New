@@ -312,7 +312,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           String expectedLifecycleAction = lifecycleAction == null ? "" : lifecycleAction;
           boolean sameRecord = priorRecord != null && expectedLifecycleAction.equals(priorLifecycleAction)
               && ("TRIP".equals(entityType)
-                  ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
+                  ? jsonEquivalent(priorRecord, operationRecord)
                   : jsonEquivalent(priorRecord, operationRecord));
           if (!sameRecord) {
             throw new IllegalArgumentException("operationId was already used with a different payload or lifecycle action.");
@@ -327,7 +327,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if ("TRIP".equals(entityType)) {
         try (Cursor current = db.query("canonical_records", new String[]{"payload"},
             "entity_type='TRIP' AND entity_id=?", new String[]{entityId}, null, null, null, "1")) {
-          if (current.moveToFirst()) preserveTripBoundaryMetadata(new JSONObject(current.getString(0)), record);
         }
       }
       String payload = record.toString();
@@ -764,7 +763,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           JSONObject previousTrip = previous.optJSONObject("trip");
           if (!"SUBMIT_TRIP_FORM".equals(prior.getString(0)) || !"TRIP".equals(prior.getString(1))
               || !tripId.equals(prior.getString(2)) || previousTrip == null
-              || !jsonEquivalent(withoutTripBoundarySnapshots(previousTrip), withoutTripBoundarySnapshots(trip))
+              || !jsonEquivalent(previousTrip, trip)
               || !mode.equals(previous.optString("mode", ""))) {
             throw new IllegalArgumentException("operationId was already used for a different trip form.");
           }
@@ -782,7 +781,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if (!shiftId.equals(existingTrip.optString("shiftId", ""))) {
         throw new IllegalArgumentException("Trip shift identity cannot change during form submission.");
       }
-      preserveTripBoundaryMetadata(existingTrip, trip);
       String existingStatus = existingTrip.optString("status", "");
       if ("FARE".equals(mode) && !"COMPLETED".equals(existingStatus)) {
         throw new IllegalArgumentException("Fare submission requires the canonical trip to be completed.");
@@ -1044,26 +1042,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           .put("status", cursor.getString(3)).put("outcome", new JSONObject(cursor.getString(4)))
           .put("createdAt", cursor.getString(5));
     }
-  }
-
-  private static void preserveTripBoundaryMetadata(JSONObject existing, JSONObject incoming) throws JSONException {
-    if (existing == null || incoming == null) return;
-    for (String field : new String[]{"tripStartLocation", "tripEndLocation"}) {
-      if (existing.has(field) && !existing.isNull(field)) {
-        incoming.put(field, existing.get(field));
-        String statusField = "tripStartLocation".equals(field) ? "tripStartLocationStatus" : "tripEndLocationStatus";
-        if (existing.has(statusField) && !existing.isNull(statusField)) incoming.put(statusField, existing.get(statusField));
-      }
-    }
-  }
-
-  private static JSONObject withoutTripBoundarySnapshots(JSONObject trip) throws JSONException {
-    JSONObject copy = new JSONObject(trip.toString());
-    copy.remove("tripStartLocation");
-    copy.remove("tripEndLocation");
-    copy.remove("tripStartLocationStatus");
-    copy.remove("tripEndLocationStatus");
-    return copy;
   }
 
   private static boolean jsonEquivalent(Object left, Object right) throws JSONException {
