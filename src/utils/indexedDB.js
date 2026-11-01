@@ -97,17 +97,18 @@ const openDatabase = name => new Promise((resolve, reject) => {
     const db = e.target.result
     if (!db.objectStoreNames.contains('shifts')) { const store = db.createObjectStore('shifts', { keyPath: 'id' }); store.createIndex('shiftEndAt', 'shiftEndAt', { unique: false }) }
     if (!db.objectStoreNames.contains('fuel_logs')) { const store = db.createObjectStore('fuel_logs', { keyPath: 'id' }); store.createIndex('createdAt', 'createdAt', { unique: false }); store.createIndex('clientMutationId', 'clientMutationId', { unique: false }) }
-    if (!db.objectStoreNames.contains('odoGaps')) db.createObjectStore('odoGaps', { keyPath: 'id' })
     if (!db.objectStoreNames.contains('pending_mutations')) { const store = db.createObjectStore('pending_mutations', { keyPath: 'id' }); store.createIndex('createdAt', 'createdAt', { unique: false }); store.createIndex('status', 'status', { unique: false }) }
-    if (!db.objectStoreNames.contains('days')) { const store = db.createObjectStore('days', { keyPath: 'id' }); store.createIndex('status', 'status', { unique: false }); store.createIndex('dayStartAt', 'dayStartAt', { unique: false }) }
-    if (!db.objectStoreNames.contains('trips')) { const store = db.createObjectStore('trips', { keyPath: 'id' }); store.createIndex('dayId', 'dayId', { unique: false }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('status', 'status', { unique: false }); store.createIndex('tripStartAt', 'tripStartAt', { unique: false }) }
+    if (!db.objectStoreNames.contains('trips')) { const store = db.createObjectStore('trips', { keyPath: 'id' }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('status', 'status', { unique: false }); store.createIndex('tripStartAt', 'tripStartAt', { unique: false }) }
     if (!db.objectStoreNames.contains('gps_snapshots')) { const store = db.createObjectStore('gps_snapshots', { keyPath: 'id' }); store.createIndex('entityType', 'entityType', { unique: false }); store.createIndex('entityId', 'entityId', { unique: false }); store.createIndex('capturedAt', 'capturedAt', { unique: false }) }
     if (!db.objectStoreNames.contains('locality_labels')) { const store = db.createObjectStore('locality_labels', { keyPath: 'snapshotId' }); store.createIndex('resolvedAt', 'resolvedAt', { unique: false }) }
-    if (!db.objectStoreNames.contains('movement_artifacts')) { const store = db.createObjectStore('movement_artifacts', { keyPath: 'id' }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('generatedAt', 'generatedAt', { unique: false }) }
     createSimpleStore(db, 'vehicles', ['registrationNumber', 'active']); createSimpleStore(db, 'drivers', ['status', 'name'])
     createSimpleStore(db, 'compliance_records', ['vehicleId', 'complianceType', 'validUntil']); createSimpleStore(db, 'maintenance_records', ['vehicleId', 'performedOn'])
     createSimpleStore(db, 'loans', ['status', 'startDate'])
     createSimpleStore(db, 'form_drafts', ['formId', 'parentId', 'ownerId', 'updatedAt']); createSimpleStore(db, 'canonical_operations', ['entityType', 'createdAt']); createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt'])
+    if (db.objectStoreNames.contains('trips')) {
+      const trips = e.target.transaction.objectStore('trips')
+      if (trips.indexNames.contains('dayId')) trips.deleteIndex('dayId')
+    }
     // Retired workflow stores are removed in schema v18. Their records are no
     // longer active business data and are deliberately excluded from new backups.
     for (const retiredStore of ['odoGaps', 'days', 'movement_artifacts', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settlements', 'financial_period_snapshots', 'driver_collected_data', 'admin_records', 'financial_inputs']) {
