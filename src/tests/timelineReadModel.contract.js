@@ -41,6 +41,8 @@ const service = fs.readFileSync('src/application/timeline/activityTimelineReadSe
 const view = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 const router = fs.readFileSync('src/router/index.js', 'utf8')
 assert.match(service, /ShiftTripRepository\.getAllTrips\(\)/)
+assert.match(service, /await WorkService\.ensureCanonicalReadModel\(\)/, 'Timeline must reconcile native Android records before reading the PWA projection.')
+assert.ok(service.indexOf('await WorkService.ensureCanonicalReadModel()') < service.indexOf('ShiftTripRepository.getAllTrips()'), 'Timeline must not read stale IndexedDB trips before native reconciliation.')
 assert.match(service, /FuelRepository\.getAll\(\)/)
 assert.match(service, /calculateFuelPeriodSummary\(allFuelLogs, range\)/)
 assert.doesNotMatch(service, /FuelRepository\.(create|update|remove)\(/)
