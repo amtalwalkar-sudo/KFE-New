@@ -15,7 +15,7 @@ A requirement is conformant only when it has a canonical owner, an implementatio
 | 2 | One canonical record model and lifecycle invariants | PWA WorkService/ShiftTripRepository and native command/persistence contracts | CI |
 | 3 | PWA ↔ Android parity | Shared lifecycle rules, native adapter invariants, event synchronization and overlay reconstruction | CI + emulator |
 | 4 | Complete Work state machine | Deterministic Golden Ride across PWA and native adapter paths | CI |
-| 5 | Interruption/recovery | Durable native action journal, atomic native canonical commits, PWA synchronization/acknowledgement and reload recovery | CI + emulator |
+| 5 | Interruption/recovery | Durable native action journal, atomic native canonical commits, complete paginated native reads, PWA synchronization/acknowledgement and reload recovery | CI + emulator |
 | 6 | Identity invariants | Stable Shift/Trip/snapshot IDs, idempotency keys, stale-command rejection and fare/cancellation association | CI + emulator |
 | 7 | Calculation convergence | Fuel quantity/period cost per km, Performance totals, PWA/native revenue-projection parity, and the pure fixed-rate monthly Loan EMI calculation | CI |
 | 8 | Requirement → implementation → test → evidence coverage | This matrix and executable coverage assertions | CI |
