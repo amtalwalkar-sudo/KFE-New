@@ -257,7 +257,7 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Finding:** New Trip records still created `tripStartLocation`, `tripEndLocation` and embedded locality-status fields. Browser and native persistence also retained helpers that copied those old fields across Trip updates, even though the active capture path writes separate `GPS_SNAPSHOT` records and Timeline reads only those snapshots.
 
-**Change:** Removed the embedded fields from the canonical Trip factory, strip them during Trip normalization, and removed the browser/native metadata-preservation helpers. The only active GPS authority is the separate canonical event snapshot store; the four event moments do not mutate Trip or Shift records. The redundant application-layer GPS normalizer re-export was also removed so the pure fix validator has one domain owner.
+**Change:** Removed the embedded fields from the canonical Trip factory, strip them during Trip normalization, and removed the browser/native metadata-preservation helpers. The only active GPS authority is the separate canonical event snapshot store; the four event moments do not mutate Trip or Shift records. Legacy embedded fields are ignored only when comparing old operation-ledger payloads for idempotent replay; they are never copied into a new write. The redundant application-layer GPS normalizer re-export was also removed so the pure fix validator has one domain owner.
 
 ### 37. Runtime and boundary test fixtures still referenced retired stores and workflows
 
