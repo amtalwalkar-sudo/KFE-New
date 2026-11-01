@@ -12,6 +12,7 @@ function toStoredRecord(formKey, values, existing = null) {
   const now = new Date().toISOString()
   const id = existing?.id || generateUUID()
   const base = { ...(existing || {}), id, createdAt: existing?.createdAt || now, updatedAt: now }
+  if (formKey === 'loan') { delete base.annualInterestRate; delete base.emi }
   if (isSettingsForm(formKey)) return { ...base, settingKey: formKey, values: { ...(existing?.values || {}), ...structuredClone(values) } }
   return { ...base, ...structuredClone(values) }
 }
