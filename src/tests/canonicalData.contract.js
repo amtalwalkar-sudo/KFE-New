@@ -11,6 +11,7 @@ import { CANONICAL_BACKUP_STORES, BACKUP_FORMAT_VERSION, validateBackup } from '
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const indexedDB = read('src/utils/indexedDB.js')
+const canonicalDatabase = read('src/constants/canonicalDatabase.js')
 const adminRepo = read('src/repositories/adminRepository.js')
 const shiftTripRepo = read('src/repositories/shiftTripRepository.js')
 const fuelRepo = read('src/repositories/fuelRepository.js')
@@ -60,15 +61,17 @@ for (const store of ['shifts','trips','fuel_logs','vehicles','drivers','complian
   assert.match(indexedDB, new RegExp(`['\\\"]${store}['\\\"]`), `${store} must remain available to preserve saved records`)
 }
 assert.doesNotMatch(indexedDB, /createSimpleStore\(db, 'driver_collected_data'/)
+assert.match(indexedDB, /for \(const retiredStore of RETIRED_CANONICAL_STORES\)/)
 assert.match(indexedDB, /db\.deleteObjectStore\(retiredStore\)/)
-for (const retired of ['odoGaps','days','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots','driver_collected_data']) {
-  assert.match(indexedDB, new RegExp(`'${retired}'`), `${retired} must be explicitly removed during schema migration.`)
+assert.match(canonicalDatabase, /RETIRED_CANONICAL_STORES/)
+for (const retired of ['odoGaps','days','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots','driver_collected_data','admin_records','financial_inputs']) {
+  assert.match(canonicalDatabase, new RegExp(`'${retired}'`), `${retired} must be explicitly listed as retired.`)
   assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${retired}'`), `${retired} must not be recreated.`)
 }
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
 assert.equal(BACKUP_FORMAT_VERSION, 6)
 assert.match(backupSource, /backup\.formatVersion < BACKUP_FORMAT_VERSION/)
-assert.match(backupSource, /driver_collected_data: _driverCollected/)
+assert.match(backupSource, /new Set\(RETIRED_CANONICAL_STORES\)/)
 assert.match(dataContract, /retired store payloads are discarded/)
 assert.match(dataContract, /Hard deletion of canonical business records requires an explicit data-destruction action/)
 assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target domain owns|monthly break-even result/)
