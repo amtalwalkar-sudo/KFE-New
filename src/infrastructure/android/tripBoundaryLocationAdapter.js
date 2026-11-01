@@ -1,5 +1,6 @@
 import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { normalizeTripBoundaryLocation } from '../../domain/location/tripBoundaryLocation.js'
+import { isValidEventGpsTimestamp, remainingEventGpsCaptureWindowMs } from '../../domain/location/eventGpsPolicy.js'
 
 const NativeTripBoundaryLocation = NativePlugins.tripBoundaryLocation
 
@@ -23,9 +24,11 @@ export const TripBoundaryLocationAdapter = Object.freeze({
       if (!Number.isFinite(eventTime) || eventTime <= 0) return null
       const startedAt = Date.now()
       for (const targetElapsed of [0, 3000, 7000, 12000, 20000, 27000]) {
-        const waitMs = Math.max(0, targetElapsed - (Date.now() - startedAt))
+        const remainingBeforeWait = remainingEventGpsCaptureWindowMs(eventAt)
+        if (remainingBeforeWait <= 0) break
+        const waitMs = Math.min(Math.max(0, targetElapsed - (Date.now() - startedAt)), remainingBeforeWait)
         if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs))
-        const remaining = 30000 - (Date.now() - startedAt)
+        const remaining = remainingEventGpsCaptureWindowMs(eventAt)
         if (remaining <= 0) break
         const location = await new Promise(resolve => navigator.geolocation.getCurrentPosition(
           position => {
@@ -38,7 +41,7 @@ export const TripBoundaryLocationAdapter = Object.freeze({
             const hasAccuracy = normalized?.accuracy !== null && normalized?.accuracy !== undefined && normalized?.accuracy !== ''
             const accuracy = hasAccuracy ? Number(normalized.accuracy) : NaN
             const accuracyValid = !hasAccuracy || (Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 75)
-            resolve(normalized && accuracyValid && Date.parse(normalized.capturedAt) >= eventTime ? normalized : null)
+            resolve(normalized && accuracyValid && isValidEventGpsTimestamp(eventAt, normalized.capturedAt) ? normalized : null)
           },
           () => resolve(null),
           { enableHighAccuracy: true, maximumAge: 0, timeout: Math.min(2500, remaining) },
