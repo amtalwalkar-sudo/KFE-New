@@ -28,6 +28,7 @@ assert.match(gpsPlugin, /if \(pendingCount > 0 && fine && background\) KfeOverla
 assert.doesNotMatch(overlay, /startLocationUpdates|routeTrace|calculateTraceDistanceKm/)
 assert.doesNotMatch(workRecords, /tripKmAuthority|tripKm:\s*normalized/)
 assert.match(timeline, /refreshLocationNames/)
-assert.match(timeline, /EventLocalityService\.resolveSnapshots\(eligible\)/)
+assert.match(timeline, /EventLocalityService\.resolveSnapshots\(snapshots\)/)
+assert.match(timeline, /EventLocationService\.allSnapshots\(\)/)
 assert.match(timeline, /Pull down to resolve unsaved GPS locality names from the last seven days when online/)
 console.log('Event GPS contract: four offline event snapshots, bounded capture retries, manual-only locality resolution, and no route tracking or ride-distance calculation.')
