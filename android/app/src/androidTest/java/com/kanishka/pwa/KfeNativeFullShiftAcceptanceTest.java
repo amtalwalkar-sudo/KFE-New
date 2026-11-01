@@ -1138,7 +1138,17 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("Canonical record committed before the kill must survive restart.", beforeRetry.optBoolean("found"));
       assertEquals(canonicalStage, beforeRetry.getJSONObject("record").getString("tripStage"));
     } else {
-      assertTrue("Canonical write must not appear before its boundary.", !beforeRetry.optBoolean("found"));
+      String priorCanonicalStage = stage.equals("START_RIDE") ? "GOING_TO_PICKUP"
+          : stage.equals("END_RIDE") ? "RIDE_STARTED" : "";
+      if (priorCanonicalStage.isEmpty()) {
+        assertTrue("Initial GO_TO_PICKUP must not create a canonical Trip before its commit boundary.",
+            !beforeRetry.optBoolean("found"));
+      } else {
+        assertTrue("The preceding canonical Trip stage must survive before the next write boundary.",
+            beforeRetry.optBoolean("found"));
+        assertEquals("The next lifecycle stage must not commit before its boundary.",
+            priorCanonicalStage, beforeRetry.getJSONObject("record").getString("tripStage"));
+      }
     }
 
     AttachedOverlayService recovered = new AttachedOverlayService();
