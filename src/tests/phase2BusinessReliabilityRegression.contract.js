@@ -55,8 +55,8 @@ assert.ok(workService.includes('const explicitKey = data?.createIntentKey || dat
   'Native create retries must prefer a durable user-action key over generated record timestamps/IDs')
 assert.ok(workService.includes("commitPreparedCreateIntent('SHIFT', record, data)"),
   'Android shift creation must pass through the durable SQLite create-intent journal')
-assert.ok(workService.includes("commitPreparedCreateIntent('TRIP', record, tripData)"),
-  'Android trip creation must pass through the durable SQLite create-intent journal')
+assert.ok(workService.includes("commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' })"),
+  'Android trip creation must pass through the durable SQLite create-intent journal and guarded GO_TO_PICKUP transition')
 
 const submitStart = workView.slice(workView.indexOf('async function submitStart()'), workView.indexOf('async function goPickup('))
 assert.ok(submitStart.indexOf('await saveDraftBeforeCommit(startDraftIdentity()') >= 0,
