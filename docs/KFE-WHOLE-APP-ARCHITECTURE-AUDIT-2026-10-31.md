@@ -65,8 +65,7 @@ The active Work start path now validates and saves the shift opening odometer on
 
 ## Intentionally retained
 
-- Legacy IndexedDB stores and legacy backup formats remain available for compatibility and recovery. Historical driver-target, break-even, day, odometer-gap, movement-artifact, settlement, and financial snapshot records are not exposed as active workflows or calculations. The canonical data contract requires preserving legacy records during scope cleanup and backup/restore.
-- The obsolete movement-artifact entity is no longer accepted by the active browser canonical write adapter; its historical store remains only for legacy backup compatibility.
+- Schema 18 removes legacy day, odometer-gap, movement-artifact, loan-payment, prepayment, settlement, driver-target, break-even-input, and financial-period stores from IndexedDB. Backup format 6 excludes them. Backup formats 1–5 are accepted only as migration inputs; their retired payloads are discarded while active in-scope records remain restorable.
 - Dropbox remains a live-app/WebView backup provider. No native background connectivity polling or service-worker upload loop was introduced.
 - Native event capture remains bounded and event-driven; no continuous GPS tracking or idle retry loop was added.
 
@@ -223,6 +222,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 **Finding:** The native event plugin correctly rejected SQLite queue-read failures, but the JavaScript adapter caught those failures and returned an empty array. Work startup could therefore proceed without replaying a pending native ride action. The view also had no recovery gate to prevent a new PWA mutation while that queue remained unread.
 
 **Change:** The adapter now propagates SQLite and legacy-slot read failures. The application controller owns FIFO replay and the pre-ledger compatibility fallback; it stops at the first unconfirmed event. The Work view disables mutating controls until recovery completes, retries only on startup/foreground/native-action triggers, and does not synchronize stale PWA state into the overlay while recovery is blocked.
+
+### 26. Backup and database schema still retained retired workflow stores
+
+**Finding:** The active app no longer used `days`, `odoGaps`, `movement_artifacts`, `loan_payments`, `prepayments`, `settlements`, `driver_targets`, `break_even_inputs` or `financial_period_snapshots`, but IndexedDB still created them and BackupService exported them. The canonical data contract and Admin audit therefore described obsolete backup compatibility as an active retention requirement.
+
+**Change:** Bumped IndexedDB to schema 18 and backup format to 6. The upgrade drops the retired object stores and the old Trip `dayId` index. New phone, Dropbox and internal recovery backups contain only current Work, Fuel, GPS, Admin source records and recovery/audit stores. Backup formats 1–5 remain structurally validated; their retired payloads are discarded before restore, while current in-scope records are retained. Added migration contracts for v1–v5.
 
 ## Verification
 
