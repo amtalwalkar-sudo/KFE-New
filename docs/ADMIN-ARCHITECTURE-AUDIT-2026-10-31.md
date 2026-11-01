@@ -43,7 +43,7 @@ Presentation owns navigation, transient UI state and input rendering. AdminServi
 - **Closed the vehicle-delete integrity gap.** Driver, Compliance and Maintenance references are checked inside the same IndexedDB read/write transaction that soft-deletes a Vehicle. The application service no longer performs a separate, incomplete preflight read.
 - **Prevented stale Admin reads from winning.** Admin list snapshots load together and use a generation guard so a slower previous section load cannot overwrite the currently selected section.
 - **Removed the unused direct Settings read/write bypass.** Business Setup settings now use the same AdminService/AdminRepository transaction, mutation record and audit path as other Admin source forms.
-- **Removed obsolete Loan calculation metadata.** The active Loan form remains a source-fact form only; it does not calculate EMI, amortization or repayment schedules.
+- **Removed obsolete Loan calculation metadata.** The active Loan form stores source terms and displays one derived monthly EMI estimate from principal, tenure and annual interest rate. It does not persist EMI or calculate amortization or repayment schedules.
 - **Corrected stale Settings and Compliance descriptions.** Application Settings is described as Dark-only appearance; Compliance describes recorded validity and cost, not retired payment workflows.
 - **Updated the architecture and universal form contracts** to describe the single Admin path, ownership rules and non-authoritative draft boundary.
 
@@ -58,7 +58,7 @@ No business records, existing ride records, fares, cancellation values or event 
 ## Regression coverage added
 
 `src/tests/adminArchitectureBoundary.contract.js` verifies:
-- the six approved form definitions and absence of loan calculation metadata;
+- the six approved form definitions and the single read-only EMI calculation from saved loan terms;
 - no retired workflow rules in the Admin validator;
 - application-only form validation and no repository dependency on application Admin modules;
 - transactional relationship protection including Maintenance references;
