@@ -57,7 +57,7 @@ assert.equal(await photonNearby.resolve({ latitude: 19.025, longitude: 72.842, a
 
 const broadOnly = new PhotonLocationNameAdapter({
   endpoint: 'mock://photon',
-  fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ properties: {
+  fetchImpl: async () => ({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [72.842, 19.025] }, properties: {
     district: 'Mumbai Suburban', city_district: 'Mumbai Suburban',
     area: 'Mumbai Metropolitan Region', county: 'Mumbai', city: 'Mumbai', state: 'Maharashtra'
   } }] }) }),
