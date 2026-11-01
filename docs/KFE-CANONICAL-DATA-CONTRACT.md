@@ -94,7 +94,7 @@ The current model retains Loan terms as source facts. The Admin UI may display a
 
 ### GPS event snapshots
 
-GPS event snapshots are supporting evidence attached to the four ride event moments: `PICKUP_START`, `TRIP_CANCELLED`, `TRIP_START`, and `TRIP_END`. Keep `capturedAt` and `eventAt` separate. A GPS snapshot must not mutate the ride or shift record. A cancellation snapshot is not a drop-off.
+GPS event snapshots are supporting evidence attached to the four ride event moments: `PICKUP_START`, `TRIP_CANCELLED`, `TRIP_START`, and `TRIP_END`. Keep `capturedAt` and `eventAt` separate. A GPS snapshot must not mutate the ride or shift record. Trip records do not embed pickup/drop GPS objects or locality-resolution status; all four event snapshots live only in the canonical GPS snapshot store. A cancellation snapshot is not a drop-off.
 
 ### Audit / Mutation
 
