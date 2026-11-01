@@ -78,6 +78,6 @@ const stores = Object.fromEntries([...legacyStores.map(store => [store, []]), ['
 const migrated = validateBackup({ format: 'KFE_BACKUP', formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: new Date().toISOString(), stores })
 assert.equal(migrated.formatVersion, 6); assert.equal('driver_collected_data' in migrated.stores, false)
 for (const retired of ['days','odoGaps','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots']) assert.equal(retired in migrated.stores, false, retired + ' must not survive backup migration.')
-for (const store of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\\\(db, ['\\\\\\\"]${store}['\\\\\\\"]`))
+for (const store of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${store}'`))
 assert.match(indexedDB, /createObjectStore\('gps_snapshots'/)
-console.log('Canonical data contract: core facts normalized; legacy saved records preserved without retired calculation models.')
+console.log('Canonical data contract: current source facts retained; retired stores removed and excluded from migrated backups.')
