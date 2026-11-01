@@ -313,6 +313,24 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Corrected the authority index and made the product architecture summary explicit: browser-only PWA uses IndexedDB; Android Work/GPS durability and overlay commands use Capacitor/native SQLite; the PWA synchronizes the native canonical projection through configured runtime ports.
 
+### 46. Dropbox retained an unused no-op daily scheduler abstraction
+
+**Finding:** The live Dropbox backup lifecycle already retried only from real app-open lifecycle/connectivity events and enforced its own daily freshness rule. A separate `cloudBackupScheduler` adapter exposed a `registerDaily` method that always returned false, was installed at startup, and had no independent scheduling capability or consumer.
+
+**Change:** Removed the no-op scheduler adapter, its application configuration API and the composition-root wiring. Dropbox upload/restore, configured-provider ownership, daily freshness, local recovery checkpoints and live app-open retry events remain intact. Added startup contracts to prevent the unused scheduler from being reintroduced.
+
+### 47. Calculation ownership review — simplified active scope retained
+
+**Finding:** The active repository tree was checked for duplicate or retired calculation engines across Performance, Fuel and Loan. The active calculation path is already separated into pure domain functions, thin application orchestration and presentation read models.
+
+**Verified active paths:**
+- Performance: one read-only application service and one domain projection over saved Shift/Trip/Fuel facts; no targets, forecasts, break-even, provision, profitability, maintenance projection or loan model.
+- Fuel: one domain quantity conversion and one selected-period full-tank interval summary; partial refills contribute to spending but never create intervals; deleted and cross-vehicle records are excluded.
+- Loan: one pure fixed-rate monthly EMI estimate and one thin application service; no amortization, repayment schedule, payment ledger, balance, prepayment or payment allocation.
+- The business rules register remains the sole authority for supported formulas and period attribution.
+
+**Change:** No second calculation implementation was found that justified another deletion. Kept the active minimal formulas and their regression contracts rather than deleting legitimate calculation code or reviving historical financial workflows.
+
 ## Verification
 
 The following are enforced by regression contracts:
