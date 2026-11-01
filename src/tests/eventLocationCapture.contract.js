@@ -60,6 +60,10 @@ assert.ok(nativeOverlay.includes('KfeGpsEventPolicy.snapshotId(entityType,entity
 assert.match(journal, /RETRY_DELAYS_MS = \{30_000L, 60_000L, 2\*60_000L/)
 assert.doesNotMatch(nativeOverlay, /schedulePendingGpsRetry/)
 assert.match(nativeOverlay, /later event, app-open, or explicit status refresh/)
+assert.match(journal, /GPS event journal could not be read/, 'A corrupt native GPS journal must fail closed instead of returning an empty queue.')
+assert.match(nativeOverlay, /A journal read failure is a recovery-blocked state, never an empty queue/)
+assert.match(fs.readFileSync('android/app/src/androidTest/java/com/kanishka/pwa/KfeNativeFullShiftAcceptanceTest.java', 'utf8'), /corruptGpsEventJournalMustNotMasqueradeAsAnEmptyQueue/, 'Android instrumentation must prove corrupt GPS journal reads fail closed.')
+
 assert.ok(nativeGpsPolicy.includes('TRIP_END'))
 assert.doesNotMatch(nativeGpsPolicy, /SHIFT_START|SHIFT_END/)
 assert.match(nativePlugin, /backgroundCaptureAllowed/)
