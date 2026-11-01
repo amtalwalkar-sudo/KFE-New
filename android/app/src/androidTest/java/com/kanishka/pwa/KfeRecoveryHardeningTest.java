@@ -61,15 +61,15 @@ public class KfeRecoveryHardeningTest {
     String t2 = "2026-10-16T01:01:00.000Z";
 
     JSONObject fareA = new JSONObject().put("id", tripA).put("shiftId", shiftId)
-        .put("status", "COMPLETED").put("fare", 250).put("updatedAt", t1);
+        .put("status", "COMPLETED").put("revenue", 250).put("updatedAt", t1);
     JSONObject fareB = new JSONObject().put("id", tripB).put("shiftId", shiftId)
-        .put("status", "COMPLETED").put("fare", 150).put("updatedAt", t2);
+        .put("status", "COMPLETED").put("revenue", 150).put("updatedAt", t2);
     JSONObject shift = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
         .put("revenue", 400).put("updatedAt", t2);
 
     assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
-    JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("fare", 999);
+    JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("revenue", 999);
     try {
       store.restoreRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
       fail("Expected operation-ID reuse with a changed payload to be rejected.");
@@ -80,7 +80,7 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Rejecting changed-payload replay must preserve the original operation outcome.",
         store.getOperation(fareAOperation).getBoolean("found"));
     assertEquals("Rejected operation-ID reuse must not change the committed fare.", 250,
-        store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
+        store.getRecord("TRIP", tripA).getJSONObject("record").getInt("revenue"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
 
     assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
