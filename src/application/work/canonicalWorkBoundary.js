@@ -104,32 +104,38 @@ export const CanonicalWorkBoundary = Object.freeze({
       record,
     })
   },
-  async listEventLocationSnapshots() {
-    if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
+  async listAllRecords(entityType, { pageSize = 500 } = {}) {
+    if (typeof entityType !== 'string' || !entityType.trim()) throw new Error('A canonical entity type is required for paginated reads.')
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 1000) throw new Error('Canonical page size must be an integer from 1 to 1000.')
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Paginated canonical reads require native SQLite.')
     const records = []
-    const pageSize = 500
+    const seenIds = new Set()
     let offset = 0
     let expectedTotal = null
-    const seenIds = new Set()
     do {
-      const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: pageSize, offset })
+      const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType, limit: pageSize, offset })
       const rows = Array.isArray(page?.records) ? page.records : []
       if (!Number.isInteger(page?.totalCount) || page.totalCount < 0 || page.offset !== offset) {
-        throw new Error('Native GPS history pagination returned invalid count/offset metadata.')
+        throw new Error(`Native ${entityType} pagination returned invalid count/offset metadata.`)
       }
       if (expectedTotal === null) expectedTotal = page.totalCount
-      else if (page.totalCount !== expectedTotal) throw new Error('Native GPS history changed during paginated retrieval.')
-      if (!rows.length && offset < expectedTotal) throw new Error(`Native GPS history stopped at ${offset} of ${expectedTotal} snapshots.`)
+      else if (page.totalCount !== expectedTotal) throw new Error(`Native ${entityType} records changed during paginated retrieval.`)
+      if (!rows.length && offset < expectedTotal) throw new Error(`Native ${entityType} pagination stopped at ${offset} of ${expectedTotal} records.`)
+      if (rows.length > pageSize) throw new Error(`Native ${entityType} pagination exceeded the requested page size.`)
       for (const row of rows) {
-        if (!row?.id || seenIds.has(row.id)) throw new Error('Native GPS history pagination returned a missing or duplicate snapshot ID.')
+        if (!row?.id || seenIds.has(row.id)) throw new Error(`Native ${entityType} pagination returned a missing or duplicate record ID.`)
         seenIds.add(row.id)
       }
       records.push(...rows)
       offset += rows.length
-      if (records.length > expectedTotal) throw new Error('Native GPS history pagination returned duplicate or extra snapshots.')
+      if (records.length > expectedTotal) throw new Error(`Native ${entityType} pagination returned duplicate or extra records.`)
     } while (offset < expectedTotal)
-    if (records.length !== expectedTotal) throw new Error(`Native GPS history is incomplete: expected ${expectedTotal}, read ${records.length}.`)
+    if (records.length !== expectedTotal) throw new Error(`Native ${entityType} pagination is incomplete: expected ${expectedTotal}, read ${records.length}.`)
     return records
+  },
+  async listEventLocationSnapshots() {
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
+    return this.listAllRecords('GPS_SNAPSHOT')
   },
   async getEventLocationSnapshot(snapshotId) {
     if (!snapshotId || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
