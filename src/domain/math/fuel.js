@@ -68,10 +68,10 @@ export function calculateFuelPeriodSummary(logs = [], range) {
 
   const rows = (Array.isArray(logs) ? logs : []).filter(row => !row?.deletedAt && row?.deleted !== true)
   const inPeriod = rows.filter(row => {
+    if (!validFuel(row)) return false
     const at = timestamp(row)
     const ms = at ? new Date(at).getTime() : NaN
-    const amount = Number(row?.amount ?? row?.totalCost)
-    return Number.isFinite(ms) && ms >= from && ms <= to && Number.isFinite(amount) && amount > 0
+    return Number.isFinite(ms) && ms >= from && ms <= to
   })
   const totalFuelAmount = inPeriod.reduce((sum, row) => sum + Number(row.amount ?? row.totalCost), 0)
   const intervals = deriveFullTankIntervals(rows).filter(interval => {
