@@ -118,6 +118,7 @@ export const ActivityTimelineReadService = Object.freeze({
       .sort((a, b) => Date.parse(b.timeAt) - Date.parse(a.timeAt))
 
     const fuelLogs = (Array.isArray(allFuelLogs) ? allFuelLogs : [])
+      .filter(log => !log?.deletedAt && log?.deleted !== true)
       .filter(log => inRange(recordTime(log), range))
       .map(log => ({
         id: log.id,
