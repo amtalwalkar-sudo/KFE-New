@@ -241,23 +241,23 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Added one pure domain function for the fixed-rate monthly EMI formula and a thin Admin application service. The Loan list displays the derived estimate beside the saved terms. EMI is never persisted. No amortization schedule, payment history, remaining balance, prepayment, payment allocation or ledger was restored. A deterministic contract covers zero-interest, positive-interest, invalid-input and rounding cases; the suite runner explicitly includes it.
 
-### 36. Canonical Trip records still carried obsolete embedded GPS placeholders
-
-**Finding:** New Trip records still created `tripStartLocation`, `tripEndLocation` and embedded locality-status fields. Browser and native persistence also retained helpers that copied those old fields across Trip updates, even though the active capture path writes separate `GPS_SNAPSHOT` records and Timeline reads only those snapshots.
-
-**Change:** Removed the embedded fields from the canonical Trip factory, strip them during Trip normalization, and removed the browser/native metadata-preservation helpers. The only active GPS authority is the separate canonical event snapshot store; the four event moments do not mutate Trip or Shift records. The redundant application-layer GPS normalizer re-export was also removed so the pure fix validator has one domain owner.
-
-### 35. Work presentation still invoked the domain revenue formula directly
+### 34. Work presentation still invoked the domain revenue formula directly
 
 **Finding:** The Work view imported the domain revenue function through a thin application re-export and performed Shift filtering in the component. The formula itself was not duplicated, but the presentation layer still selected the business inputs and called the domain rule directly.
 
 **Change:** Converted the re-export into a real application-owned `LiveRevenueReadModel` with `forShift` and `forTrips` entry points. WorkModuleView now consumes that read model for the live Shift total and end-shift preview. The pure domain formula remains the single JavaScript calculation authority; repository and native transaction mirrors continue to use the same rule for atomic persistence.
 
-### 34. Architecture and test contracts were stale after the guarded lifecycle/restore split
+### 35. Architecture and test contracts were stale after the guarded lifecycle/restore split
 
 **Finding:** Several contracts still expected generic native `putRecord` for backup restore, omitted the new `restoreRecord` and `commitTripLifecycle` runtime ports, or matched obsolete timestamp and matrix wording. One persistence contract also contained a malformed regular expression. These stale assertions obscured the actual boundary rather than testing it.
 
 **Change:** Updated the contracts to assert the dedicated insert-only restore command, the guarded lifecycle port, the current timestamp path and the current Golden Ride matrix wording. The Android recovery fixture now uses canonical Trip revenue facts rather than the retired `fare` field. The lifecycle storage guard test now exercises a permitted generic Shift write so it reaches the Android fail-closed guard instead of being rejected earlier by the intentional generic-Trip prohibition.
+
+### 36. Canonical Trip records still carried obsolete embedded GPS placeholders
+
+**Finding:** New Trip records still created `tripStartLocation`, `tripEndLocation` and embedded locality-status fields. Browser and native persistence also retained helpers that copied those old fields across Trip updates, even though the active capture path writes separate `GPS_SNAPSHOT` records and Timeline reads only those snapshots.
+
+**Change:** Removed the embedded fields from the canonical Trip factory, strip them during Trip normalization, and removed the browser/native metadata-preservation helpers. The only active GPS authority is the separate canonical event snapshot store; the four event moments do not mutate Trip or Shift records. The redundant application-layer GPS normalizer re-export was also removed so the pure fix validator has one domain owner.
 
 ## Verification
 
