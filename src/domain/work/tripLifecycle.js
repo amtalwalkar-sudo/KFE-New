@@ -10,6 +10,9 @@ export const canTransitionTrip = (from, to) => {
 export const transitionTrip = (trip, to, data = {}) => {
   if (!trip || !trip.id) throw new Error('Trip is required.')
   if (!canTransitionTrip(trip.status, to)) throw new Error(`Trip cannot transition from ${trip.status} to ${to}.`)
+  if (to === TRIP_STATES.COMPLETED && trip.tripStage !== 'RIDE_STARTED') {
+    throw new Error('A Trip can be completed only after START RIDE has committed.')
+  }
   const next = { ...trip, status: to }
   delete next.revenueAuthority
   delete next.revenueProvenance
