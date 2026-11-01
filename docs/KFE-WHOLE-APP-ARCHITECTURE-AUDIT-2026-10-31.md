@@ -229,6 +229,12 @@ No active domain finance/loan engine, forecast, break-even, driver-target, provi
 
 **Change:** Bumped IndexedDB to schema 18 and backup format to 6. The upgrade drops the retired object stores and the old Trip `dayId` index. New phone, Dropbox and internal recovery backups contain only current Work, Fuel, GPS, Admin source records and recovery/audit stores. Backup formats 1–5 remain structurally validated; their retired payloads are discarded before restore, while current in-scope records are retained. Added migration contracts for v1–v5.
 
+### 27. Generic native record API still exposed a Trip creation bypass
+
+**Finding:** Existing native storage prevented generic updates from changing Trip lifecycle fields, but a generic `putRecord` create could still insert a new Trip without the guarded GO_TO_PICKUP transaction. Backup restore also used that generic API, making it unsafe to close the bypass without a separate restore boundary.
+
+**Change:** Generic native Trip writes now fail at the store, plugin adapter and shared application boundary. Normal Trip writes must use lifecycle/form transactions. Backup restore uses an explicit insert-only command that permits only Shift, Trip and GPS snapshot records, requires the Trip's parent Shift to exist, and rejects overwrites. Backup merge now calls that restore boundary. Android instrumentation tests cover generic create/update rejection and restore fixture behavior.
+
 ## Verification
 
 The following are enforced by regression contracts:
