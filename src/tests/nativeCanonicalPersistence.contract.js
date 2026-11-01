@@ -41,7 +41,7 @@ assert.doesNotMatch(pendingReadAdapter, /catch\s*\([^)]*\)\s*\{[^}]*return\s*nul
 
 assert.match(store, /record\.remove\("revenueAuthority"\)/, 'Native canonical writes must strip the retired Trip-level revenue authority marker.')
 assert.match(store, /record\.remove\("revenueProvenance"\)/, 'Native canonical writes must retire unused Trip revenue provenance metadata.')
-assert.match(read('src/domain/work/canonicalWorkRecords.js'), /delete next\.revenueAuthority/, 'Canonical Trip factory must strip the retired Trip-level revenue authority marker.')
+assert.doesNotMatch(read('src/domain/work/canonicalWorkRecords.js'), /revenueAuthority/, 'Canonical Trip factory must not recreate the retired Trip-level revenue authority marker.')
 assert.ok(!store.includes('persistTripBoundarySnapshot('), 'Legacy trip-boundary snapshot writer must be removed.')
 assert.ok(!store.includes('SAVE_TRIP_BOUNDARY_SNAPSHOT'))
 assert.ok(overlayService.includes('.putRecord(operationId,"GPS_SNAPSHOT",snapshot)'), 'Native overlay GPS must use the shared event snapshot entity.')
