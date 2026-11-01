@@ -22,6 +22,8 @@ assert.equal(summary.totalFuelAmount, 1200, 'partial and full refills both count
 const withDeleted = calculateFuelPeriodSummary([...logs, { id: 'deleted-fill', vehicleId: 'v1', odometer: 1400, amount: 999, isFullTank: true, capturedAt: '2026-10-28T10:00:00+05:30', deletedAt: '2026-10-29T00:00:00Z' }], range)
 assert.equal(withDeleted.totalFuelAmount, summary.totalFuelAmount, 'soft-deleted fuel rows must not contribute to period spending')
 assert.equal(withDeleted.intervalCount, summary.intervalCount, 'soft-deleted full-tank rows must not create mileage intervals')
+const invalidOdometer = calculateFuelPeriodSummary([...logs, { id: 'invalid-odometer-fill', vehicleId: 'v1', odometer: '', amount: 999, isFullTank: false, capturedAt: '2026-10-28T10:00:00+05:30' }], range)
+assert.equal(invalidOdometer.totalFuelAmount, summary.totalFuelAmount, 'fuel rows without a valid recorded odometer must not enter the spending summary')
 assert.equal(summary.intervalCount, 2, 'only consecutive full-tank readings create mileage intervals')
 assert.equal(summary.intervalKm, 300)
 assert.ok(Math.abs(summary.averageCostPerKm - (1100 / 300)) < 1e-9, 'period cost/km is total full-tank interval cost divided by interval kilometres')
