@@ -76,7 +76,7 @@ configureWorkRuntimePorts({
   platform: { getPlatform: () => 'android', isOnline: () => true, getStartupPermissionStatus: noop, requestStartupPermission: noop, openStartupSetting: noop, getConfirmedOemSettings: async () => [], saveConfirmedOemSettings: noop, waitForForegroundReturn: async () => {} },
 })
 await assert.rejects(
-  CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'TRIP', record: { id: 'trip-1', shiftId: 'shift-1' } }),
+  CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'SHIFT', record: { id: 'shift-1', status: 'ACTIVE' } }),
   /Android canonical SQLite storage is unavailable/,
   'direct canonical record writes must fail closed in Android instead of reaching IndexedDB',
 )
