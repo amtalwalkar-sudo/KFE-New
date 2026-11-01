@@ -22,7 +22,7 @@ Do not add forecasting, targets, break-even models, provisions, profitability mo
 - The native overlay handles ride actions only while a shift is active.
 - Domain/business rules and persistence must not be duplicated in presentation components.
 - Admin forms save authoritative facts. Read-only screens consume saved facts and must not mutate them.
-- Loan EMI is derived, never stored as an authoritative fact. Use the fixed-rate monthly EMI formula from principal, tenure in months and annual interest rate. Do not add amortization schedules, payment history, remaining-balance tracking, prepayments, payment allocation or a loan ledger.
+- Loan EMI is derived, never stored as an authoritative fact. Use the fixed-rate monthly EMI formula from principal, tenure in months and annual interest rate. A missing or blank interest rate is invalid; zero interest is valid only when explicitly entered as 0. Do not add amortization schedules, payment history, remaining-balance tracking, prepayments, payment allocation or a loan ledger.
 - Preserve existing user records when simplifying code. Code cleanup must not silently reset or migrate business data destructively.
 
 ## 3. Ride workflow
@@ -62,7 +62,7 @@ Rules:
 - Cancelled rides remain visible and are clearly labelled as cancelled.
 - Do not calculate ride-distance metrics because ride distance is not an authoritative recorded input.
 - Show a saved pickup/drop locality only when reliably resolved; otherwise show valid stored coordinates. Invalid coordinates or supplied accuracy worse than 75 metres remain `Location unavailable`. Timeline never checks connectivity just to decide what to display.
-- Fuel spending includes recorded partial refills. Fuel cost per kilometre is calculated only from consecutive valid full-tank odometer readings. Partial refills do not create a mileage interval.
+- Fuel spending includes recorded partial refills. Fuel cost per kilometre is calculated only from consecutive valid full-tank odometer readings. Partial refills do not create a mileage interval. Fuel entry requires an explicitly entered odometer; blank input must not be coerced to zero. Soft-deleted fuel rows never contribute to spending or intervals.
 - Timeline must not invent or backfill business facts.
 
 ## 6. Basic Performance
