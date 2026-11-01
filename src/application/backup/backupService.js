@@ -1,5 +1,6 @@
 import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { CANONICAL_DB_VERSION, RETIRED_CANONICAL_STORES } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
 export const BACKUP_FORMAT_VERSION = 6
@@ -135,7 +136,7 @@ const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
     for (const record of merged.addedRecordsByStore[storeName] || []) {
       const operationId = `backup-restore:${backup.exportedAt}:${entityType}:${record.id}`
       try {
-        await WorkRuntimePorts.canonicalWork.putRecord({ operationId, entityType, record, expectAbsent: true })
+        await CanonicalWorkBoundary.restoreRecord({ operationId, entityType, record })
         added++
       } catch (error) {
         // A process death/lost acknowledgement may occur after SQLite commits.
