@@ -74,6 +74,24 @@ export const CanonicalWorkBoundary = Object.freeze({
       expectAbsent: normalized.expectAbsent,
     })
   },
+  async commitTripForm(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      mode: requireText(input?.mode, 'mode'),
+      record: input?.record,
+    }
+    if (!['FARE', 'CANCEL'].includes(normalized.mode)) throw new Error('Unsupported canonical Trip form mode.')
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical Trip form record is required.')
+    }
+    if (requireCanonicalWriteRoute()) return WorkRuntimePorts.canonicalWork.commitTripForm(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord({
+      operationId: normalized.operationId,
+      entityType: 'TRIP',
+      record: normalized.record,
+      expectedUpdatedAt: input?.expectedUpdatedAt ?? null,
+    })
+  },
   async persistEventLocationSnapshot(snapshot) {
     if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
       throw new Error('A complete event location snapshot is required.')
