@@ -97,7 +97,12 @@ const reconcileCanonicalReads = () => {
         CanonicalWorkBoundary.listAllRecords('SHIFT'),
         CanonicalWorkBoundary.listAllRecords('TRIP'),
       ])
-      return { shifts, trips }
+      // Keep the recovery contract explicit: each canonical entity snapshot
+      // carries its records collection, while listAllRecords owns pagination.
+      return {
+        shifts: { records: shifts },
+        trips: { records: trips },
+      }
     },
     readLocal: async () => {
       const [shifts, trips] = await Promise.all([
