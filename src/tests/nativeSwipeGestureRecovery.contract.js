@@ -39,7 +39,7 @@ assert.match(service, /actionStage="END_RIDE"; phaseStartAt=tripStartAt/)
 assert.match(service, /actionStage="ENTER_FARE"; pendingFareTripId=pendingTripId/)
 assert.match(actionController, /let queue = Promise\.resolve\(\)/)
 assert.match(actionController, /queue\.then\(\(\) => process\(event\)\)/)
-assert.match(workView, /event => \{ void enqueueNativeEvent\(event\) \}/)
+assert.match(workView, /\(\) => \{ void replayFailedNativeActions\(\) \}/, 'Native notifications must trigger a read of the durable event journal, not process an untrusted transient payload.')
 // Keep the background queue contract adjacent to the original swipe/recovery assertions.
 console.log('KFE native background transition queue contract: PASS')
 
