@@ -22,14 +22,6 @@ const canonicalize = value => {
 const jsonEquivalent = (left, right) => JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right))
 
 
-const withoutTripBoundarySnapshots = trip => {
-  const copy = { ...trip }
-  delete copy.tripStartLocation
-  delete copy.tripEndLocation
-  delete copy.tripStartLocationStatus
-  delete copy.tripEndLocationStatus
-  return copy
-}
 const sameShiftExceptRevenueProjection = (left, right) => {
   const a = { ...left }, b = { ...right }
   for (const field of ['updatedAt', 'revenue', 'liveFareRevenue', 'revenueSource']) {
@@ -84,11 +76,6 @@ export const assertBrowserCanonicalWriteAllowed = ({ entityType, existingRecord,
   if (versionOrder === 0) throw new Error(`Canonical version conflict: different payloads share updatedAt for ${entityType}/${record.id}.`)
   return record
 }
-const preserveTripBoundaryMetadata = (existing, incoming) => {
-  for (const field of ['tripStartLocation', 'tripEndLocation', 'tripStartLocationStatus', 'tripEndLocationStatus']) {
-    if (Object.hasOwn(existing, field)) incoming[field] = structuredClone(existing[field])
-  }
-}
 const refreshBrowserShiftRevenueProjection = (shift, trips, committedAt) => {
   if (!shift) return null
   const shiftTrips = (trips || []).filter(trip => trip?.shiftId === shift.id)
@@ -134,7 +121,7 @@ export const BrowserCanonicalWorkService = Object.freeze({
             if (previous.command !== 'PUT_RECORD' || previous.entityType !== entityType || previous.entityId !== entityId) throw new Error('operationId was already used for a different command.')
             const previousRecord = previous.outcome?.record
             const samePayload = previousRecord && (entityType === 'TRIP'
-              ? jsonEquivalent(withoutTripBoundarySnapshots(previousRecord), withoutTripBoundarySnapshots(record))
+              ? jsonEquivalent(previousRecord, record)
               : jsonEquivalent(previous.outcome.record, record))
             if (!samePayload) throw new Error('operationId was already used with a different payload.')
             outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
@@ -145,7 +132,6 @@ export const BrowserCanonicalWorkService = Object.freeze({
             try {
               const existing = currentRequest.result || null
               const incoming = structuredClone(record)
-              if (entityType === 'TRIP' && existing) preserveTripBoundaryMetadata(existing, incoming)
               const savedRecord = assertBrowserCanonicalWriteAllowed({
                 entityType, existingRecord: existing, record: incoming,
                 expectedUpdatedAt: expectedVersion, expectAbsent: expectAbsent === true,
