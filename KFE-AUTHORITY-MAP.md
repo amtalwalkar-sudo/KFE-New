@@ -96,7 +96,7 @@ The following are historical/frozen phase evidence and are not independent autho
 If a phase freeze contains a substantive rule that is still active, that rule must be represented in the appropriate canonical authority. The freeze remains as evidence/history.
 
 
-## 6. Conflict rule
+## 5. Conflict rule
 
 If any supporting document conflicts with a canonical authority:
 1. Treat the canonical authority as the intended current rule.
@@ -104,7 +104,7 @@ If any supporting document conflicts with a canonical authority:
 3. If it is historical evidence, retain the historical statement but label it as historical/evidence and do not use it as a current rule.
 4. Do not create a third document to resolve the conflict.
 
-## 7. Future-document rule
+## 6. Future-document rule
 
 A new document must declare one of:
 - CANONICAL AUTHORITY — only if it owns a responsibility not already owned here;
@@ -113,7 +113,7 @@ A new document must declare one of:
 
 Creating a second canonical document for an existing responsibility is prohibited.
 
-## 8. Change-control rule
+## 7. Change-control rule
 
 A permanent rule change must update:
 
