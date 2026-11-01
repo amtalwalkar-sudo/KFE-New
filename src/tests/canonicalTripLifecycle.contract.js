@@ -18,7 +18,11 @@ console.log('--- Running KFE Canonical Trip Lifecycle Gate ---')
 const newTrip = createCanonicalTripRecord({ shiftId: 'shift-1', operator: 'Uber' }, { createId: () => 'new-trip', now: '2026-09-24T08:00:00.000Z' })
 assert(newTrip.revenueAuthority === undefined, 'New canonical Trips must not carry obsolete per-Trip revenue authority metadata.')
 const active = { id: 'trip-1', shiftId: 'shift-1', status: TRIP_STATES.ACTIVE, tripStage: 'GOING_TO_PICKUP', revenue: null }
-const completed = transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' })
+let completionBeforeStartRejected = false
+try { transitionTrip(active, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' }) } catch (_) { completionBeforeStartRejected = true }
+assert(completionBeforeStartRejected, 'END_RIDE must be rejected before START_RIDE commits')
+const rideStarted = transitionTripStage(active, 'RIDE_STARTED', { at: '2026-09-24T11:30:00.000Z' })
+const completed = transitionTrip(rideStarted, TRIP_STATES.COMPLETED, { tripEndAt: '2026-09-24T12:00:00.000Z' })
 assert(completed.status === 'COMPLETED', 'END_RIDE must produce one COMPLETED canonical Trip')
 assert(completed.id === active.id, 'Trip ID must remain stable across END_RIDE')
 assert(completed.tripKm === undefined, 'Ride lifecycle must not calculate or capture trip distance')
