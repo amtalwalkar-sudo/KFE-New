@@ -14,7 +14,7 @@ const timestamp = row => {
 const validFuel = row => {
   const at = timestamp(row)
   const date = at ? new Date(at) : null
-  return Boolean(row && date && Number.isFinite(date.getTime())
+  return Boolean(row && !row.deletedAt && row.deleted !== true && date && Number.isFinite(date.getTime())
     && row.odometer !== null && row.odometer !== undefined && row.odometer !== ''
     && Number.isFinite(Number(row.odometer)) && Number(row.odometer) >= 0
     && Number.isFinite(Number(row.amount ?? row.totalCost)) && Number(row.amount ?? row.totalCost) > 0)
@@ -66,7 +66,7 @@ export function calculateFuelPeriodSummary(logs = [], range) {
     return { totalFuelAmount: 0, averageCostPerKm: null, intervalKm: 0, intervalCount: 0 }
   }
 
-  const rows = Array.isArray(logs) ? logs : []
+  const rows = (Array.isArray(logs) ? logs : []).filter(row => !row?.deletedAt && row?.deleted !== true)
   const inPeriod = rows.filter(row => {
     const at = timestamp(row)
     const ms = at ? new Date(at).getTime() : NaN
