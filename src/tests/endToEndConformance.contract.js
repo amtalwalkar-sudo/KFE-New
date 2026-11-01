@@ -116,7 +116,7 @@ assert.match(nativeOverlay, /captureOneShotEventLocation/, 'Native overlay must 
 assert.match(nativeOverlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must write to the shared GPS_SNAPSHOT authority.')
 assert.doesNotMatch(workService, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'PWA lifecycle paths must not own native GPS provider calls.')
 assert.match(nativeOverlay, /requestLocationUpdates\(provider,3000L,0f/)
-assert.match(nativeOverlay, /handler\.postDelayed\(stop,30000L/)
+assert.match(nativeOverlay, /handler\.postDelayed\(stop,remainingWindowMs/)
 assert.match(nativeOverlay, /removeUpdates\(this\)/, 'native GPS provider requests must be bounded and removed after a valid fix.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
