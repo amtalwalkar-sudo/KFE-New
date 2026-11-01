@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { calculateFuelQuantityKg, calculateFuelPeriodSummary } from '../domain/math/fuel.js'
+import { validateFuelEntry } from '../domain/work/fuel.js'
 
 assert.equal(calculateFuelQuantityKg(500, 100), 5)
 assert.equal(calculateFuelQuantityKg(0, 100), null)
 assert.equal(calculateFuelQuantityKg(500, 0), null)
 assert.equal(calculateFuelQuantityKg('invalid', 100), null)
+assert.equal(validateFuelEntry({ odometer: '', pricePerKg: 80, amount: 200 }).valid, false, 'blank odometer must not be coerced to zero');
+assert.equal(validateFuelEntry({ odometer: 0, pricePerKg: 80, amount: 200 }).valid, true, 'an explicit zero odometer remains a valid numeric fact');
 
 const logs = [
   { id: 'baseline', vehicleId: 'v1', odometer: 1000, amount: 300, isFullTank: true, capturedAt: '2026-10-26T08:00:00+05:30' },
@@ -16,6 +19,9 @@ const logs = [
 const range = { from: new Date('2026-10-27T00:00:00+05:30'), to: new Date('2026-10-28T23:59:59.999+05:30') }
 const summary = calculateFuelPeriodSummary(logs, range)
 assert.equal(summary.totalFuelAmount, 1200, 'partial and full refills both count toward period fuel spending')
+const withDeleted = calculateFuelPeriodSummary([...logs, { id: 'deleted-fill', vehicleId: 'v1', odometer: 1400, amount: 999, isFullTank: true, capturedAt: '2026-10-28T10:00:00+05:30', deletedAt: '2026-10-29T00:00:00Z' }], range)
+assert.equal(withDeleted.totalFuelAmount, summary.totalFuelAmount, 'soft-deleted fuel rows must not contribute to period spending')
+assert.equal(withDeleted.intervalCount, summary.intervalCount, 'soft-deleted full-tank rows must not create mileage intervals')
 assert.equal(summary.intervalCount, 2, 'only consecutive full-tank readings create mileage intervals')
 assert.equal(summary.intervalKm, 300)
 assert.ok(Math.abs(summary.averageCostPerKm - (1100 / 300)) < 1e-9, 'period cost/km is total full-tank interval cost divided by interval kilometres')
