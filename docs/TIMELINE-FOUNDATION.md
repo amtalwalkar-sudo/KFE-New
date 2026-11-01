@@ -20,7 +20,7 @@ Locality resolution is owned by the PWA and is separate from native GPS capture.
 - All four GPS event types may be resolved only after an explicit user-initiated Timeline pull-to-refresh. Lookup is asynchronous and never blocks ride actions; saving a GPS snapshot never starts a locality request.
 - New reverse geocoding is permitted only for event timestamps within the most recent seven days.
 - Save successful locality names permanently in PWA IndexedDB, keyed by canonical snapshot ID. Never use a coordinate-only cache or an arbitrary entry cap.
-- A locality label may be displayed only when its canonical GPS snapshot has recorded accuracy of 75 metres or better. If the PWA is offline, show an eligible saved locality where available; otherwise show the stored coordinates. While online, unresolved names remain unavailable until an explicit manual pull-to-refresh succeeds.
+- A locality label may be displayed only when its canonical GPS snapshot has recorded accuracy of 75 metres or better. Show an eligible saved locality where available; otherwise show valid stored coordinates without checking connectivity. Fixes with supplied accuracy worse than 75 metres or invalid coordinates remain unavailable. This keeps Timeline reads independent of network state; only the explicit pull-to-refresh checks connectivity and contacts a provider.
 - Manual pull-to-refresh retries only unresolved eligible snapshots; it must not overwrite successful saved names.
 - No continuous polling, automatic connectivity monitoring, or background locality retry queue.
 - A failed lookup never changes GPS coordinates, ride records, fares, or timestamps and never creates a guessed locality.
