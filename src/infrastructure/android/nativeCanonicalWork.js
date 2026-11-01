@@ -56,8 +56,17 @@ export const NativeCanonicalWorkService = Object.freeze({
     assertNoResetInProgress()
     requireNative()
     if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
+    if (entityType === 'TRIP') throw new Error('Generic native Trip writes are prohibited; use a lifecycle, form, or restore command.')
     const result = await NativeCanonicalWork.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
+    return result
+  },
+  async restoreRecord({ operationId, entityType, record } = {}) {
+    assertNoResetInProgress()
+    requireNative()
+    if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
+    const result = await NativeCanonicalWork.restoreRecord({ operationId, entityType, record })
+    if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical restore did not confirm the record commit.')
     return result
   },
   async commitTripLifecycle({ operationId, action, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
