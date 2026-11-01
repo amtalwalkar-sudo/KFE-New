@@ -28,7 +28,7 @@ A cloud service must not be required to create, read, update, calculate, or reta
 
 Every canonical persisted entity uses its stable client-generated UUID as the IndexedDB key path `id`. Existing IDs survive updates and backup/restore operations.
 
-Current canonical stores are Shifts, Trips, Fuel logs, GPS event snapshots, locality labels, Vehicles, Drivers, Compliance, Maintenance, Loan source facts, Settings, pending mutations and audit history. Retired day, odometer-gap, movement-artifact, loan-payment, prepayment, settlement, target, break-even and financial-period stores are removed by schema 18. Supporting stores remain infrastructure/supporting records and cannot become replacement business authorities.
+Current business stores are Shifts, Trips, Fuel logs, GPS event snapshots, locality labels, Vehicles, Drivers, Compliance, Maintenance, Loan source facts and Settings. Supporting stores are limited to pending mutations, audit history, form drafts and canonical operation recovery. Retired day, odometer-gap, movement-artifact, loan-payment, prepayment, settlement, target, break-even and financial-period stores are removed by schema 18. Supporting stores cannot become replacement business authorities.
 
 ## 4. Repository boundary
 
