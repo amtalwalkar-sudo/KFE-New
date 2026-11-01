@@ -5,6 +5,7 @@ import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
 import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { LocalityRepository } from '../../repositories/localityRepository.js'
+import { WorkService } from '../work/workService.js'
 
 const PERIODS = Object.freeze({
   TODAY: 'DAY',
@@ -70,6 +71,9 @@ export const ActivityTimelineReadService = Object.freeze({
       throw new Error('Timeline reporting period could not be resolved.')
     }
 
+    // Reconcile Android SQLite first so Timeline is correct even when it is
+    // the first screen opened after a native overlay action or process restart.
+    await WorkService.ensureCanonicalReadModel()
     const [allTrips, allFuelLogs] = await Promise.all([
       ShiftTripRepository.getAllTrips(),
       FuelRepository.getAll(),
