@@ -13,7 +13,7 @@ KFE consists only of:
 4. Basic Admin forms and saved business data.
 5. Capacitor + PWA, with Android-specific capabilities owned by native Capacitor plugins.
 
-Do not add forecasting, targets, break-even models, provisions, profitability models, amortization calculations, or unrelated financial calculations without a new explicit user request.
+Do not add forecasting, targets, break-even models, provisions, profitability models, amortization calculations, payment allocation or unrelated financial calculations without a new explicit user request. The one permitted loan calculation is a read-only monthly EMI estimate from the saved principal, tenure and annual interest rate.
 
 ## 2. Ownership and architecture
 
@@ -22,6 +22,7 @@ Do not add forecasting, targets, break-even models, provisions, profitability mo
 - The native overlay handles ride actions only while a shift is active.
 - Domain/business rules and persistence must not be duplicated in presentation components.
 - Admin forms save authoritative facts. Read-only screens consume saved facts and must not mutate them.
+- Loan EMI is derived, never stored as an authoritative fact. Use the fixed-rate monthly EMI formula from principal, tenure in months and annual interest rate. Do not add amortization schedules, payment history, remaining-balance tracking, prepayments, payment allocation or a loan ledger.
 - Preserve existing user records when simplifying code. Code cleanup must not silently reset or migrate business data destructively.
 
 ## 3. Ride workflow
