@@ -81,11 +81,23 @@ const refreshLocationNames = async () => {
     refreshing.value = false
   }
 }
-const atTop = () => typeof window === 'undefined'
-  || Math.max(window.scrollY || 0, document.documentElement?.scrollTop || 0) <= 0
+const scrollableParent = element => {
+  let node = element instanceof Element ? element : element?.parentElement
+  while (node && node !== document.body && node !== document.documentElement) {
+    const overflowY = window.getComputedStyle(node).overflowY
+    if (/(auto|scroll)/.test(overflowY) && node.scrollHeight > node.clientHeight) return node
+    node = node.parentElement
+  }
+  return document.scrollingElement || document.documentElement
+}
+const atTop = target => {
+  if (typeof window === 'undefined') return true
+  const scroller = scrollableParent(target)
+  return (scroller?.scrollTop ?? window.scrollY ?? 0) <= 0
+}
 const resetPull = () => { pullStartY = null; pullStartedAtTop = false }
 const onTouchStart = event => {
-  if (refreshing.value || !atTop() || event.touches?.length !== 1
+  if (refreshing.value || !atTop(event.target) || event.touches?.length !== 1
     || event.target?.closest?.('button, select, input, textarea, a')) {
     resetPull()
     return
