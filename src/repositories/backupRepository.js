@@ -23,7 +23,7 @@ const canonicalizeBackupValue = value => {
   return value
 }
 const sameBackupValue = (left, right) => JSON.stringify(canonicalizeBackupValue(left)) === JSON.stringify(canonicalizeBackupValue(right))
-const backupKey = (storeName, record) => storeName === 'financial_period_snapshots' ? record?.periodKey : record?.id
+const backupKey = (_storeName, record) => record?.id
 const stableHash = value => {
   let hash = 2166136261
   for (let index = 0; index < value.length; index++) {
