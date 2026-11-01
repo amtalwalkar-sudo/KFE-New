@@ -34,6 +34,11 @@ assert.ok(!repository.includes('../application/'), 'repository must not depend o
 assert.ok(repository.includes('!t?.deletedAt && t?.deleted !== true'), 'Operational Shift Trip lists must exclude soft-deleted Trip records.')
 assert.ok(repository.includes("s.status === 'COMPLETED' && !s?.deletedAt && s?.deleted !== true"), 'Last completed Shift lookup must ignore soft-deleted records.')
 assert.ok(repository.includes("t.status === 'COMPLETED' && !t?.deletedAt && t?.deleted !== true"), 'Last completed Trip lookup must ignore soft-deleted records.')
+assert.ok(repository.includes("const isLiveRecord = record => Boolean(record && !record.deletedAt && record.deleted !== true)"), 'Lifecycle decisions must share one live-record predicate.')
+assert.ok(repository.includes("trips.find(t => isLiveRecord(t) && t.status === 'ACTIVE' && t.shiftId === shift.id)"), 'Active Trip reads must be scoped to the live active Shift.')
+assert.ok(repository.includes("shiftTrips.some(trip => trip.status === 'ACTIVE')"), 'Shift completion must block a live active Trip after filtering soft-deleted records.')
+assert.ok(service.includes("!item?.deletedAt && item?.deleted !== true && item.status === 'ACTIVE'"), 'Android Shift completion must ignore soft-deleted Trip rows when checking for an active Trip.')
+
 assert.ok(service.includes('configureCanonicalReadBoundary(reconcileCanonicalReads)'))
 assert.match(service, /const reconcileCanonicalReads = \(\) => \{[\s\S]*?const nativeAvailable = requireLifecycleStorage\(\)/, 'Android canonical reads must fail closed when SQLite is unavailable instead of displaying stale IndexedDB data.')
 assert.ok(repository.includes('outcome?.accepted !== true') === false, 'native acknowledgement check belongs to the injected application boundary')
