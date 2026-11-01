@@ -2030,8 +2030,18 @@ public class KfeNativeFullShiftAcceptanceTest {
     db.beginTransaction();
     try {
       for (String shiftId : staleShiftIds) {
-        db.delete("canonical_records", "entity_type='TRIP' AND json_extract(payload, '$.shiftId')=?",
-            new String[]{shiftId});
+        java.util.ArrayList<String> tripIds = new java.util.ArrayList<>();
+        try (android.database.Cursor trips = db.query("canonical_records",
+            new String[]{"entity_id", "payload"}, "entity_type='TRIP'",
+            null, null, null, null)) {
+          while (trips.moveToNext()) {
+            JSONObject trip = new JSONObject(trips.getString(1));
+            if (shiftId.equals(trip.optString("shiftId", ""))) tripIds.add(trips.getString(0));
+          }
+        }
+        for (String tripId : tripIds) {
+          db.delete("canonical_records", "entity_type='TRIP' AND entity_id=?", new String[]{tripId});
+        }
         db.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
       }
       db.setTransactionSuccessful();
