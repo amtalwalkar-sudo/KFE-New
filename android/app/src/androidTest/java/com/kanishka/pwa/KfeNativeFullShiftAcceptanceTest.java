@@ -881,15 +881,13 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Retry must derive revenue from the canonical fare without duplication.", 275d,
         savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
-    // The successful fare commit advances the canonical Shift version while
-    // updating its derived revenue projection. Clean up from that latest record,
-    // not the earlier recovery snapshot, so the test uses the current version.
-    JSONObject latestShift = savedShift.getJSONObject("record");
-    JSONObject completedShift = new JSONObject(latestShift.toString())
-        .put("status", "COMPLETED").put("updatedAt", "2101-01-01T00:00:00.000Z");
-    assertTrue("The test must leave no active Shift fixture behind.",
-        store.putRecord("form-outbox-shift-cleanup-" + suffix, "SHIFT", completedShift,
-            latestShift.getString("updatedAt"), false).accepted);
+    // This is a test-owned fixture. Remove its canonical row directly rather
+    // than issuing a versioned business transition: the fare projection may
+    // legitimately advance the Shift payload during the retry being tested.
+    SQLiteDatabase cleanupDb = store.getWritableDatabase();
+    assertEquals("The test must remove exactly its own Shift fixture.", 1,
+        cleanupDb.delete("canonical_records",
+            "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}));
   }
 
   @Test public void formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently() throws Exception {
