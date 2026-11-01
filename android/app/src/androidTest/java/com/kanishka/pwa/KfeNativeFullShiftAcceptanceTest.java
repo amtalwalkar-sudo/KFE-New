@@ -1925,6 +1925,11 @@ public class KfeNativeFullShiftAcceptanceTest {
       SystemClock.sleep(250L);
       KfeOverlayService.instance = null;
       KfeOverlayService.clearPersistedOverlayState(context);
+      android.database.sqlite.SQLiteDatabase db = store.getWritableDatabase();
+      db.delete("canonical_records", "entity_id=?", new String[]{shiftId});
+      String shiftOperationId = "active-overlay-resume-create-" + suffix;
+      db.delete("canonical_operations", "operation_id=?", new String[]{shiftOperationId});
+      db.delete("canonical_audit", "operation_id=?", new String[]{shiftOperationId});
     }
   }
 }
