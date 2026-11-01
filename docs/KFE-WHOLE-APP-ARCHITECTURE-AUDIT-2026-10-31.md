@@ -92,7 +92,7 @@ The active calculation surface is intentionally small:
 - `src/application/performance/phaseOnePerformanceService.js` — reporting-period orchestration and repository read.
 - `src/domain/work/liveRevenue.js` — canonical Shift revenue projection from eligible completed fares and cancellation fees; mirrored transactionally by native SQLite for Android commits.
 
-No active domain finance/loan engine, forecast, break-even, driver-target, provision, amortization or maintenance-projection calculation remains. The Admin Loan form stores contractual source facts only; it does not calculate EMI, repayment schedules or balances. This is separate from Basic Performance, which uses only saved ride/cancellation and fuel facts.
+No active finance engine, forecast, break-even, driver-target, provision, amortization or maintenance-projection calculation remains. The Loan form stores contractual source facts and displays only a derived monthly EMI estimate using the pure domain function; no EMI is persisted and no repayment schedule, payment history or balance ledger exists. Basic Performance remains limited to saved ride/cancellation and fuel facts.
 
 ### 10. End-to-end runtime wiring
 
