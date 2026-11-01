@@ -40,12 +40,19 @@ The current source and documentation audit is still being completed. The physica
 - Those newer changes require a fresh CI run on the latest PR head. The earlier green result must not be represented as proof for a later commit.
 - No physical-device acceptance has been performed or claimed.
 
+## Latest GPS integrity follow-up
+
+- Native and browser capture now measure the 30-second window from the original ride-event timestamp, not from a later retry attempt.
+- Timeline and manual locality resolution reject snapshots outside that event-time window.
+- Cached locality labels are bound to the exact event/capture timestamp pair, preventing reuse after a snapshot is replaced.
+- Pending GPS work has no timed backoff or idle retry loop; eligible requests resume only on a ride event, app open, or explicit GPS-status refresh.
+
 ## Remaining work
 
 1. Finish the whole-application source, documentation and contract audit on PR #412.
 2. Run all governance, business-foundation, UI-isolation, PWA build/runtime, persistence/recovery and Android exact-APK emulator gates on the final PR head.
 3. Review the exact APK identity from that run and install it on the target phone.
-4. Verify the four GPS events offline, permission denial, degraded signal, pending capture and later eligible retry trigger.
+4. Verify the four GPS events offline, permission denial, degraded signal, and retry only while the original 30-second event-time window remains open; expired events must remain unavailable rather than receive a later fix.
 5. Verify locality resolution occurs only after explicit Timeline pull-to-refresh and that credible saved labels persist after restart.
 6. Verify native overlay commits, PWA synchronization, shift ownership, Admin navigation/Android Back, forms and recovery.
 7. Verify Timeline, basic Performance, Phone Backup, Dropbox foreground backup, restore and reset safeguards.
