@@ -25,6 +25,9 @@ assert.match(service, /AdminRepository\.save\(formKey,result\.values,existingId\
 assert.doesNotMatch(repository, /from ['"][^'"]*application\/admin\//, 'Persistence must not depend upward on Admin application definitions or validation.')
 assert.doesNotMatch(repository, /validateAdminForm|getAdminFormDefinition/, 'Admin validation must have one application-layer owner.')
 assert.doesNotMatch(repository, /getSetting|saveSetting/, 'Admin must not retain a second direct settings persistence path outside AdminService.save.')
+assert.match(repository, /delete base\.annualInterestRate; delete base\.emi/, 'Retired persisted Loan EMI metadata must be stripped on the next canonical save.')
+assert.match(view, /LoanCalculationService\.monthlyEmi/, 'The Loan list may display only the derived monthly EMI estimate.')
+
 assert.match(repository, /maintenance: \[\['vehicleId', 'vehicles'\]\]/)
 assert.match(repository, /\{ store: 'maintenance_records', field: 'vehicleId', label: 'maintenance' \}/)
 assert.match(repository, /const dependencies = dependentRecordStores\[formKey\] \|\| \[\]/)
