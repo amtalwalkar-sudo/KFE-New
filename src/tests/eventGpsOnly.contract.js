@@ -4,7 +4,7 @@ import fs from 'node:fs'
 const read = path => fs.readFileSync(path, 'utf8')
 const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
 const gpsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java')
-const tripBoundary = read('src/application/work/tripBoundaryLocation.js')
+const tripBoundary = read('src/domain/location/tripBoundaryLocation.js')
 const eventLocations = read('src/application/location/eventLocationService.js')
 const workService = read('src/application/work/workService.js')
 const timeline = read('src/views/ActivityTimelineView.vue')
