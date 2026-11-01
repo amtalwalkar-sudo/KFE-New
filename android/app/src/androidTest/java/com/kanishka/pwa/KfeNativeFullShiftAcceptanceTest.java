@@ -881,11 +881,15 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Retry must derive revenue from the canonical fare without duplication.", 275d,
         savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
-    JSONObject completedShift = new JSONObject(restoredShift.toString())
+    // The successful fare commit advances the canonical Shift version while
+    // updating its derived revenue projection. Clean up from that latest record,
+    // not the earlier recovery snapshot, so the test uses the current version.
+    JSONObject latestShift = savedShift.getJSONObject("record");
+    JSONObject completedShift = new JSONObject(latestShift.toString())
         .put("status", "COMPLETED").put("updatedAt", "2101-01-01T00:00:00.000Z");
     assertTrue("The test must leave no active Shift fixture behind.",
         store.putRecord("form-outbox-shift-cleanup-" + suffix, "SHIFT", completedShift,
-            restoredShift.getString("updatedAt"), false).accepted);
+            latestShift.getString("updatedAt"), false).accepted);
   }
 
   @Test public void formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently() throws Exception {
