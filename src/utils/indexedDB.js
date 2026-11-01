@@ -1,4 +1,4 @@
-import { CANONICAL_DB_VERSION } from '../constants/canonicalDatabase.js'
+import { CANONICAL_DB_VERSION, RETIRED_CANONICAL_STORES } from '../constants/canonicalDatabase.js'
 
 const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'
 const CANONICAL_DB_CHANGE_EVENT = 'kfe:canonical-data-changed'
@@ -111,7 +111,7 @@ const openDatabase = name => new Promise((resolve, reject) => {
     }
     // Retired workflow stores are removed in schema v18. Their records are no
     // longer active business data and are deliberately excluded from new backups.
-    for (const retiredStore of ['odoGaps', 'days', 'movement_artifacts', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settlements', 'financial_period_snapshots', 'driver_collected_data', 'admin_records', 'financial_inputs']) {
+    for (const retiredStore of RETIRED_CANONICAL_STORES) {
       if (db.objectStoreNames.contains(retiredStore)) db.deleteObjectStore(retiredStore)
     }
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
