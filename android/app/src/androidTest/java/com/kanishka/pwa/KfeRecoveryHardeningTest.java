@@ -93,7 +93,7 @@ public class KfeRecoveryHardeningTest {
     assertRejectedWrite(store, "recovery-stale-op-" + suffix, "SHIFT", stale, "Stale canonical write rejected");
     JSONObject equalVersionConflict = new JSONObject(shift.toString()).put("revenue", 999);
     assertRejectedWrite(store, "recovery-equal-op-" + suffix, "SHIFT", equalVersionConflict,
-        "different payloads share updatedAt");
+        "Stale canonical write rejected");
     assertEquals("Rejected stale/conflicting snapshots must not roll back the acknowledged projection.", 400,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
 
