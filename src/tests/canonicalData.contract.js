@@ -80,4 +80,6 @@ assert.equal(migrated.formatVersion, 6); assert.equal('driver_collected_data' in
 for (const retired of ['days','odoGaps','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots']) assert.equal(retired in migrated.stores, false, retired + ' must not survive backup migration.')
 for (const store of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${store}'`))
 assert.match(indexedDB, /createObjectStore\('gps_snapshots'/)
+assert.match(indexedDB, /trips\.deleteIndex\('dayId'\)/, 'The retired Trip → Day index must be removed during schema upgrade.')
+for (const retired of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createObjectStore\\('${retired}'`), `${retired} must not be recreated through a direct object-store declaration.`)
 console.log('Canonical data contract: current source facts retained; retired stores removed and excluded from migrated backups.')
