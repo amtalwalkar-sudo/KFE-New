@@ -106,11 +106,13 @@ const openDatabase = name => new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains('movement_artifacts')) { const store = db.createObjectStore('movement_artifacts', { keyPath: 'id' }); store.createIndex('shiftId', 'shiftId', { unique: false }); store.createIndex('generatedAt', 'generatedAt', { unique: false }) }
     createSimpleStore(db, 'vehicles', ['registrationNumber', 'active']); createSimpleStore(db, 'drivers', ['status', 'name'])
     createSimpleStore(db, 'compliance_records', ['vehicleId', 'complianceType', 'validUntil']); createSimpleStore(db, 'maintenance_records', ['vehicleId', 'performedOn'])
-    createSimpleStore(db, 'loans', ['status', 'startDate']); createSimpleStore(db, 'loan_payments', ['loanId', 'paidOn', 'status']); createSimpleStore(db, 'prepayments', ['loanId', 'paidOn'])
-    createSimpleStore(db, 'driver_targets', ['driverId', 'effectiveFrom', 'active']); createSimpleStore(db, 'break_even_inputs', ['effectiveFrom'])
-    createSimpleStore(db, 'form_drafts', ['formId', 'parentId', 'ownerId', 'updatedAt']); createSimpleStore(db, 'canonical_operations', ['entityType', 'createdAt']); createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt']); createSimpleStore(db, 'settlements', ['settlementType', 'sourceType', 'sourceId', 'settledOn'])
-    if (!db.objectStoreNames.contains('financial_period_snapshots')) { const store = db.createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' }); store.createIndex('closedAt', 'closedAt', { unique: false }) }
-    if (db.objectStoreNames.contains('driver_collected_data')) db.deleteObjectStore('driver_collected_data')
+    createSimpleStore(db, 'loans', ['status', 'startDate'])
+    createSimpleStore(db, 'form_drafts', ['formId', 'parentId', 'ownerId', 'updatedAt']); createSimpleStore(db, 'canonical_operations', ['entityType', 'createdAt']); createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt'])
+    // Retired workflow stores are removed in schema v18. Their records are no
+    // longer active business data and are deliberately excluded from new backups.
+    for (const retiredStore of ['odoGaps', 'days', 'movement_artifacts', 'loan_payments', 'prepayments', 'driver_targets', 'break_even_inputs', 'settlements', 'financial_period_snapshots', 'driver_collected_data', 'admin_records', 'financial_inputs']) {
+      if (db.objectStoreNames.contains(retiredStore)) db.deleteObjectStore(retiredStore)
+    }
     if (db.objectStoreNames.contains('admin_records')) db.deleteObjectStore('admin_records')
     if (db.objectStoreNames.contains('financial_inputs')) db.deleteObjectStore('financial_inputs')
   }
