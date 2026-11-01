@@ -259,6 +259,12 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Removed the embedded fields from the canonical Trip factory, strip them during Trip normalization, and removed the browser/native metadata-preservation helpers. The only active GPS authority is the separate canonical event snapshot store; the four event moments do not mutate Trip or Shift records. The redundant application-layer GPS normalizer re-export was also removed so the pure fix validator has one domain owner.
 
+### 37. Runtime and boundary test fixtures still referenced retired stores and workflows
+
+**Finding:** The runtime visual smoke fixture still opened retired `loans` and `loan_payments` stores and seeded obsolete embedded Trip GPS and distance fields. An unreferenced Phase 4 boundary-continuity script also imported retired gap-allocation and operational-record workflows. The event-GPS-only contract still pointed to the removed application-layer normalizer alias.
+
+**Change:** The runtime fixture now seeds only active Shift, Trip, Fuel and GPS snapshot stores, verifies separate GPS evidence and uses no retired calculation fields. Deleted the unreferenced Phase 4 continuity script and updated the GPS contract to target the single domain fix validator.
+
 ## Verification
 
 The following are enforced by regression contracts:
