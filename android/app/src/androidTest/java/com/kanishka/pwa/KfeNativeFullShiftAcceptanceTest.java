@@ -816,7 +816,7 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
         .put("tripStage", "COMPLETED").put("updatedAt", "2020-01-01T00:00:00.000Z");
     assertTrue("Initial active shift must commit.",
-        store.putRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
+        store.restoreRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
         store.restoreRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
 
