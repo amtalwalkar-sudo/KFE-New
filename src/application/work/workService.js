@@ -94,8 +94,8 @@ const reconcileCanonicalReads = () => {
   canonicalReadAttempt = recoverCanonicalWorkSnapshot({
     readCanonical: async () => {
       const [shifts, trips] = await Promise.all([
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+        CanonicalWorkBoundary.listAllRecords('SHIFT'),
+        CanonicalWorkBoundary.listAllRecords('TRIP'),
       ])
       return { shifts, trips }
     },
@@ -117,11 +117,11 @@ configureCanonicalReadBoundary(reconcileCanonicalReads)
 // Android lifecycle writes commit to SQLite before touching the IndexedDB read model.
 // The entity/version operation key makes a retry of the same payload idempotent.
 const readNativeWorkSnapshot = async () => {
-  const [shiftResult, tripResult] = await Promise.all([
-    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+  const [shifts, trips] = await Promise.all([
+    CanonicalWorkBoundary.listAllRecords('SHIFT'),
+    CanonicalWorkBoundary.listAllRecords('TRIP'),
   ])
-  return { shifts: shiftResult.records || [], trips: tripResult.records || [] }
+  return { shifts, trips }
 }
 const stableIntentValue = value => {
   if (Array.isArray(value)) return value.map(stableIntentValue)
