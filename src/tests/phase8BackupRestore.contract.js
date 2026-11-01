@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CANONICAL_BACKUP_STORES, BackupService } from '../application/backup/backupService.js'
 import { mergeCanonicalBackupSnapshot } from '../repositories/backupRepository.js'
 const stores = Object.fromEntries(CANONICAL_BACKUP_STORES.map(store => [store, []]))
-const snapshot = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 13 }, exportedAt: '2026-09-17T00:00:00.000Z', stores }
+const snapshot = { format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt: '2026-09-17T00:00:00.000Z', stores }
 const backupPanel = await (await import('node:fs/promises')).readFile(new URL('../components/admin/BackupRestorePanel.vue', import.meta.url), 'utf8')
 assert.match(backupPanel, /Create a JSON backup file you can keep on your phone or move elsewhere\./)
 assert.match(backupPanel, /separate private recovery copy inside the app/)
 assert.match(backupPanel, /KFE private recovery copy/)
 assert.equal(typeof BackupService.createBackup, 'function'); assert.equal(typeof BackupService.serializeBackup, 'function'); assert.equal(typeof BackupService.readBackupText, 'function'); assert.equal(typeof BackupService.saveLocalBackup, 'function'); assert.equal(typeof BackupService.getLocalBackup, 'function'); assert.equal(typeof BackupService.restoreBackup, 'function'); assert.equal(typeof BackupService.requestLocalBackupCheckpoint, 'function'); assert.equal(typeof BackupService.maybeDailyLocalBackup, 'function')
-assert.equal(CANONICAL_BACKUP_STORES.length, 22); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false); assert.equal(CANONICAL_BACKUP_STORES.includes('locality_labels'), true)
+assert.equal(CANONICAL_BACKUP_STORES.length, 13); assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false); assert.equal(CANONICAL_BACKUP_STORES.includes('locality_labels'), true)
 const record = structuredClone(snapshot); record.stores.trips = [{ id: 'trip-1', fare: 327, distanceKm: 18.4 }]
 const serialized = BackupService.serializeBackup(record); assert.deepEqual(BackupService.readBackupText(serialized), record); assert.equal(BackupService.getBackupSummary(record).totalRecords, 1)
 const PRE_FA4_BACKUP_STORES = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
