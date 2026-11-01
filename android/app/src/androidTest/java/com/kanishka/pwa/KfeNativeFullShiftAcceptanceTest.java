@@ -1057,6 +1057,27 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("revenue", 0).put("updatedAt", java.time.Instant.now().toString());
     assertTrue("Process-death fixture shift must commit.",
         store.putRecord("lifecycle-process-death-shift-create-" + tripId, "SHIFT", shift).accepted);
+    // START_RIDE and END_RIDE are recovery retries of an already-created Trip.
+    // Seed the exact preceding canonical lifecycle stages so this harness models
+    // the real workflow instead of asking the guarded store to start a missing Trip.
+    if (!"GO_TO_PICKUP".equals(stage)) {
+      String priorVersion = java.time.Instant.ofEpochMilli(startAt - 1000L).toString();
+      JSONObject priorTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", priorVersion).put("updatedAt", priorVersion);
+      assertTrue("Process-death fixture pickup stage must commit.",
+          store.commitTripLifecycle("lifecycle-process-death-pickup-" + tripId,
+              "GO_TO_PICKUP", priorTrip, null, true).accepted);
+      if ("END_RIDE".equals(stage)) {
+        String rideStartAt = java.time.Instant.ofEpochMilli(startAt).toString();
+        JSONObject startedTrip = new JSONObject(priorTrip.toString())
+            .put("tripStage", "RIDE_STARTED").put("tripStartAt", rideStartAt)
+            .put("updatedAt", rideStartAt);
+        assertTrue("Process-death fixture ride-start stage must commit.",
+            store.commitTripLifecycle("lifecycle-process-death-start-" + tripId,
+                "START_RIDE", startedTrip, priorVersion, false).accepted);
+      }
+    }
     prepareSnapshot(prefs, shiftId, tripId);
 
     AttachedOverlayService service = new AttachedOverlayService();
