@@ -30,7 +30,7 @@ const nativeLocation = fs.readFileSync('android/app/src/main/java/com/kanishka/p
 const fuelFlow = fs.readFileSync('src/application/work/fuel.js', 'utf8')
 
 assert.match(workService, /transitionTripStage\(trip, 'RIDE_STARTED', \{ at: new Date\(\)\.toISOString\(\) \}\)/, 'PWA ride-start business timestamp must be captured at the transition')
-assert.match(workService, /next\.tripEndAt = data\.tripEndAt \|\| trip\.tripEndAt \|\| now/, 'PWA trip-end timestamp must be retained or assigned at completion')
+assert.match(workService, /eventAt = data\?\.tripEndAt \|\| trip\.tripEndAt \|\| now[\s\S]*?next\.tripEndAt = eventAt/, 'PWA trip-end timestamp must be retained or assigned at completion')
 assert.match(nativeOverlay, /trip\.put\("tripStartAt",new java\.util\.Date\(tripStartAt\)\.toInstant\(\)\.toString\(\)\)/, 'native trip-start timestamp must use the persisted start instant')
 assert.match(nativeOverlay, /trip\.put\("tripEndAt",eventTimestamp\)/, 'native trip-end timestamp must use the durable lifecycle event timestamp')
 assert.match(nativeOverlay, /location\.getTime\(\)/, 'native GPS snapshots must use the provider fix timestamp')
