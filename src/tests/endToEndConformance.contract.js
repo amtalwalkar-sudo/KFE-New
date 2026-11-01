@@ -101,7 +101,9 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), tr
 // 7. Calculation convergence / one native persistence projection with domain parity.
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
-assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
+assertIncludes(workView, 'LiveRevenueReadModel.forTrips(trips)', 'PWA live revenue must be derived from saved Trip fares through the application read model.')
+assertIncludes(workView, 'LiveRevenueReadModel.forShift(store.registeredTrips', 'Work UI must request the active Shift total through the application read model.')
+assertIncludes(readRepo('src/application/work/liveRevenueReadModel.js'), 'deriveLiveRevenue', 'The application read model must delegate to the single domain revenue formula.')
 assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)', 'Native fare/cancellation must commit the canonical Trip and Shift.revenue projection atomically.')
 assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Native SQLite must mirror the domain revenue rule transactionally as a persistence projection.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
