@@ -2,7 +2,6 @@ import { BackupService } from './backupService.js'
 import { BackupConfig } from './backupConfig.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-let scheduler = null
 let beforeBackup = null
 let activeCloudBackupAttempt = null
 
@@ -11,19 +10,12 @@ export const configureBeforeCloudBackup = callback => {
   beforeBackup = callback || null
 }
 
-export const configureCloudBackupScheduler = nextScheduler => {
-  if (!nextScheduler || typeof nextScheduler.registerDaily !== 'function') throw new TypeError('Invalid cloud backup scheduler.')
-  scheduler = nextScheduler
-}
-
 export const initializeConfiguredCloudBackupProvider = async () => {
   const provider = await BackupConfig.registerConfiguredBackupProvider()
   if (!provider) return null
   BackupService.registerCloudBackupProvider(provider)
   return provider
 }
-
-export const registerDailyCloudBackupSchedule = async () => scheduler ? scheduler.registerDaily() : false
 
 const runCloudBackupAttempt = async ({ force = false } = {}) => {
   try {
@@ -58,4 +50,4 @@ export const restoreFromConfiguredCloud = async () => {
   return BackupService.restoreFromCloud()
 }
 
-export const CloudBackupLifecycle = Object.freeze({ configureCloudBackupScheduler, configureBeforeCloudBackup, initializeConfiguredCloudBackupProvider, registerDailyCloudBackupSchedule, maybeDailyCloudBackup, backupToConfiguredCloud, restoreFromConfiguredCloud })
+export const CloudBackupLifecycle = Object.freeze({ configureBeforeCloudBackup, initializeConfiguredCloudBackupProvider, maybeDailyCloudBackup, backupToConfiguredCloud, restoreFromConfiguredCloud })
