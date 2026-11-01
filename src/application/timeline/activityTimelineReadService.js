@@ -37,7 +37,7 @@ export const locationLabel = (snapshot, localityBySnapshotId = new Map()) => {
   // acceptable accuracy. Older labels created without accuracy are not trusted.
   const localityEligible = hasAccuracy && Number.isFinite(accuracy) && accuracy <= 75
   const savedRecord = localityEligible ? localityBySnapshotId.get(snapshot.id) : null
-  const saved = savedRecord?.eventAt === snapshot.eventAt && savedRecord?.capturedAt === snapshot.capturedAt
+  const saved = savedRecord && savedRecord.eventAt === snapshot.eventAt && savedRecord.capturedAt === snapshot.capturedAt
     ? savedRecord.placeName : null
   if (typeof saved === 'string' && saved.trim()) return saved.trim()
   return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
