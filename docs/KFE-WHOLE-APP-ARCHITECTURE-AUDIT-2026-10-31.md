@@ -331,6 +331,12 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** No second calculation implementation was found that justified another deletion. Kept the active minimal formulas and their regression contracts rather than deleting legitimate calculation code or reviving historical financial workflows.
 
+### 48. Corrupt native GPS event journal could masquerade as an empty queue
+
+**Finding:** The GPS journal returned zero pending events or a null retry candidate when its persisted JSON could not be read. That could silently skip an event capture during app-open or explicit status-refresh recovery.
+
+**Change:** Journal count and retry reads now fail closed. The native retry entry point catches the read failure as a recovery-blocked state and does not proceed as though the queue were empty. Android instrumentation corrupts the persisted journal deliberately and verifies both read paths throw rather than discard pending work.
+
 ## Verification
 
 The following are enforced by regression contracts:
