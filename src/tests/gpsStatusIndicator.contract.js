@@ -48,8 +48,11 @@ assert.match(gpsJournal, /pendingEventGpsCaptures\.v1/,
 assert.match(overlayService, /Discarded pending GPS request for missing trip/, 'a reset/deleted trip must not receive a later orphan GPS snapshot')
 assert.doesNotMatch(overlayService, /schedulePendingGpsRetry/,
   'failed fixes must not keep an idle foreground service alive for timed retries')
-assert.match(overlayService, /recordPendingGpsFailure/,
-  'failed fixes must remain durable for a later eligible retry')
+assert.match(overlayService, /if\(saved\)removePendingEventLocation\(entityType,entityId,eventType\)/,
+  'a failed event-time capture remains durable while its original capture window is still open')
+assert.match(overlayService, /KfeGpsEventPolicy\.remainingCaptureWindowMs/)
+assert.doesNotMatch(overlayService, /recordPendingGpsFailure|RETRY_DELAYS_MS|nextAttemptAt/,
+  'GPS capture must not use timed retry backoff metadata')
 assert.match(overlayService, /PICKUP_START/,
   'native overlay must queue pickup-origin location')
 assert.match(overlayService, /TRIP_CANCELLED/,
