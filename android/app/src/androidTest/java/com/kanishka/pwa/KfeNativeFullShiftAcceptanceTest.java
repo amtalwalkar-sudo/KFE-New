@@ -860,8 +860,10 @@ public class KfeNativeFullShiftAcceptanceTest {
     // exact same event ID. A second replay must be idempotent across lost ack.
     JSONObject restoredShift = new JSONObject(endedShift.toString())
         .put("status", "ACTIVE").put("updatedAt", "2100-01-01T00:00:00.000Z");
-    assertTrue("Recovered active shift must commit.",
-        KfeCanonicalWorkStore.get(context).putRecord(
+    SQLiteDatabase recoveryDb = KfeCanonicalWorkStore.get(context).getWritableDatabase();
+    recoveryDb.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+    assertTrue("Recovered active shift must be restored through the recovery path.",
+        KfeCanonicalWorkStore.get(context).restoreRecord(
             "form-outbox-shift-restore-" + suffix, "SHIFT", restoredShift).accepted);
     invoke(service, "persistCanonicalTripForm",
         new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
