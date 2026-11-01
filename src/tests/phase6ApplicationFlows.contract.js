@@ -48,7 +48,7 @@ assert.match(timeline, /@touchstart\.passive="onTouchStart"/)
 assert.match(timeline, /@touchend\.passive="onTouchEnd"/)
 assert.match(timeline, /EventLocalityService\.resolveSnapshots\(eligible\)/)
 assert.match(timeline, /refreshLocationNames/)
-assert.match(timelineRead, /WorkRuntimePorts\.platform\.isOnline\(\)/)
+assert.doesNotMatch(timelineRead, /isOnline|navigator\.onLine/, 'Timeline reads must not poll connectivity; locality provider checks are explicit-refresh only.')
 assert.doesNotMatch(timeline, /navigator\.onLine/, 'Timeline presentation must use the platform adapter rather than reading browser connectivity directly.')
 assert.match(locationService, /const RIDE_EVENTS = new Set\(\['PICKUP_START', 'TRIP_CANCELLED', 'TRIP_START', 'TRIP_END'\]\)/)
 assert.doesNotMatch(locationService, /EventLocalityService|resolveSnapshot|resolveNativeSnapshotAfterCapture|setTimeout|setInterval/,
