@@ -917,6 +917,8 @@ public class KfeOverlayService extends Service {
     }
   }
   private void retryPendingEventLocations(){
+    // The durable journal is resumed only at a later event, app-open, or explicit status refresh,
+    // and only while the original event-time capture window remains open.
     try{
       // A journal read failure is a recovery-blocked state, never an empty queue.
       if(!hasPendingEventLocations()){stopGpsOnlyServiceIfIdle();return;}
@@ -999,7 +1001,7 @@ public class KfeOverlayService extends Service {
     }
     if(!hasBackgroundLocationPermission()){
       Log.w("KFE-GPS","Background "+eventType+" GPS capture is pending; required precise/background permissions are not granted. No location request was started.");
-      if(overlay==null&&!hasPersistedOverlayState(this)){stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+      stopGpsOnlyServiceIfIdle();
       return;
     }
     String key=KfeGpsEventPolicy.key(entityType,entityId,eventType);
