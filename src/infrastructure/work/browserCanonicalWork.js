@@ -22,6 +22,16 @@ const canonicalize = value => {
 const jsonEquivalent = (left, right) => JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right))
 
 
+// Legacy embedded GPS is ignored only when replaying operation-ledger payloads
+// created by older versions. It is never preserved in a new canonical Trip write.
+const withoutTripBoundarySnapshots = trip => {
+  const copy = { ...trip }
+  delete copy.tripStartLocation
+  delete copy.tripEndLocation
+  delete copy.tripStartLocationStatus
+  delete copy.tripEndLocationStatus
+  return copy
+}
 const sameShiftExceptRevenueProjection = (left, right) => {
   const a = { ...left }, b = { ...right }
   for (const field of ['updatedAt', 'revenue', 'liveFareRevenue', 'revenueSource']) {
@@ -121,7 +131,7 @@ export const BrowserCanonicalWorkService = Object.freeze({
             if (previous.command !== 'PUT_RECORD' || previous.entityType !== entityType || previous.entityId !== entityId) throw new Error('operationId was already used for a different command.')
             const previousRecord = previous.outcome?.record
             const samePayload = previousRecord && (entityType === 'TRIP'
-              ? jsonEquivalent(previousRecord, record)
+              ? jsonEquivalent(withoutTripBoundarySnapshots(previousRecord), withoutTripBoundarySnapshots(record))
               : jsonEquivalent(previous.outcome.record, record))
             if (!samePayload) throw new Error('operationId was already used with a different payload.')
             outcome = { accepted: previous.status === 'ACCEPTED', duplicate: true, outcome: previous.outcome }
