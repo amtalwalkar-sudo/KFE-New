@@ -42,6 +42,11 @@ assert.match(fuelRepository, /capturedAt: existing\.capturedAt/, 'fuel correctio
 assert.match(fuelFlow, /FuelRepository\.create\(\{ \.\.\.validation, vehicleId \}\)/, 'fuel save must commit without waiting for optional GPS')
 assert.doesNotMatch(workService, /watchPosition\s*\(/, 'trip-boundary implementation must not add continuous browser GPS tracking')
 assert.match(nativeOverlay, /requestLocationUpdates\(provider,3000L,0f/)
-assert.match(nativeOverlay, /handler\.postDelayed\(stop,30000L/)
+assert.match(nativeOverlay, /handler\.postDelayed\(stop,remainingWindowMs/)
 assert.match(nativeOverlay, /removeUpdates\(this\)/, 'native provider updates must stop after an accepted fix')
 console.log('PASS: GPS coordinates/accuracy and shift-trip-fuel timestamps retain their correct event/provider semantics')
+
+
+const eventGpsPolicy = fs.readFileSync('src/domain/location/eventGpsPolicy.js', 'utf8')
+assert.match(eventGpsPolicy, /EVENT_GPS_CAPTURE_WINDOW_MS = 30_000/, 'the event GPS window is anchored to the original event timestamp')
+assert.match(eventGpsPolicy, /fixTime - eventTime < EVENT_GPS_CAPTURE_WINDOW_MS/, 'a provider fix after the event-time window must be rejected')
