@@ -11,6 +11,8 @@ const indexedDb = fs.readFileSync('src/utils/indexedDB.js', 'utf8')
 const canonicalBoundary = fs.readFileSync('src/application/work/canonicalWorkBoundary.js', 'utf8')
 
 assert.match(eventLocationService, /async forEntities\(entityType, entityIds = \[\], eventTypes = \[\.\.\.RIDE_EVENTS\]\)/)
+assert.match(eventLocationService, /isValidEventGpsTimestamp/, 'Timeline must ignore fixes outside the original event-time window.')
+assert.match(eventLocalityService, /isValidEventGpsTimestamp/, 'Locality lookup must reject stale event fixes even when manually refreshed.')
 assert.match(eventLocationService, /getEventLocationSnapshot/)
 assert.match(eventLocationService, /RIDE_EVENTS/)
 assert.match(readService, /EventLocationService\.forEntities\('TRIP', periodTrips\.map/)
