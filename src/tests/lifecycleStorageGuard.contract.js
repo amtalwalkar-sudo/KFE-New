@@ -57,7 +57,7 @@ for (const [method, nextMethod, nativeCall, browserCall] of [
 }
 
 const noop = async () => ({})
-assert.match(boundary, /async commitTripForm\\(input\\)[\\s\\S]*?WorkRuntimePorts\\.canonicalWork\\.commitTripForm\\(normalized\\)/, 'Android Trip forms must route through the native form transaction.')
+assert.ok(boundary.includes('async commitTripForm(input)') && boundary.includes('WorkRuntimePorts.canonicalWork.commitTripForm(normalized)'), 'Android Trip forms must route through the native form transaction.')
 configureWorkRuntimePorts({
   nativeWorkActions: {
     clearPendingAction: noop, addListener: noop, consumePendingActions: noop,
