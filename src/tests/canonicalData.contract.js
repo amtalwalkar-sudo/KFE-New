@@ -56,15 +56,19 @@ assert.match(shiftTripRepo.slice(shiftTripRepo.indexOf('async completeShift(data
 assert.match(fuelRepo, /normalized\.id \|\| generateUUID\(\)/)
 assert.match(canonicalRecords, /shiftId is required for a Trip/)
 
-for (const store of ['shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']) {
+for (const store of ['shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','settings','pending_mutations','audit_history','gps_snapshots','locality_labels','form_drafts','canonical_operations']) {
   assert.match(indexedDB, new RegExp(`['\\\"]${store}['\\\"]`), `${store} must remain available to preserve saved records`)
 }
 assert.doesNotMatch(indexedDB, /createSimpleStore\(db, 'driver_collected_data'/)
-assert.match(indexedDB, /deleteObjectStore\('driver_collected_data'\)/)
+assert.match(indexedDB, /db\.deleteObjectStore\(retiredStore\)/)
+for (const retired of ['odoGaps','days','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots','driver_collected_data']) {
+  assert.match(indexedDB, new RegExp(`'${retired}'`), `${retired} must be explicitly removed during schema migration.`)
+  assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${retired}'`), `${retired} must not be recreated.`)
+}
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
-assert.equal(BACKUP_FORMAT_VERSION, 5)
+assert.equal(BACKUP_FORMAT_VERSION, 6)
 assert.match(backupSource, /backup\.formatVersion < BACKUP_FORMAT_VERSION/)
-assert.match(backupSource, /driver_collected_data: _removed/)
+assert.match(backupSource, /driver_collected_data: _driverCollected/)
 assert.match(dataContract, /Preserve those records during scope cleanup and backup\/restore/)
 assert.match(dataContract, /Hard deletion of canonical business records requires an explicit data-destruction action/)
 assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target domain owns|monthly break-even result/)
@@ -72,6 +76,8 @@ assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target do
 const legacyStores = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
 const stores = Object.fromEntries([...legacyStores.map(store => [store, []]), ['driver_collected_data', []]])
 const migrated = validateBackup({ format: 'KFE_BACKUP', formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: new Date().toISOString(), stores })
-assert.equal(migrated.formatVersion, 5); assert.equal('driver_collected_data' in migrated.stores, false)
-for (const store of ['days','odoGaps','gps_snapshots','movement_artifacts']) assert.match(indexedDB, new RegExp(`['\\\"]${store}['\\\"]`))
+assert.equal(migrated.formatVersion, 6); assert.equal('driver_collected_data' in migrated.stores, false)
+for (const retired of ['days','odoGaps','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots']) assert.equal(retired in migrated.stores, false, retired + ' must not survive backup migration.')
+for (const store of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\\\(db, ['\\\\\\\"]${store}['\\\\\\\"]`))
+assert.match(indexedDB, /createObjectStore\('gps_snapshots'/)
 console.log('Canonical data contract: core facts normalized; legacy saved records preserved without retired calculation models.')
