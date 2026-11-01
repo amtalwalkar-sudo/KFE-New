@@ -27,6 +27,28 @@ export const LocalityRepository = Object.freeze({
       Promise.all(ids.map(id => readOne(store, id))).then(rows => resolve(rows.filter(Boolean))).catch(reject)
     })
   },
+  async deleteForSnapshot(snapshotId) {
+    if (!snapshotId) return false
+    const db = await initializeCanonicalStorage()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('locality_labels', 'readwrite')
+      const store = tx.objectStore('locality_labels')
+      const lookup = store.get(snapshotId)
+      let deleted = false
+      lookup.onsuccess = () => {
+        if (!lookup.result) return
+        deleted = true
+        store.delete(snapshotId)
+      }
+      lookup.onerror = () => { try { tx.abort() } catch (_) {} }
+      tx.oncomplete = () => {
+        if (deleted) notifyCanonicalDataChanged({ stores: ['locality_labels'], reason: 'gps-locality-invalidated' })
+        resolve(deleted)
+      }
+      tx.onerror = () => reject(tx.error || new Error('Locality record could not be invalidated.'))
+      tx.onabort = () => reject(tx.error || lookup.error || new Error('Locality record invalidation was aborted.'))
+    })
+  },
   async saveResolved({ snapshotId, placeName, provider, resolvedAt = new Date().toISOString(), eventAt = null, capturedAt = null } = {}) {
     if (typeof snapshotId !== 'string' || !snapshotId.trim() || typeof placeName !== 'string' || !placeName.trim()) {
       throw new TypeError('A GPS snapshot ID and verified locality name are required.')
