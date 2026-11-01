@@ -2,26 +2,52 @@ import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repo
 import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
-export const BACKUP_FORMAT_VERSION = 5
-const V4_BACKUP_STORES = Object.freeze(['financial_period_snapshots','settlements','shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
-export const CANONICAL_BACKUP_STORES = Object.freeze([...V4_BACKUP_STORES, 'locality_labels'])
+export const BACKUP_FORMAT_VERSION = 6
+
+// Current backup contains only live canonical business facts and the recovery
+// records required by the current product. Retired workflow stores are excluded.
+export const CANONICAL_BACKUP_STORES = Object.freeze([
+  'shifts', 'fuel_logs', 'pending_mutations', 'trips', 'gps_snapshots',
+  'vehicles', 'drivers', 'compliance_records', 'maintenance_records',
+  'loans', 'settings', 'audit_history', 'locality_labels',
+])
+
+// Format 5 and earlier remain readable as migration inputs. Retired day,
+// movement and finance stores are validated as part of the old format, then
+// intentionally discarded before any current restore is applied.
+const V4_BACKUP_STORES = Object.freeze([
+  'financial_period_snapshots','settlements','shifts','fuel_logs','odoGaps',
+  'pending_mutations','days','trips','gps_snapshots','movement_artifacts',
+  'vehicles','drivers','compliance_records','maintenance_records','loans',
+  'loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history',
+])
+const V5_BACKUP_STORES = Object.freeze([...V4_BACKUP_STORES, 'locality_labels'])
 const V3_BACKUP_STORES = Object.freeze(V4_BACKUP_STORES.filter(name => name !== 'settlements'))
-const PRE_FA4_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
+const PRE_FA4_BACKUP_STORES = Object.freeze([
+  'shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots',
+  'movement_artifacts','vehicles','drivers','compliance_records','maintenance_records',
+  'loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history',
+])
 const LEGACY_BACKUP_STORES_V1 = Object.freeze([...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(11)])
 const LEGACY_BACKUP_STORES_V2 = Object.freeze([...PRE_FA4_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.slice(11)])
 const backupRepository = createBackupRepository(CANONICAL_BACKUP_STORES)
+
 export const validateBackup = input => {
   let backup = input
   if (typeof input === 'string') { try { backup = JSON.parse(input) } catch (_) { throw new Error('Backup file is not valid JSON.') } }
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Backup must be a JSON object.')
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
-  if (![1, 2, 3, 4, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
+  if (![1, 2, 3, 4, 5, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  const supportedSourceVersions = backup.formatVersion === 5 ? [13, 15, 16, CANONICAL_DB_VERSION] : backup.formatVersion === 4 ? [12, 13, 15, 16] : backup.formatVersion === 3 ? [11, 12] : [8, 9]
+  const supportedSourceVersions = backup.formatVersion === 6 ? [CANONICAL_DB_VERSION]
+    : backup.formatVersion === 5 ? [13, 15, 16, 17]
+    : backup.formatVersion === 4 ? [12, 13, 15, 16]
+    : backup.formatVersion === 3 ? [11, 12] : [8, 9]
   if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
-  const expectedStores = backup.formatVersion === 5 ? CANONICAL_BACKUP_STORES
+  const expectedStores = backup.formatVersion === 6 ? CANONICAL_BACKUP_STORES
+    : backup.formatVersion === 5 ? V5_BACKUP_STORES
     : backup.formatVersion === 4 && sourceVersion === 12 ? V3_BACKUP_STORES
     : backup.formatVersion === 4 ? V4_BACKUP_STORES
     : backup.formatVersion === 3 ? V3_BACKUP_STORES
@@ -33,15 +59,33 @@ export const validateBackup = input => {
     const records = backup.stores[storeName]
     if (!Array.isArray(records)) throw new Error(`Backup store ${storeName} must be an array.`)
     const ids = new Set()
-    for (const record of records) { const validKey = storeName === 'financial_period_snapshots' ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey) : typeof record?.id === 'string' && record.id.trim(); if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`); const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id; if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate id/key ${key}.`); ids.add(key) }
+    for (const record of records) {
+      const validKey = storeName === 'financial_period_snapshots'
+        ? typeof record?.periodKey === 'string' && /^\\d{4}-\\d{2}$/.test(record.periodKey)
+        : typeof record?.id === 'string' && record.id.trim()
+      if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`)
+      const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id
+      if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate id/key ${key}.`)
+      ids.add(key)
+    }
   }
   if (backup.formatVersion < BACKUP_FORMAT_VERSION) {
-    const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
-    if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []
-    if (!storesWithoutRemovedStore.financial_period_snapshots) storesWithoutRemovedStore.financial_period_snapshots = []
-    if (!storesWithoutRemovedStore.settlements) storesWithoutRemovedStore.settlements = []
-    if (!storesWithoutRemovedStore.locality_labels) storesWithoutRemovedStore.locality_labels = []
-    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: storesWithoutRemovedStore }
+    const {
+      driver_collected_data: _driverCollected,
+      odoGaps: _odoGaps,
+      days: _days,
+      movement_artifacts: _movementArtifacts,
+      financial_period_snapshots: _financialSnapshots,
+      settlements: _settlements,
+      loan_payments: _loanPayments,
+      prepayments: _prepayments,
+      driver_targets: _driverTargets,
+      break_even_inputs: _breakEvenInputs,
+      ...activeStores
+    } = backup.stores
+    if (backup.formatVersion === 1) activeStores.audit_history = []
+    if (!activeStores.locality_labels) activeStores.locality_labels = []
+    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: activeStores }
   }
   return backup
 }
