@@ -836,9 +836,10 @@ public class KfeNativeFullShiftAcceptanceTest {
     // Model a concurrent shift-end winning after the outbox append but before
     // the form's canonical write. The native form must fail closed and remain retryable.
     JSONObject endedShift = new JSONObject(shift.toString())
-        .put("status", "ENDED").put("updatedAt", "2099-01-01T00:00:00.000Z");
-    assertTrue("Concurrent shift end must commit.",
-        store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift).accepted);
+        .put("status", "COMPLETED").put("updatedAt", "2099-01-01T00:00:00.000Z");
+    assertTrue("Concurrent shift end must commit through the guarded versioned transition.",
+        store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift,
+            shift.getString("updatedAt"), false).accepted);
     try {
       invoke(service, "persistCanonicalTripForm",
           new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
@@ -880,6 +881,11 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Retry must derive revenue from the canonical fare without duplication.", 275d,
         savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+    JSONObject completedShift = new JSONObject(restoredShift.toString())
+        .put("status", "COMPLETED").put("updatedAt", "2101-01-01T00:00:00.000Z");
+    assertTrue("The test must leave no active Shift fixture behind.",
+        store.putRecord("form-outbox-shift-cleanup-" + suffix, "SHIFT", completedShift,
+            restoredShift.getString("updatedAt"), false).accepted);
   }
 
   @Test public void formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently() throws Exception {
@@ -2005,6 +2011,7 @@ public class KfeNativeFullShiftAcceptanceTest {
   private static void clearPriorActiveTestShiftFixtures(KfeCanonicalWorkStore store) throws Exception {
     String[] fixturePrefixes = new String[]{
         "create-retry-shift-record-", "active-projection-collision-shift-",
+        "native-lifecycle-guard-shift-", "native-lifecycle-guard-second-shift-",
         "gps-contract-shift-", "atomic-form-shift-", "webview-off-shift-",
         "native-full-shift-", "form-outbox-shift-", "form-sql-failure-shift-",
         "stale-overlay-shift-", "lifecycle-process-death-shift-",
