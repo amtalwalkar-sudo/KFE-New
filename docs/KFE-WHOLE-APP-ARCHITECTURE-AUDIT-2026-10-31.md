@@ -289,6 +289,12 @@ No active finance engine, forecast, break-even, driver-target, provision, amorti
 
 **Change:** Added one repository live-record predicate and applied it to active Shift/Trip creation, stage/form transitions, shift completion, active-state reads and last-record lookups. Active Trip reads are now scoped to the selected live active Shift, and Android Shift closure ignores deleted Trip rows.
 
+### 42. Manual locality refresh was limited by the selected Timeline period
+
+**Finding:** The pull-to-refresh handler collected snapshots only for rides visible in the current Timeline period. With Today as the default, this meant eligible unresolved events from earlier days in the seven-day window were not considered, despite the UI promising a seven-day refresh.
+
+**Change:** Added `EventLocationService.allSnapshots` to combine complete native paginated GPS history with browser-local snapshots. Explicit Timeline pull-to-refresh now submits all four event types to the seven-day eligibility rule, independently of the selected display period. Ordinary Timeline reads still do not perform locality resolution or connectivity checks.
+
 ## Verification
 
 The following are enforced by regression contracts:
