@@ -158,7 +158,7 @@ assert.doesNotMatch(overlay, /static void updateLiveKm|static void updateDeadKm|
 assert.match(workView, /fareDetailsSkipped: fare\.value === ''/)
 assert.match(workView, /fareDetailsSkipped: true/)
 assert.match(workView, /LiveRevenueReadModel\.forTrips\(trips\)/)
-assert.match(readRepo('src/application/work/liveRevenueReadModel.js'), /deriveLiveRevenue/)
+assert.match(fs.readFileSync('src/application/work/liveRevenueReadModel.js', 'utf8'), /deriveLiveRevenue/)
 assert.match(workView, /theme: document\.documentElement\.getAttribute\('data-kfe-theme'\) === 'night' \? 'dark' : 'light'/)
 assert.doesNotMatch(overlayLifecycle, /targetProgress|targetColor|TODAY'S TARGET/)
 assert.match(overlayLifecycle, /Number\(active\.shift\?\.revenue\)/)
