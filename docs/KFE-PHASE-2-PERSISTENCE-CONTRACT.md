@@ -8,7 +8,7 @@
 
 Phase 2 realizes the frozen Phase 1 canonical contract as durable, provider-independent local persistence. KFE must remain usable and retain its canonical dataset on-device without cloud availability.
 
-Remote synchronization is not part of the current product scope. Local persistence must remain fully usable without cloud services; no cloud backup or multi-device synchronization workflow is implemented.
+Remote synchronization and multi-device live data sync are not part of the current product scope. Local persistence must remain fully usable without cloud services. Dropbox is retained only as an optional backup provider while KFE is open and online; it does not own canonical writes, gate local work, or run as a background/service-worker upload loop.
 
 ## 2. Local-first invariant
 
@@ -28,7 +28,7 @@ A cloud service must not be required to create, read, update, calculate, or reta
 
 Every canonical persisted entity uses its stable client-generated UUID as the IndexedDB key path `id`. Existing IDs survive updates and backup/restore operations.
 
-Canonical stores remain those established by Phase 1. Supporting stores remain infrastructure/supporting records and cannot become replacement business authorities.
+Current canonical stores are Shifts, Trips, Fuel logs, GPS event snapshots, locality labels, Vehicles, Drivers, Compliance, Maintenance, Loan source facts, Settings, pending mutations and audit history. Retired day, odometer-gap, movement-artifact, loan-payment, prepayment, settlement, target, break-even and financial-period stores are removed by schema 18. Supporting stores remain infrastructure/supporting records and cannot become replacement business authorities.
 
 ## 4. Repository boundary
 
