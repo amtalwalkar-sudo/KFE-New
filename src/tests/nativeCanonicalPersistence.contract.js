@@ -114,7 +114,7 @@ for (const method of ['putRecord', 'commitTripLifecycle', 'getRecord', 'listReco
 assert.doesNotMatch(plugin, /persistTripBoundarySnapshot|updateTripBoundaryPlaceName/)
 for (const method of ['putRecord', 'commitTripLifecycle', 'getRecord', 'listRecords', 'getOperation']) assert.ok(bridge.includes('async ' + method + '('), 'Missing bridge method: ' + method)
 assert.doesNotMatch(bridge, /persistTripBoundarySnapshot|updateTripBoundaryPlaceName/)
-assert.match(ports, /canonicalWork: \['putRecord', 'restoreRecord', 'commitTripLifecycle', 'getRecord', 'listRecords', 'getOperation', 'isAvailable', 'prepareCreateIntent'/)
+assert.match(ports, /canonicalWork: \['putRecord', 'restoreRecord', 'commitTripLifecycle', 'getRecord', 'listRecords', 'getOperation', 'isAvailable', 'prepareCreateIntent'/, 'Canonical Work runtime port must expose restore and guarded lifecycle commands.')
 assert.match(adapter, /canonicalWork: NativeCanonicalWorkService/)
 assert.match(adapter, /browserCanonicalWork: BrowserCanonicalWorkService/)
 assert.match(activity, /registerPlugin\(KfeCanonicalWorkPlugin\.class\)/)
