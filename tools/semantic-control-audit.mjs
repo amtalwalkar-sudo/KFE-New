@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
+import { CANONICAL_DB_VERSION } from '../src/constants/canonicalDatabase.js'
 
 const base = 'http://127.0.0.1:4176/'
 const dev = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '4176'], {
@@ -39,8 +40,8 @@ const reset = async page => {
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
   await page.locator('.work-canonical').waitFor({ state: 'attached', timeout: 30000 })
 }
-const db = async (page, stores) => page.evaluate(async stores => {
-  const request = indexedDB.open('kanishka_kfe_canonical_db', 18)
+const db = async (page, stores) => page.evaluate(async ({ stores, version }) => {
+  const request = indexedDB.open('kanishka_kfe_canonical_db', version)
   const database = await new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
@@ -55,7 +56,7 @@ const db = async (page, stores) => page.evaluate(async stores => {
   }
   database.close()
   return result
-}, stores)
+}, { stores, version: CANONICAL_DB_VERSION })
 
 let browser
 const evidence = []
