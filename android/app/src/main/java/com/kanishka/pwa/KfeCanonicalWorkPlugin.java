@@ -86,6 +86,22 @@ public class KfeCanonicalWorkPlugin extends Plugin {
   }
 
   @com.getcapacitor.PluginMethod
+  public void commitTripForm(PluginCall call) {
+    String operationId = call.getString("operationId", "");
+    String mode = call.getString("mode", "");
+    JSObject record = call.getObject("record");
+    try {
+      KfeCanonicalWorkStore.Outcome outcome = KfeCanonicalWorkStore.get(getContext())
+          .commitTripForm(operationId, mode, record);
+      call.resolve(new JSObject(outcome.toJson().toString()));
+    } catch (IllegalArgumentException error) {
+      call.reject(error.getMessage(), "CANONICAL_TRIP_FORM_REJECTED");
+    } catch (Exception error) {
+      call.reject("Canonical Trip form commit failed.", "CANONICAL_TRIP_FORM_COMMIT_FAILED", error);
+    }
+  }
+
+  @com.getcapacitor.PluginMethod
   public void migrateLegacySnapshot(PluginCall call) {
     try {
       String migrationId = call.getString("migrationId", "");
