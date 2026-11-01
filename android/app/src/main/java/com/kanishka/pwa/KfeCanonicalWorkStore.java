@@ -236,12 +236,38 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record) throws Exception {
-    return putRecordInternal(operationId, entityType, record, null, false, null);
+    return putRecord(operationId, entityType, record, null, false);
   }
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record,
       String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if ("TRIP".equals(entityType)) {
+      throw new IllegalArgumentException("Generic native Trip writes are prohibited; use a lifecycle, form, or restore command.");
+    }
     return putRecordInternal(operationId, entityType, record, expectedUpdatedAt, expectAbsent, null);
+  }
+
+  /** Backup restore is the only non-lifecycle command allowed to insert canonical Trip records. */
+  synchronized Outcome restoreRecord(String operationId, String entityType, JSONObject record) throws Exception {
+    if (!"SHIFT".equals(entityType) && !"TRIP".equals(entityType) && !"GPS_SNAPSHOT".equals(entityType)) {
+      throw new IllegalArgumentException("Unsupported canonical restore entity type.");
+    }
+    if (record == null || empty(record.optString("id", ""))) {
+      throw new IllegalArgumentException("Restored canonical record requires an id.");
+    }
+    if ("TRIP".equals(entityType)) {
+      String shiftId = record.optString("shiftId", "");
+      if (empty(shiftId)) throw new IllegalArgumentException("Restored Trip requires its canonical Shift identity.");
+      try (Cursor shiftCursor = getReadableDatabase().query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+        if (!shiftCursor.moveToFirst()) throw new IllegalArgumentException("Restored Trip requires its canonical Shift to be restored first.");
+        JSONObject shift = new JSONObject(shiftCursor.getString(0));
+        if ("ACTIVE".equals(record.optString("status", "")) && !"ACTIVE".equals(shift.optString("status", ""))) {
+          throw new IllegalArgumentException("Restored ACTIVE Trip requires an ACTIVE canonical Shift.");
+        }
+      }
+    }
+    return putRecordInternal(operationId, entityType, record, null, true, null);
   }
 
   /**
