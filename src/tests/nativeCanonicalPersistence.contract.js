@@ -42,7 +42,7 @@ assert.doesNotMatch(boundary, /persistTripBoundarySnapshot|updateTripBoundaryPla
 assert.match(boundary, /WorkRuntimePorts\.canonicalWork\.isAvailable\(\)/)
 assert.match(read('src/infrastructure/work/browserCanonicalWork.js'), /STORE_BY_ENTITY/)
 assert.match(indexedDb, /createSimpleStore\(db, 'canonical_operations'/)
-assert.match(version, /CANONICAL_DB_VERSION = 17/)
+assert.match(version, /CANONICAL_DB_VERSION = 18/)
 assert.match(store, /CREATE TABLE canonical_operations/)
 assert.match(store, /CREATE TABLE canonical_audit/)
 assert.equal((store.match(/double revenue = 0d;/g) || []).length, 1, 'Native SQLite must have one shared Shift revenue projection implementation.')
