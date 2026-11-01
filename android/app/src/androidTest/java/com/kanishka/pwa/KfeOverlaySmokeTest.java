@@ -1294,10 +1294,11 @@ public class KfeOverlaySmokeTest {
     assertNotNull("Native overlay view must be created while MainActivity is not visible", overlay);
   }
 
-  @Test public void durableGpsJournalDeduplicatesPersistsBackoffAndRemovesSnapshots() throws Exception {
+  @Test public void durableGpsJournalDeduplicatesReturnsPendingEventsAndRemovesSnapshots() throws Exception {
     KfeGpsEventJournal journal = new KfeGpsEventJournal(context);
     long now = System.currentTimeMillis();
     String eventAt = java.time.Instant.ofEpochMilli(now - 1000L).toString();
+    String secondEventAt = java.time.Instant.ofEpochMilli(now - 500L).toString();
 
     assertTrue("First supported event must be durably queued",
       journal.enqueue("TRIP", "journal-trip", "TRIP_START", eventAt));
@@ -1306,21 +1307,28 @@ public class KfeOverlaySmokeTest {
     assertEquals("Duplicate enqueue must not create a second journal row", 1, journal.count());
     assertFalse("Unsupported event must not enter the durable journal",
       journal.enqueue("TRIP", "journal-trip", "UNKNOWN", eventAt));
+    assertTrue("A second event must be independently queued",
+      journal.enqueue("TRIP", "journal-trip-2", "TRIP_END", secondEventAt));
 
-    JSONObject queued = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
+    org.json.JSONArray pending = journal.pending(java.util.Collections.<String>emptySet());
+    assertEquals("A status refresh must be able to recover every pending event", 2, pending.length());
+    JSONObject queued = pending.optJSONObject(0);
     assertNotNull("Queued event must be recoverable from persistent storage", queued);
     assertEquals("journal-trip::TRIP_START", queued.optString("key", ""));
     assertEquals(eventAt, queued.optString("eventAt", ""));
-    assertEquals(0, queued.optInt("retryAttempts", -1));
+    assertFalse("GPS journal must not persist retired retry-attempt metadata", queued.has("retryAttempts"));
+    assertFalse("GPS journal must not persist timed retry deadlines", queued.has("nextAttemptAt"));
 
-    assertTrue("Failed one-shot capture must persist retry backoff",
-      journal.recordFailure("TRIP", "journal-trip", "TRIP_START", now));
-    JSONObject deferred = journal.earliestPending(java.util.Collections.<String>emptySet(), now);
-    assertEquals(1, deferred.optInt("retryAttempts", 0));
-    assertEquals(now + 30000L, deferred.optLong("nextAttemptAt", 0L));
+    java.util.Set<String> inFlight = new java.util.HashSet<>();
+    inFlight.add(KfeGpsEventPolicy.key("TRIP", "journal-trip", "TRIP_START"));
+    org.json.JSONArray remaining = journal.pending(inFlight);
+    assertEquals("An in-flight capture must not be started twice", 1, remaining.length());
+    assertEquals("journal-trip-2::TRIP_END", remaining.optJSONObject(0).optString("key", ""));
 
     assertTrue("Saved snapshot must remove its pending journal entry",
       journal.remove("TRIP", "journal-trip", "TRIP_START"));
+    assertTrue("Second event must also be independently removable",
+      journal.remove("TRIP", "journal-trip-2", "TRIP_END"));
     assertEquals(0, journal.count());
     assertFalse(journal.hasPending());
   }
