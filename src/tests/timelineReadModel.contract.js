@@ -44,6 +44,7 @@ assert.match(service, /ShiftTripRepository\.getAllTrips\(\{ skipCanonicalReadBou
 assert.match(service, /await WorkService\.ensureCanonicalReadModel\(\)/, 'Timeline must reconcile native Android records before reading the PWA projection.')
 assert.ok(service.indexOf('await WorkService.ensureCanonicalReadModel()') < service.indexOf('ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true })'), 'Timeline must not read stale IndexedDB trips before native reconciliation.')
 assert.match(service, /FuelRepository\.getAll\(\)/)
+assert.match(service, /filter\(log => !log\?\.deletedAt && log\?\.deleted !== true\)/, 'Timeline must not display soft-deleted fuel records.')
 assert.match(service, /calculateFuelPeriodSummary\(allFuelLogs, range\)/)
 assert.doesNotMatch(service, /FuelRepository\.(create|update|remove)\(/)
 assert.doesNotMatch(service, /ShiftTripRepository\.(create|update|remove|complete|cancel)/)
