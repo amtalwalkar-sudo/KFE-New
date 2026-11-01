@@ -887,13 +887,7 @@ public class KfeOverlaySmokeTest {
       assertEquals(eventTypes[i], reopenedSnapshot.getString("eventType"));
     }
 
-    // Do not leak an ACTIVE shift into the following instrumentation cases.
-    JSONObject completedTrip = new JSONObject(reopenedStore.getRecord("TRIP", tripId).getJSONObject("record").toString())
-      .put("status", "COMPLETED").put("updatedAt", java.time.Instant.now().toString());
-    reopenedStore.putRecord("test-complete-trip-" + tripId + "-" + java.util.UUID.randomUUID(), "TRIP", completedTrip);
-    JSONObject completedShift = reopenedStore.getRecord("SHIFT", shiftId).getJSONObject("record");
-    completedShift.put("status", "COMPLETED").put("updatedAt", java.time.Instant.now().toString());
-    reopenedStore.putRecord("test-complete-shift-" + shiftId + "-" + java.util.UUID.randomUUID(), "SHIFT", completedShift);
+    // The @After fixture cleanup removes the active Trip and Shift after these GPS assertions.
   }
 
   @Test public void nativeOverlayCompletesFareAndCancellationUsingGesturesAndVisibleFormControlsWithoutPwaReplay() throws Exception {
