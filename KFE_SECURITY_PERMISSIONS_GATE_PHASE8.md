@@ -8,7 +8,7 @@ This document preserves the Phase 8 checkpoint without carrying forward its supe
 
 ## Current permission boundary
 
-- Overlay permission is required only for the floating native ride controls. If it is denied, the overlay remains hidden; the PWA Work workflow remains available.
+- Overlay permission is required for the floating native ride controls. On Android, the current startup permission gate surfaces required overlay/notification and OEM background settings before rendering app routes; the browser-only PWA is independent of those Android permissions. The overlay itself remains hidden when overlay permission is absent.
 - Android notification permission supports the persistent foreground-service notification used by native ride/GPS behavior. It does not enable a separate notification product.
 - Native background GPS capture requires precise location and background-location permission. KFE does not request GPS permissions as a prerequisite to starting a ride action. The user may explicitly enable background capture from the GPS status panel.
 - If either required GPS permission is absent or denied, KFE must not attempt background coordinate capture. The ride action and its business timestamp remain unaffected; the durable GPS event remains pending for a later eligible trigger.
