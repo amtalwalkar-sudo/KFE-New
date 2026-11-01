@@ -90,7 +90,7 @@ Maintenance and Compliance records are authoritative Admin-entered source facts.
 
 ### Loan and historical finance records
 
-Loan terms, loan payments, prepayments, settlements, driver targets, and break-even-input records may exist in historical databases and backups. Preserve those records during scope cleanup and backup/restore. They are not a license to expose retired workflows or run amortization, target, break-even, provision, or profitability calculations. The active Admin UI exposes only the basic Loan source form.
+The current model retains Loan terms as source facts only. Historical loan-payment, prepayment, settlement, driver-target, and break-even-input stores are retired and removed by the schema 18 migration. Legacy backup formats remain readable as migration inputs, but those retired store payloads are discarded and are not restored. The active Admin UI exposes only the basic Loan source form.
 
 ### GPS event snapshots
 
@@ -125,13 +125,13 @@ ACTIVE / SOFT-DELETED
 ```
 
 - Vehicle, Driver, Compliance, Maintenance, and Loan source records use the existing governed Admin lifecycle.
-- Historical payment, prepayment, target, and break-even-input records must be preserved during scope cleanup, even though their retired workflows are no longer exposed.
+- Retired day, odometer-gap, movement-artifact, payment, prepayment, settlement, target, break-even, and financial-period stores are removed from the canonical schema and are not included in new backups.
 - Shift, Trip, Fuel, and GPS event evidence remain retained as canonical business/operational history.
 - Hard deletion of canonical business records requires an explicit data-destruction action; removing an obsolete feature must not delete its saved records.
 
 ## 8. Relationships and mutation boundary
 
-Validate existing canonical relationships at the repository boundary, including Trip → Shift, Compliance/Maintenance → Vehicle, Driver → Shift/Trip where recorded, and legacy payment/prepayment → their source records.
+Validate existing canonical relationships at the repository boundary, including Trip → Shift, Compliance/Maintenance → Vehicle, and Driver → Shift/Trip where recorded. Retired finance stores have no active relationship or persistence path.
 
 Canonical persistence and read models must be accessed through the application/repository boundary. Presentation screens must not become a second persistence authority.
 
@@ -157,10 +157,10 @@ This document is the sole canonical data-model authority. Phase persistence/oper
 
 If a data rule is discovered in a supporting document, it must be migrated here (or to the business-rule/calculation authority when its responsibility is semantic/formula ownership) before the supporting document is treated as current.
 
-## 12. Removed legacy/supporting store
+## 12. Removed legacy/supporting stores
 
-`driver_collected_data` is not part of the current canonical model. The former store was supporting-only and did not own an independent calculation authority; its operational fields duplicated facts already owned by Shift/Work or had no authoritative ERP calculation role.
+Schema version 18 removes the obsolete stores `odoGaps`, `days`, `movement_artifacts`, `loan_payments`, `prepayments`, `driver_targets`, `break_even_inputs`, `settlements`, `financial_period_snapshots`, `driver_collected_data`, `admin_records`, and `financial_inputs`. None has an active product workflow, current calculation authority, or current write path. There is no replacement store or Admin entry.
 
-The canonical database migration from version 9 to version 10 explicitly removes the obsolete store. New backups no longer contain it. Backup format version 5 preserves permanent PWA locality labels and native GPS snapshots. It remains backward-compatible with format versions 1 through 4 by adding an empty locality-label store when upgrading older backups and by accepting and discarding the removed `driver_collected_data` payload during validation/upgrade before restore.
+Backup format version 6 contains only the active canonical records and required recovery evidence. Backup formats 1 through 5 remain accepted as migration inputs: their structure is validated, active in-scope records are retained, and retired store payloads are discarded before restore. Phone export, Dropbox backup, internal recovery checkpoints, and restore all use the same current store set.
 
-There is intentionally no replacement Admin entry for generic driver-collected data. Operational facts have one natural entry point and one authority.
+The schema migration drops retired object stores on upgrade. It does not rewrite or delete active Shift, Trip, Fuel, GPS, Vehicle, Driver, Compliance, Maintenance, Loan source, Settings, mutation, or audit records.
