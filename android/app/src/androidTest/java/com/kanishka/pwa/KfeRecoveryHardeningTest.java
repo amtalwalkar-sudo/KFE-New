@@ -64,7 +64,7 @@ public class KfeRecoveryHardeningTest {
         .put("status", "COMPLETED").put("fare", 250).put("updatedAt", t1);
     JSONObject fareB = new JSONObject().put("id", tripB).put("shiftId", shiftId)
         .put("status", "COMPLETED").put("fare", 150).put("updatedAt", t2);
-    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
         .put("revenue", 400).put("updatedAt", t2);
 
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
