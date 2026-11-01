@@ -55,7 +55,6 @@ Anything outside these five capabilities is out of product scope. Do not restore
 
 
 ### UI / interaction evidence
-- docs/KFE-PWA-VISUAL-APPLICATION.md — presentation implementation/reference.
 - docs/PERFORMANCE-FOUNDATION.md — Performance presentation foundation.
 - docs/TIMELINE-FOUNDATION.md — Timeline presentation foundation.
 - docs/KFE-PHASE-4-RUNTIME-VISUAL-VERIFICATION.md — runtime visual evidence.
