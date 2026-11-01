@@ -9,7 +9,6 @@ import java.util.Set;
 /** Durable offline journal for the four one-shot ride GPS snapshots. */
 final class KfeGpsEventJournal {
   private static final String STORAGE_KEY = "pendingEventGpsCaptures.v1";
-  private static final long[] RETRY_DELAYS_MS = {30_000L, 60_000L, 2*60_000L, 5*60_000L, 15*60_000L, 30*60_000L};
   private static final Object LOCK = new Object();
   private final SharedPreferences preferences;
 
@@ -33,7 +32,7 @@ final class KfeGpsEventJournal {
         if ("TRIP".equals(entityType)) item.put("tripId", entityId);
         item.put("eventType", eventType); item.put("eventAt", eventAt == null ? "" : eventAt);
         item.put("queuedAt", java.time.Instant.now().toString());
-        item.put("retryAttempts", 0); item.put("nextAttemptAt", 0L); items.put(item);
+        items.put(item);
         return preferences.edit().putString(STORAGE_KEY, items.toString()).commit();
       } catch (Exception error) { return false; }
     }
@@ -61,45 +60,20 @@ final class KfeGpsEventJournal {
     }
   }
 
-  /** Returns the earliest pending item, including future-due items, or null. */
-  JSONObject earliestPending(Set<String> inFlight, long now) {
+  /** Returns every pending item not already being captured, in original event order. */
+  JSONArray pending(Set<String> inFlight) {
     synchronized (LOCK) {
       try {
-        JSONArray items = read();
-        JSONObject selected = null;
-        long earliest = Long.MAX_VALUE;
+        JSONArray items = read(), result = new JSONArray();
         for (int i=0; i<items.length(); i++) {
           JSONObject item = items.optJSONObject(i);
           if (item == null) continue;
           String key = item.optString("key", "");
           if (inFlight != null && inFlight.contains(key)) continue;
-          long due = item.optLong("nextAttemptAt", 0L);
-          if (due <= 0L) due = now;
-          if (due < earliest) { earliest = due; selected = new JSONObject(item.toString()); }
+          result.put(new JSONObject(item.toString()));
         }
-        return selected;
+        return result;
       } catch (Exception error) { throw new IllegalStateException("GPS event journal could not be read for retry.", error); }
-    }
-  }
-
-  boolean recordFailure(String entityType, String entityId, String eventType, long now) {
-    synchronized (LOCK) {
-      try {
-        JSONArray current = read(), next = new JSONArray();
-        String key = KfeGpsEventPolicy.key(entityType, entityId, eventType);
-        boolean found = false;
-        for (int i=0; i<current.length(); i++) {
-          JSONObject item = current.optJSONObject(i);
-          if (item == null) continue;
-          if (key.equals(item.optString("key", ""))) {
-            int attempts = Math.max(0, item.optInt("retryAttempts", 0)) + 1;
-            long delay = RETRY_DELAYS_MS[Math.min(attempts-1, RETRY_DELAYS_MS.length-1)];
-            item.put("retryAttempts", attempts); item.put("nextAttemptAt", now + delay); found = true;
-          }
-          next.put(item);
-        }
-        return found && preferences.edit().putString(STORAGE_KEY, next.toString()).commit();
-      } catch (Exception error) { return false; }
     }
   }
 
