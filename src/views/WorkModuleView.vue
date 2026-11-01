@@ -18,6 +18,15 @@ import WorkLiveMetrics from '../components/work/WorkLiveMetrics.vue'
 const store = useShiftTripStore()
 const fuel = useFuelStore()
 const nativeAndroid = WorkRuntimePorts.platform.getPlatform() === 'android'
+const nativeRecoveryReady = ref(!nativeAndroid)
+let nativeRecoveryAttempt = null
+let replayingNativeEvents = false
+const nativeWritesAllowed = () => !nativeAndroid || nativeRecoveryReady.value || replayingNativeEvents
+const requireNativeRecovery = () => {
+  if (nativeWritesAllowed()) return true
+  fail('Native ride recovery is incomplete. Keep KFE open and retry before taking another action.')
+  return false
+}
 const startWorkflowId = ref('')
 const tripCreateWorkflowId = ref('')
 const fuelWorkflowId = ref('')
@@ -262,6 +271,7 @@ const endReady = computed(() => closingOdo.value.trim() !== '')
 const fuelQty = computed(() => fuel.calculateQuantity(fuelPrice.value, fuelAmount.value))
 
 async function syncOverlay() {
+  if (!nativeWritesAllowed()) return
   // The shared Android lifecycle controller owns foreground minimization and
   // background restoration. Work only reconciles native state while hidden.
   if (document.visibilityState === 'visible') return
@@ -333,7 +343,7 @@ async function openStart() {
 }
 
 async function submitStart() {
-  if (startBusy.value) return
+  if (!requireNativeRecovery() || startBusy.value) return
   if (!startOdo.value) return fail('Current odometer is required.')
   if (!startAck.value) return fail('Confirm the current odometer reading before continuing.')
   if (!startOdometerValidation.value.valid) return fail(startOdometerValidation.value.reason || 'Enter a valid odometer.')
@@ -360,7 +370,7 @@ async function submitStart() {
 }
 
 async function goPickup(nativeTripId = '') {
-  if (busy.value || !store.isOnline || store.isTripActive) return false
+  if ((!nativeTripId && !requireNativeRecovery()) || busy.value || !store.isOnline || store.isTripActive) return false
   busy.value = true
   try {
     let createIntentKey = nativeTripId ? `native-trip:${nativeTripId}` : ''
@@ -390,7 +400,7 @@ async function goPickup(nativeTripId = '') {
 }
 
 async function startTrip() {
-  if (busy.value || !ready.value) return false
+  if (!requireNativeRecovery() || busy.value || !ready.value) return false
   busy.value = true
   try {
     const result = await store.startRide()
@@ -404,7 +414,7 @@ async function startTrip() {
 }
 
 async function endTrip() {
-  if (busy.value || !active.value) return false
+  if (!requireNativeRecovery() || busy.value || !active.value) return false
   busy.value = true
   try {
     const tripId = store.trip.id
@@ -433,7 +443,7 @@ async function endTrip() {
 }
 
 async function saveFare(fromNative = false, operationId = '') {
-  if (fareBusy.value || !pendingFare.value) return false
+  if ((!fromNative && !requireNativeRecovery()) || fareBusy.value || !pendingFare.value) return false
   for (const [label, value] of [['Trip fare', fare.value], ['Toll', tripToll.value], ['Parking', tripParking.value]]) {
     if (value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) return fail(`${label} must be a non-negative number.`)
   }
@@ -467,7 +477,7 @@ async function saveFare(fromNative = false, operationId = '') {
 }
 
 async function skipTripDetails() {
-  if (!pendingFare.value || fareBusy.value) return
+  if (!requireNativeRecovery() || !pendingFare.value || fareBusy.value) return
   fareBusy.value = true
   try {
     const fareDraft = tripDraftIdentity('work-trip-details', 'ENTER_FARE', pendingFare.value.id)
@@ -505,7 +515,7 @@ async function openCancel() {
 }
 
 async function saveCancel(fromNative = false, operationId = '') {
-  if (cancelBusy.value) return false
+  if ((!fromNative && !requireNativeRecovery()) || cancelBusy.value) return false
   if (!cancelReason.value.trim()) { fail('Cancellation reason is required.'); return false }
   if (!Number.isFinite(Number(cancelFare.value)) || Number(cancelFare.value) < 0) { fail('Cancellation fee must be a non-negative number.'); return false }
 
@@ -577,7 +587,7 @@ async function handleContextAction(action) {
 }
 
 async function saveFuel() {
-  if (fuelBusy.value) return
+  if (!requireNativeRecovery() || fuelBusy.value) return
   fuelBusy.value = true
   try {
     const result = await WorkService.recordFuel({
@@ -649,7 +659,7 @@ const largeDistanceKm = computed(() => {
 const largeDistanceIdentity = computed(() => `${store.shift?.id || ''}:${closingOdo.value}:${largeDistanceKm.value}`)
 
 async function finishEnd() {
-  if (endBusy.value || !endReady.value) return
+  if (!requireNativeRecovery() || endBusy.value || !endReady.value) return
   endBusy.value = true
   try {
     const endDraft = shiftDraftIdentity('work-end-shift', 'END_SHIFT')
@@ -684,7 +694,7 @@ const swipeProgress = computed(() => {
 })
 
 function down(event) {
-  if (busy.value || !store.isOnline || endOpen.value || fuelOpen.value || cancelOpen.value) return
+  if (!nativeWritesAllowed() || busy.value || !store.isOnline || endOpen.value || fuelOpen.value || cancelOpen.value) return
   if (event.pointerType === 'mouse' && event.button !== 0) return
   if (!event.target.closest('.swipe-handle')) return
   swipePointerId.value = event.pointerId
@@ -710,6 +720,7 @@ async function up(event) {
 }
 
 async function doAction() {
+  if (!requireNativeRecovery()) return false
   if (active.value) return endTrip()
   if (ready.value) return startTrip()
   return goPickup()
@@ -853,9 +864,45 @@ const nativeActionController = createNativeWorkActionController({
   handleAction: handleNativeAction,
   isVisible: () => document.visibilityState === 'visible',
 })
-const enqueueNativeEvent = nativeActionController.enqueue
 const processNativeEvent = nativeActionController.process
-const replayFailedNativeActions = nativeActionController.replay
+const replayFailedNativeActions = () => {
+  if (!nativeAndroid) { nativeRecoveryReady.value = true; return Promise.resolve(true) }
+  if (document.visibilityState !== 'visible') return Promise.resolve(false)
+  if (nativeRecoveryAttempt) return nativeRecoveryAttempt
+  nativeRecoveryReady.value = false
+  nativeRecoveryAttempt = (async () => {
+    replayingNativeEvents = true
+    try {
+      // The SQLite event log is the sole current recovery source. A failed read
+      // must not be mistaken for an empty queue or allow another Work mutation.
+      const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
+      for (const event of pendingEvents) {
+        if (!await processNativeEvent(event)) throw new Error('A pending native ride action could not be confirmed.')
+      }
+      // Read the pre-ledger compatibility slot only after the authoritative
+      // SQLite queue was read successfully and found empty.
+      if (!pendingEvents.length) {
+        const pending = await WorkRuntimePorts.nativeWorkActions.consumePendingAction()
+        if (pending) {
+          if (!await handleNativeAction(pending)) throw new Error('A legacy native ride action could not be confirmed.')
+          if (!await WorkRuntimePorts.nativeWorkActions.clearPendingAction()) throw new Error('The legacy native ride action could not be acknowledged.')
+        }
+      }
+      nativeRecoveryReady.value = true
+      error.value = ''
+      return true
+    } catch (cause) {
+      nativeRecoveryReady.value = false
+      error.value = 'Native ride recovery is incomplete. Keep KFE open and retry before taking another action.'
+      console.error('KFE native Work recovery remains blocked:', cause)
+      return false
+    } finally {
+      replayingNativeEvents = false
+      nativeRecoveryAttempt = null
+    }
+  })()
+  return nativeRecoveryAttempt
+}
 
 onMounted(async () => {
   document.addEventListener('visibilitychange', replayFailedNativeActions)
@@ -917,21 +964,13 @@ onMounted(async () => {
 
   nativeActionListener = await WorkRuntimePorts.nativeWorkActions.addListener(
     'nativeWorkAction',
-    event => { void enqueueNativeEvent(event) }
+    () => { void replayFailedNativeActions() }
   )
 
-  // Replay every native event in durable creation order. Failed/unconfirmed
-  // writes remain pending for the next launch instead of being silently lost.
-  const pendingEvents = await WorkRuntimePorts.nativeWorkActions.consumePendingActions()
-  for (const event of pendingEvents) await processNativeEvent(event)
-
-  // Compatibility for events created by app versions before the SQLite ledger.
-  if (!pendingEvents.length) {
-    const pending = await WorkRuntimePorts.nativeWorkActions.consumePendingAction()
-    if (pending && await handleNativeAction(pending)) await WorkRuntimePorts.nativeWorkActions.clearPendingAction()
-  }
-
-  await syncOverlay()
+  // Replay every native event in durable creation order before enabling Work
+  // mutations. Foreground callbacks repeat the same recovery boundary.
+  const recovered = await replayFailedNativeActions()
+  if (recovered) await syncOverlay()
 })
 
 watch(() => store.isOnline, () => { void syncOverlay() })
@@ -959,8 +998,8 @@ onBeforeUnmount(() => {
   <header class="work-header">
     <div class="identity"><strong>KFE WORK</strong></div>
     <div class="header-controls">
-      <button class="icon-action" type="button" aria-label="CNG refuelling" title="CNG refuelling" @click="toggleFuel">⛽</button>
-      <button class="shift-toggle" :class="{ online: store.isOnline }" type="button" :aria-pressed="store.isOnline" @click="store.isOnline ? openEnd() : openStart()">
+      <button class="icon-action" type="button" aria-label="CNG refuelling" title="CNG refuelling" :disabled="!nativeRecoveryReady" @click="toggleFuel">⛽</button>
+      <button class="shift-toggle" :class="{ online: store.isOnline }" type="button" :disabled="!nativeRecoveryReady" :aria-pressed="store.isOnline" @click="store.isOnline ? openEnd() : openStart()">
         <span>{{ store.isOnline ? 'ONLINE' : 'OFFLINE' }}</span><i aria-hidden="true"/>
       </button>
     </div>
@@ -976,7 +1015,7 @@ onBeforeUnmount(() => {
     <WorkContextForm
       v-show="!store.isOnline && startOpen"
       type="start"
-      :start-busy="startBusy"
+       :start-busy="startBusy || !nativeRecoveryReady"
       :start-odo="startOdo"
       :start-ack="startAck"
       @update:start-odo="startOdo=$event"
@@ -988,7 +1027,7 @@ onBeforeUnmount(() => {
       v-if="endOpen"
       type="end"
       :end-stage="endStage"
-      :end-busy="endBusy"
+       :end-busy="endBusy || !nativeRecoveryReady"
       :end-large-distance-km="largeDistanceKm"
       :large-distance-confirmed-for="largeDistanceConfirmation"
       :large-distance-identity="largeDistanceIdentity"
@@ -1000,7 +1039,7 @@ onBeforeUnmount(() => {
     />
 
     <section v-if="!store.isOnline && !fuelOpen" class="offline-state state-tone-neutral" :class="{ 'contextual-context': startOpen }">
-      <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" @click="openStart">START SHIFT</button>
+      <div class="state-mark" aria-hidden="true">○</div><span class="eyebrow">CURRENT STATE</span><strong>OFFLINE</strong><p>Shift is not active.</p><button v-if="!startOpen && !fuelOpen" class="primary-action" :disabled="!nativeRecoveryReady" @click="openStart">START SHIFT</button>
     </section>
 
     <template v-if="store.isOnline">
@@ -1008,7 +1047,7 @@ onBeforeUnmount(() => {
       <section v-if="!fuelOpen && !endOpen && !cancelOpen" class="action-instrument work-fixed-action">
         <div ref="track" class="swipe trip-swipe" :class="{threshold:swipeProgress>=SWIPE_CONFIG.commitThresholdPercent,committing:busy,'semantic-go':cockpit.action==='GO_TO_PICKUP','semantic-start':cockpit.action==='START_RIDE','semantic-end':cockpit.action==='END_RIDE'}" :style="swipeStyle" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
           <div class="swipe-copy"><strong>{{ actionLabel }}</strong></div>
-          <button class="swipe-handle" type="button" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : `transform ${SWIPE_CONFIG.returnDurationMs}ms ease-out` }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
+          <button class="swipe-handle" type="button" :disabled="!nativeRecoveryReady" :aria-label="actionLabel" :style="{ transform: `translateX(${swipe.offset}px)`, transition: swipe.down ? 'none' : `transform ${SWIPE_CONFIG.returnDurationMs}ms ease-out` }" @keydown.enter.prevent="keyAction" @keydown.space.prevent="keyAction">→</button>
         </div>
       </section>
     </template>
@@ -1019,13 +1058,14 @@ onBeforeUnmount(() => {
       v-if="store.isOnline && (store.trip?.tripStage === 'GOING_TO_PICKUP' || store.trip?.tripStage === 'PICKUP') && !endOpen && !fuelOpen && !cancelOpen"
       class="secondary-action cancel-trip-tab"
       type="button"
+      :disabled="!nativeRecoveryReady"
       @click="openCancel"
     >CANCEL TRIP</button>
 
     <WorkContextForm
       v-if="pendingFare && !endOpen && !cancelOpen && !fuelOpen"
       type="fare"
-      :fare-busy="fareBusy"
+       :fare-busy="fareBusy || !nativeRecoveryReady"
       :fare="fare"
       :trip-toll="tripToll"
       :trip-parking="tripParking"
@@ -1038,7 +1078,7 @@ onBeforeUnmount(() => {
     <WorkContextForm
       v-if="cancelOpen"
       type="cancel"
-      :cancel-busy="cancelBusy"
+       :cancel-busy="cancelBusy || !nativeRecoveryReady"
       :cancel-reason="cancelReason"
       :cancel-fare="cancelFare"
       @update:cancel-reason="cancelReason=$event"
@@ -1049,7 +1089,7 @@ onBeforeUnmount(() => {
     <WorkContextForm
       v-if="fuelOpen"
       type="fuel"
-      :fuel-busy="fuelBusy"
+       :fuel-busy="fuelBusy || !nativeRecoveryReady"
       :fuel-odo="fuelOdo"
       :fuel-price="fuelPrice"
       :fuel-amount="fuelAmount"
