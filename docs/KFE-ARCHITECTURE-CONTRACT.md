@@ -259,7 +259,7 @@ IndexedDB canonical stores + mutation/audit records
 - AdminService is the single owner of Admin form normalization/validation and use-case orchestration.
 - AdminRepository must not import application form definitions or validation. It owns canonical transactions, relationship integrity, soft deletion, mutation records and audit history.
 - Parent/child relationship checks and record deletion must occur in the same repository transaction.
-- Admin forms store source facts only. Loan principal, tenure and rate are saved facts; Admin does not calculate EMI, amortization, repayment schedules or payment allocation.
+- Admin forms store source facts. Loan records may display one read-only monthly EMI estimate derived by the domain calculation from principal, tenure and annual rate. EMI is not persisted. No amortization, repayment schedule/history, remaining-balance tracking, prepayment, payment allocation or loan ledger is active.
 - Backup/restore remains a separate persistence workflow and must preserve legacy stores without exposing retired workflows in Admin.
 
 ## 12. Replace-and-delete rule
