@@ -33,3 +33,11 @@ The native canonical database is the durable source for GPS snapshots. Native re
 ## Scope guard
 
 Do not add new Timeline features or recalculate unrelated business metrics under this contract. Keep this document subordinate to `KFE_BUSINESS_RULES_REGISTER.md`, `docs/KFE-ARCHITECTURE-CONTRACT.md`, and `docs/ANDROID-NATIVE-GPS-CONTRACT.md`.
+
+## Timeline date-range selection
+
+- Timeline provides inclusive From/To date controls using the same `YYYY-MM-DD` IST calendar-day semantics as Performance.
+- The initial range defaults to today. Users may select any valid historical dates; do not clip the range to the business start date.
+- Apply the selected range consistently to ride and fuel records and the fuel-period summary. Invalid or reversed ranges are rejected without changing saved records.
+- Date filtering is a read-only projection concern. It must not rewrite trip/fuel records, timestamps, GPS snapshots, or locality data.
+- Keep manual pull-to-refresh locality resolution independent of the selected reporting dates; its existing latest-seven-days eligibility rule remains unchanged.
