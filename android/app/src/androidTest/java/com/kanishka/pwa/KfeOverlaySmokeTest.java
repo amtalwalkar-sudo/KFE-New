@@ -983,9 +983,23 @@ public class KfeOverlaySmokeTest {
     String cancelTripId = "overlay-cancel-trip-" + suffix;
     String now = new java.util.Date().toInstant().toString();
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    // A previous interrupted instrumentation run may have left this test's
+    // uniquely-prefixed active Shift behind. Remove only those stale fixtures;
+    // never touch a real/business Shift or another test's records.
+    org.json.JSONArray existingShifts = store.listRecords("SHIFT", 1000).getJSONArray("records");
+    android.database.sqlite.SQLiteDatabase fixtureDb = store.getWritableDatabase();
+    for (int i = 0; i < existingShifts.length(); i++) {
+      JSONObject existingShift = existingShifts.optJSONObject(i);
+      if (existingShift == null) continue;
+      String existingId = existingShift.optString("id", "");
+      if (!existingId.startsWith("overlay-shift-")) continue;
+      fixtureDb.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
+      fixtureDb.delete("canonical_operations", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
+      fixtureDb.delete("canonical_audit", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
+    }
+    fixtureShiftIds.add(shiftId);
     assertTrue(store.putRecord("overlay-shift-" + suffix, "SHIFT",
       new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", now)).accepted);
-    fixtureShiftIds.add(shiftId);
 
     JSONObject state = new JSONObject()
       .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
