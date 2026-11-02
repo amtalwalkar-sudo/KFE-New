@@ -2,7 +2,7 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { WorkService } from '../work/workService.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
-import { getKfeReferenceNow, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, istDateKey, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
 import { derivePhaseOnePerformanceOverview } from '../../domain/performance/phaseOneOverview.js'
 
 const PERIODS = Object.freeze({ DAY: 'DAY', WEEK: 'WEEK', MONTH: 'MONTH' })
@@ -10,6 +10,9 @@ const live = records => (Array.isArray(records) ? records : []).filter(row => !r
 
 /** Read-only summary of saved ride revenue and fuel observations. */
 export const PhaseOnePerformanceService = Object.freeze({
+  getTodayDateKey() {
+    return istDateKey(getKfeReferenceNow())
+  },
   subscribeDataChanges(callback) {
     return subscribeCanonicalDataChanges(callback)
   },
