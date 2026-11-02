@@ -992,7 +992,7 @@ public class KfeOverlaySmokeTest {
       JSONObject existingShift = existingShifts.optJSONObject(i);
       if (existingShift == null) continue;
       String existingId = existingShift.optString("id", "");
-      if (!existingId.startsWith("overlay-shift-")) continue;
+      if (!existingId.startsWith("overlay-full-shift-")) continue;
       fixtureDb.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
       fixtureDb.delete("canonical_operations", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
       fixtureDb.delete("canonical_audit", "entity_type='SHIFT' AND entity_id=?", new String[]{existingId});
