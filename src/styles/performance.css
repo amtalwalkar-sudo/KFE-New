@@ -22,7 +22,8 @@
 .performance-heading h1 { margin: 0; font-size: clamp(1.65rem, 6vw, 2.1rem); line-height: 1.15; }
 .performance-description { margin: 8px 0 0; color: var(--kfe-muted-text); font-size: .92rem; }
 .performance-period { display: grid; gap: 6px; min-width: 116px; color: var(--kfe-muted-text); font-size: .78rem; }
-.performance-period select {
+.performance-period select,
+.performance-period input[type="date"] {
   min-height: 42px;
   max-width: 150px;
   padding: 8px 10px;
@@ -32,6 +33,10 @@
   color: inherit;
   font: inherit;
 }
+.performance-date-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: min(100%, 280px); }
+.performance-date-range label { display: grid; gap: 6px; min-width: 0; }
+.performance-period input[type="date"] { width: 100%; min-width: 0; min-height: 42px; padding: 8px 9px; border: 1px solid var(--kfe-ui-border); border-radius: 10px; background: var(--kfe-ui-surface); color: inherit; font: inherit; box-sizing: border-box; }
+.performance-period input[aria-invalid="true"] { border-color: var(--kfe-danger); }
 .performance-period-note, .performance-footnote { color: var(--kfe-muted-text); font-size: .8rem; line-height: 1.5; }
 .performance-period-note { margin: 0 0 14px; }
 .performance-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -56,6 +61,9 @@
   .performance-page { padding: 18px 12px 100px; }
   .performance-heading { flex-direction: column; }
   .performance-period { width: 100%; }
-  .performance-period select { max-width: none; width: 100%; }
+  .performance-period select,
+  .performance-period input[type="date"] { max-width: none; width: 100%; }
+  .performance-date-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .performance-date-range input[type="date"] { min-width: 0; }
   .performance-metric-grid { grid-template-columns: minmax(0, 1fr); }
 }
