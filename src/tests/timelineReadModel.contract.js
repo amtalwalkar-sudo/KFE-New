@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { calculateFuelPeriodSummary } from '../domain/math/fuel.js'
 import { tripPeriodTime, locationLabel, farePresentation } from '../application/timeline/activityTimelineReadService.js'
+import { istDateRange } from '../domain/time/ist.js'
 
 const fullTank = (id, capturedAt, odometer, amount) => ({ id, vehicleId: 'vehicle-1', capturedAt, odometer, amount, quantityKg: amount / 20, pricePerKg: 20, isFullTank: true })
 const previous = fullTank('previous', '2026-10-01T10:00:00.000Z', 1000, 100)
@@ -41,6 +42,11 @@ const service = fs.readFileSync('src/application/timeline/activityTimelineReadSe
 const view = fs.readFileSync('src/views/ActivityTimelineView.vue', 'utf8')
 const router = fs.readFileSync('src/router/index.js', 'utf8')
 assert.match(service, /ShiftTripRepository\.getAllTrips\(\{ skipCanonicalReadBoundary: true \}\)/)
+assert.match(service, /istDateRange\(startDate, endDate\)/, 'Timeline accepts the same inclusive IST custom date range as Performance.')
+const historicalTimelineRange = istDateRange('2025-01-04', '2025-02-12')
+assert.equal(historicalTimelineRange.from.toISOString(), '2025-01-03T18:30:00.000Z')
+assert.equal(historicalTimelineRange.to.toISOString(), '2025-02-12T18:29:59.999Z')
+assert.equal(istDateRange('2025-02-12', '2025-01-04'), null)
 assert.match(service, /await WorkService\.ensureCanonicalReadModel\(\)/, 'Timeline must reconcile native Android records before reading the PWA projection.')
 assert.ok(service.indexOf('await WorkService.ensureCanonicalReadModel()') < service.indexOf('ShiftTripRepository.getAllTrips({ skipCanonicalReadBoundary: true })'), 'Timeline must not read stale IndexedDB trips before native reconciliation.')
 assert.match(service, /FuelRepository\.getAll\(\)/)
