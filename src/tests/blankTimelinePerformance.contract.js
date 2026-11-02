@@ -16,7 +16,7 @@ for (const label of ['Work', 'Timeline', 'Performance', 'Admin']) {
 }
 assert.match(performanceView, /PhaseOnePerformanceService\\.getOverview\\(\\{ startDate: startDate\\.value, endDate: endDate\\.value \\}\\)/)
 assert.match(performanceView, /onMounted\(\(\) => \{[\s\S]*?void load\(\)/, 'Performance must load a fresh canonical snapshot when entered')
-assert.match(performanceView, /watch\\(\\[startDate, endDate\\]/, 'Changing either selected date must reload the custom period')
+assert.match(performanceView, /watch\(\[startDate, endDate\]/, 'Changing either selected date must reload the custom period')
 assert.match(performanceView, /PhaseOnePerformanceService\.subscribeDataChanges/)
 assert.match(performanceView, /relevantStores\.has\(store\)/)
 assert.match(performanceView, /createCoalescedRefresh/)
