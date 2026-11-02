@@ -194,23 +194,26 @@ public class KfeOverlaySmokeTest {
       "persistLifecycleAction", String.class, String.class, boolean.class);
     persist.setAccessible(true);
     String shiftId = "fault-shift-" + java.util.UUID.randomUUID();
+    String tripId = "fault-trip-" + java.util.UUID.randomUUID();
     seedCanonicalShift(shiftId);
-    for (String boundary : new String[]{"AFTER_CHECKPOINT", "AFTER_OUTBOX", "AFTER_CANONICAL"}) {
-      String suffix = boundary.toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID();
-      String tripId = "fault-trip-" + suffix;
+    String[][] cases = new String[][]{
+      {"AFTER_CHECKPOINT", "GO_TO_PICKUP", "GOING_TO_PICKUP", "GOING_TO_PICKUP", "false"},
+      {"AFTER_OUTBOX", "START_RIDE", "RIDE_STARTED", "RIDE_STARTED", "true"},
+      {"AFTER_CANONICAL", "END_RIDE", "COMPLETED", "COMPLETED", "true"}
+    };
+    for (String[] testCase : cases) {
+      String boundary = testCase[0];
+      String eventStage = testCase[1];
+      String canonicalStage = testCase[2];
+      String expectedAfterRetry = testCase[3];
       context.getSharedPreferences("kfe_native_work_actions", 0).edit()
         .remove("pendingEventId").remove("pending").commit();
       JSONObject state = new JSONObject()
         .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
         .put("trip", JSONObject.NULL)
-        .put("overlayAction", "GO_TO_PICKUP")
+        .put("overlayAction", eventStage)
         .put("overlayTripId", tripId);
       updateWithCanonicalShift(state);
-      // An existing overlay can already have non-zero dimensions from @Before,
-      // so waitForOverlay() alone does not prove this UPDATE intent was applied.
-      // Wait for the service to persist this exact fixture before mutating its
-      // checkpoint or injecting faults; otherwise a late prior UPDATE can race
-      // the retry and make the canonical-trip assertion nondeterministic.
       long stateDeadline = SystemClock.uptimeMillis() + 5000L;
       while (SystemClock.uptimeMillis() < stateDeadline
           && !state.toString().equals(context.getSharedPreferences("kfe_overlay", 0)
@@ -220,18 +223,22 @@ public class KfeOverlaySmokeTest {
       assertEquals("Overlay service must apply the current lifecycle fixture before fault injection",
         state.toString(), context.getSharedPreferences("kfe_overlay", 0).getString("lastOverlayState", ""));
       waitForOverlay();
-      // Keep the exact shift/trip snapshot deterministic before fault injection.
       context.getSharedPreferences("kfe_overlay", 0).edit()
         .putString("lastOverlayState", state.toString()).commit();
       KfeOverlayService service = waitForService();
-      setField(service, "actionStage", "GO_TO_PICKUP");
+      setField(service, "actionStage", "GO_TO_PICKUP".equals(eventStage) ? "GO_TO_PICKUP"
+        : ("START_RIDE".equals(eventStage) ? "START_RIDE" : "END_RIDE"));
       setField(service, "pendingTripId", tripId);
+      if ("START_RIDE".equals(eventStage)) setField(service, "tripStartAt", System.currentTimeMillis());
+      if ("END_RIDE".equals(eventStage)) setField(service, "tripStartAt", System.currentTimeMillis() - 60000L);
 
       KfeOverlayService.lifecycleFaultInjectorForTests = reached -> {
         if (boundary.equals(reached)) throw new RuntimeException("Injected " + boundary);
       };
       try {
-        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+        persist.invoke(service, eventStage,
+          "GO_TO_PICKUP".equals(eventStage) ? "GOING_TO_PICKUP" : canonicalStage,
+          "START_RIDE".equals(eventStage));
         throw new AssertionError("Expected lifecycle fault at " + boundary);
       } catch (java.lang.reflect.InvocationTargetException expected) {
         assertTrue("Unexpected injected fault: " + expected.getCause(),
@@ -241,26 +248,31 @@ public class KfeOverlaySmokeTest {
         KfeOverlayService.lifecycleFaultInjectorForTests = null;
       }
 
-      String originalEventId = findPendingEventId("GO_TO_PICKUP", tripId);
-      boolean eventAfterFault = KfeNativeEventStore.get(context).contains(originalEventId);
-      boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
-        .getRecord("TRIP", tripId).optBoolean("found", false);
+      String originalEventId = findPendingEventId(eventStage, tripId);
+      boolean eventAfterFault = !originalEventId.isEmpty()
+        && KfeNativeEventStore.get(context).contains(originalEventId);
+      JSONObject canonicalAfterFault = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
+      boolean tripExistsAfterFault = canonicalAfterFault.optBoolean("found", false);
       if ("AFTER_CHECKPOINT".equals(boundary)) {
         assertTrue("Checkpoint fault must not append an event", !eventAfterFault);
-        assertTrue("Checkpoint fault must not write a canonical trip", !canonicalAfterFault);
+        assertTrue("Checkpoint fault must not write a canonical trip", !tripExistsAfterFault);
       } else {
-        assertTrue("Outbox/canonical fault must retain its durable event even if already acknowledged", eventAfterFault);
-        assertEquals("Canonical state must exist only after the canonical-write boundary",
-          "AFTER_CANONICAL".equals(boundary), canonicalAfterFault);
+        assertTrue("Outbox/canonical fault must retain its durable event", eventAfterFault);
+        assertTrue("Outbox/canonical fault must retain the canonical Trip", tripExistsAfterFault);
+        String expectedFaultStage = "AFTER_OUTBOX".equals(boundary) ? "GOING_TO_PICKUP" : "COMPLETED";
+        assertEquals(expectedFaultStage,
+          canonicalAfterFault.getJSONObject("record").getString("tripStage"));
       }
 
       try {
-        persist.invoke(service, "GO_TO_PICKUP", "GOING_TO_PICKUP", false);
+        persist.invoke(service, eventStage,
+          "GO_TO_PICKUP".equals(eventStage) ? "GOING_TO_PICKUP" : canonicalStage,
+          "START_RIDE".equals(eventStage));
       } catch (java.lang.reflect.InvocationTargetException retryFailure) {
         throw new AssertionError("Lifecycle retry failed at boundary " + boundary
           + " for trip " + tripId + ": " + retryFailure.getCause(), retryFailure.getCause());
       }
-      String eventIdAfterRetry = findPendingEventId("GO_TO_PICKUP", tripId);
+      String eventIdAfterRetry = findPendingEventId(eventStage, tripId);
       assertTrue("Retry must converge to a durable event", !eventIdAfterRetry.isEmpty()
         && KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
       if (!originalEventId.isEmpty()) {
@@ -268,8 +280,9 @@ public class KfeOverlaySmokeTest {
       }
       JSONObject canonicalTrip = KfeCanonicalWorkStore.get(context).getRecord("TRIP", tripId);
       assertTrue("Retry must leave a durable canonical trip", canonicalTrip.optBoolean("found", false));
-      assertEquals("ACTIVE", canonicalTrip.getJSONObject("record").getString("status"));
-      assertEquals("GOING_TO_PICKUP", canonicalTrip.getJSONObject("record").getString("tripStage"));
+      assertEquals("COMPLETED".equals(expectedAfterRetry) ? "COMPLETED" : "ACTIVE",
+        canonicalTrip.getJSONObject("record").getString("status"));
+      assertEquals(expectedAfterRetry, canonicalTrip.getJSONObject("record").getString("tripStage"));
     }
   }
 
