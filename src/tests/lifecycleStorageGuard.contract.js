@@ -26,9 +26,9 @@ for (const [method, nextMethod] of [
   ['async startShift(data)', 'async startTrip(data)'],
   ['async startTrip(data)', 'async startRide(data)'],
   ['async startRide(data)', 'async completeTrip(data)'],
-  ['async completeTrip(data)', 'async cancelTrip(data)'],
-  ['async cancelTrip(data)', 'async updateTrip(data)'],
-  ['async updateTrip(data)', 'async updateFuel(data)'],
+  ['async completeTrip(data)', 'async cancelTrip(data, operationId = \'\')'],
+  ['async cancelTrip(data, operationId = \'\')', 'async saveTripDetails(data, operationId = \'\')'],
+  ['async saveTripDetails(data, operationId = \'\')', 'async updateFuel(data)'],
   ['async endShift(data)', 'async recordFuel(data)'],
 ]) {
   const start = service.indexOf(method)
@@ -44,8 +44,7 @@ const boundary = fs.readFileSync(new URL('../application/work/canonicalWorkBound
 assert.match(boundary, /const requireCanonicalWriteRoute = \(\) => \{[\s\S]*?return assertLifecycleStorageAvailable\(\{ platform, nativeAvailable: nativeCanonicalAvailable\(\) \}\)/,
   'canonical write boundary must apply the same Android fail-closed policy')
 for (const [method, nextMethod, nativeCall, browserCall] of [
-  ['async putRecord(input)', 'async persistTripBoundarySnapshot(input)', 'WorkRuntimePorts\\.canonicalWork\\.putRecord\\(normalized\\)', 'BrowserCanonicalWorkService\\.putRecord\\(normalized\\)'],
-  ['async updateTripBoundaryPlaceName(input)', 'async persistEventLocationSnapshot(snapshot)', 'WorkRuntimePorts\\.canonicalWork\\.updateTripBoundaryPlaceName\\(normalized\\)', 'BrowserCanonicalWorkService\\.updateTripBoundaryPlaceName\\(normalized\\)'],
+  ['async putRecord(input)', 'async persistEventLocationSnapshot(snapshot)', 'WorkRuntimePorts\\.canonicalWork\\.putRecord\\(normalized\\)', 'WorkRuntimePorts\\.browserCanonicalWork\\.putRecord\\(normalized\\)'],
 ]) {
   const start = boundary.indexOf(method)
   const end = boundary.indexOf(nextMethod, start + method.length)
@@ -58,27 +57,29 @@ for (const [method, nextMethod, nativeCall, browserCall] of [
 }
 
 const noop = async () => ({})
+assert.ok(boundary.includes('async commitTripForm(input)') && boundary.includes('WorkRuntimePorts.canonicalWork.commitTripForm(normalized)'), 'Android Trip forms must route through the native form transaction.')
 configureWorkRuntimePorts({
   nativeWorkActions: {
     clearPendingAction: noop, addListener: noop, consumePendingActions: noop,
     consumePendingAction: noop, acknowledgeAction: noop, recordActionFailure: noop,
   },
   canonicalWork: {
-    putRecord: noop, persistTripBoundarySnapshot: noop, updateTripBoundaryPlaceName: noop,
-    getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
+    putRecord: noop, restoreRecord: noop, commitTripLifecycle: noop, commitTripForm: noop, getRecord: noop, listRecords: noop, getOperation: noop, isAvailable: () => false,
+    prepareCreateIntent: noop, completeCreateIntent: noop, migrateLegacySnapshot: noop, verifyLegacyMigration: noop, getMigration: noop,
+    beginCanonicalReset: noop, clearCanonicalReset: noop, completeCanonicalReset: noop, releaseCanonicalReset: noop, getCanonicalResetState: noop,
   },
+  browserCanonicalWork: { putRecord: noop, getRecord: noop, listRecords: noop, getOperation: noop },
+  tripBoundaryLocation: { queueEventLocationCapture: noop, captureOneShotLocation: noop },
+  locationNames: { resolveLocationNameDetailed: noop, resolveLocationName: noop },
+  gpsPermissions: { isNativePlatform: () => true, getLocationStatus: noop, openBackgroundLocationSettings: noop, requestLocationPermissions: noop, requestBackgroundLocationPermission: noop },
+  diagnostics: { start: noop, waiting: noop, checkpoint: noop, error: noop, complete: noop, snapshot: noop, subscribe: noop, clear: noop },
   androidOverlay: { hide: noop, update: noop, prepare: noop, fareSaved: noop, cancelSaved: noop },
-  platform: { getPlatform: () => 'android' },
+  platform: { getPlatform: () => 'android', isOnline: () => true, getStartupPermissionStatus: noop, requestStartupPermission: noop, openStartupSetting: noop, getConfirmedOemSettings: async () => [], saveConfirmedOemSettings: noop, waitForForegroundReturn: async () => {} },
 })
 await assert.rejects(
-  CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'TRIP', record: { id: 'trip-1', shiftId: 'shift-1' } }),
+  CanonicalWorkBoundary.putRecord({ operationId: 'op-1', entityType: 'SHIFT', record: { id: 'shift-1', status: 'ACTIVE' } }),
   /Android canonical SQLite storage is unavailable/,
   'direct canonical record writes must fail closed in Android instead of reaching IndexedDB',
-)
-await assert.rejects(
-  CanonicalWorkBoundary.updateTripBoundaryPlaceName({ operationId: 'op-2', tripId: 'trip-1', field: 'tripStartLocation', placeName: 'Test area' }),
-  /Android canonical SQLite storage is unavailable/,
-  'trip-boundary metadata writes must also fail closed in Android instead of reaching IndexedDB',
 )
 console.log('Canonical write boundary contract: Android never falls back to browser business-record writes; web PWA remains supported.')
 console.log('Lifecycle storage guard contract: Android fails closed when canonical SQLite is unavailable; web PWA remains supported.')

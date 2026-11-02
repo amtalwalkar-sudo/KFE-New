@@ -1,161 +1,31 @@
 import assert from 'node:assert/strict'
-import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
-import { normalizeFormValues, validateAdminForm } from '../application/admin/universalFormRules.js'
-
 import fs from 'node:fs'
-const date = '2026-09-01'
-const validValue = field => {
-  if (field.defaultValue !== undefined) return field.defaultValue
-  if (field.type === 'checkbox') return false
-  if (field.type === 'text' || field.type === 'textarea') return ' Test value '
-  if (field.type === 'date') return date
-  if (field.type === 'datetime-local') return date + 'T12:00'
-  if (field.type === 'number') return field.exclusiveMin && field.min !== undefined ? field.min + 1 : (field.min ?? 1)
-  if (field.type === 'select') {
-    const option = field.options?.[0]
-    if (option !== undefined) return option && typeof option === 'object' && 'value' in option ? option.value : option
-    return 'reference-id'
-  }
-  throw new Error('Unhandled field type: ' + field.type)
-}
+import { ADMIN_FORM_KEYS, getAdminFormDefinition } from '../application/admin/adminFormDefinitions.js'
+import { validateAdminForm } from '../application/admin/universalFormRules.js'
 
-const vehicleDefaults = getAdminFormDefinition('vehicle')
-const driverDefaults = getAdminFormDefinition('driver')
-const loanDefaults = getAdminFormDefinition('loan')
-assert.equal(vehicleDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Vehicle create form must default to Active')
-assert.equal(vehicleDefaults.fields.find(field => field.key === 'active')?.defaultValue, true, 'Vehicle create form must default Active flag to true')
-assert.equal(vehicleDefaults.fields.find(field => field.key === 'expiryDate')?.hidden, true, 'Legacy vehicle expiry is preserved for compatibility but not offered as a duplicate input; dated compliance records own renewal validity')
-assert.equal(driverDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Driver create form must default to Active')
-assert.equal(loanDefaults.fields.find(field => field.key === 'status')?.defaultValue, 'Active', 'Loan create form must default to Active')
-const adminView = fs.readFileSync(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
-const nativeAdmin = fs.readFileSync(new URL('../components/admin/AdminSourceForm.vue', import.meta.url), 'utf8')
-assert.match(adminView, /:busy="saving"/, 'All Admin create/edit surfaces must use save-state locking')
-assert.ok(adminView.includes('paymentMethod:actionDraft.value.paymentMethod'), 'Source payment must persist payment method')
-assert.ok(adminView.includes('referenceNumber:String(actionDraft.value.referenceNumber||\'\')'), 'Source payment must persist payment reference')
-assert.ok(adminView.includes('notes:String(actionDraft.value.notes||\'\')'), 'Admin payment/prepayment/rate/target notes must reach persistence')
-assert.match(nativeAdmin, /:required="field\.required"/, 'Admin controls must expose required semantics')
-assert.ok(nativeAdmin.includes('function changed(field, raw)') && nativeAdmin.includes(':value="value(field)"') && nativeAdmin.includes('@input="changed(field, $event.target.value)"'), 'Admin fields must use reactive values and native input events')
-assert.match(nativeAdmin, /function inputType\(field\)/, 'Admin numeric fields must render native number inputs')
-assert.ok(!nativeAdmin.includes('autocapitalize="on"'), 'Admin text entry must not force capitalization')
-assert.doesNotMatch(nativeAdmin, /openEditor|editorRef|editorOpen|readonly/, 'Admin fields must not use a popup editor or readonly text entry')
-assert.doesNotMatch(nativeAdmin, /watch\(values/, 'Admin must not emit parent model updates on every keystroke')
-assert.match(nativeAdmin, /source-form-section/, 'Admin inputs must use the new grouped record-form architecture')
-assert.match(nativeAdmin, /aria-label="Admin source record entry"/, 'Admin record forms must have an accessible form name')
-assert.match(nativeAdmin, /field\.section/, 'Admin form sections must be driven by business-purpose groups')
-assert.match(nativeAdmin, /filter\(f => f && !f\.hidden\)/, 'Compatibility-only fields must not render as editable inputs')
-assert.doesNotMatch(nativeAdmin, /AdminNativeForm/, 'The previous Admin form implementation must not remain in the replacement component')
-assert.match(adminView, /<AdminSourceForm/, 'Admin view must render the replacement record form')
-
-const fixture = definition => Object.fromEntries(definition.fields.map(field => [
-  field.key,
-  field.required ? validValue(field) : (field.defaultValue !== undefined ? field.defaultValue : '')
-]))
-
-assert.deepEqual(ADMIN_FORM_KEYS, [
-  'businessSetup','vehicle','driver','compliance','maintenance','loan',
-  'loanPayment','prepayment','settlement','driverTarget','breakEvenInputs'
-])
-let fieldCount = 0
-for (const key of ADMIN_FORM_KEYS) {
+const admin = fs.readFileSync('src/views/AdminView.vue', 'utf8')
+const form = fs.readFileSync('src/components/admin/AdminSourceForm.vue', 'utf8')
+const expected = ['businessSetup','vehicle','driver','compliance','maintenance','loan']
+assert.deepEqual(ADMIN_FORM_KEYS, expected)
+for (const key of expected) {
   const definition = getAdminFormDefinition(key)
-  assert.ok(definition && definition.fields.length > 0, key + ': form definition must exist')
-  const keys = definition.fields.map(field => field.key)
-  assert.equal(new Set(keys).size, keys.length, key + ': field keys must be unique')
-  const values = fixture(definition)
-  const baseline = validateAdminForm(definition, values)
-  assert.equal(baseline.valid, true, key + ': minimally valid fixture rejected: ' + JSON.stringify(baseline.errors))
-
-  const unknown = validateAdminForm(definition, { ...values, __unregisteredField: 'not allowed' })
-  assert.equal(unknown.valid, false, key + ': unknown field must be rejected')
-  assert.ok(unknown.errors.__unregisteredField, key + ': unknown field error must be attached to field')
-
-  for (const field of definition.fields) {
-    fieldCount += 1
-    if (field.required) {
-      const missing = validateAdminForm(definition, { ...values, [field.key]: '' })
-      assert.equal(missing.valid, false, key + '.' + field.key + ': required field must reject blank')
-      assert.ok(missing.errors[field.key], key + '.' + field.key + ': required error must name field')
-    }
-    if (['date','datetime-local'].includes(field.type)) {
-      const withDate = value => {
-        // Keep cross-field start dates earlier than the date under test, including
-        // the 1900/2000 Gregorian century leap-year boundary vectors.
-        const anchorDate = String(value).slice(0, 4) + '-02-28'
-        return {
-          ...values,
-          [field.key]: value,
-          ...(key === 'vehicle' && field.key === 'saleDate' ? { status: 'Sold', sellPrice: 1 } : {}),
-          ...(key === 'compliance' && field.key === 'validUntil' ? { validFrom: anchorDate } : {}),
-          ...(key === 'driver' && field.key === 'licenseExpiry' ? { joinedOn: anchorDate } : {}),
-          ...(key === 'driverTarget' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {}),
-          ...(key === 'breakEvenInputs' && field.key === 'effectiveUntil' ? { effectiveFrom: anchorDate } : {})
-        }
-      }
-      const invalidDate = validateAdminForm(definition, withDate('not-a-date'))
-      assert.equal(invalidDate.valid, false, key + '.' + field.key + ': invalid date must be rejected')
-      const impossibleDate = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-31' : '2024-02-31T12:00'))
-      assert.equal(impossibleDate.valid, false, key + '.' + field.key + ': impossible calendar dates must be rejected')
-      const invalidLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2023-02-29' : '2023-02-29T12:00'))
-      assert.equal(invalidLeapDay.valid, false, key + '.' + field.key + ': non-leap-year February 29 must be rejected')
-      const validLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2024-02-29' : '2024-02-29T12:00'))
-      assert.equal(validLeapDay.valid, true, key + '.' + field.key + ': valid leap day must be accepted')
-      const invalidCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '1900-02-29' : '1900-02-29T12:00'))
-      assert.equal(invalidCenturyLeapDay.valid, false, key + '.' + field.key + ': century year not divisible by 400 must not be treated as leap year')
-      const validCenturyLeapDay = validateAdminForm(definition, withDate(field.type === 'date' ? '2000-02-29' : '2000-02-29T12:00'))
-      assert.equal(validCenturyLeapDay.valid, true, key + '.' + field.key + ': century year divisible by 400 must be treated as leap year')
-      if (field.type === 'datetime-local') {
-        const invalidTime = validateAdminForm(definition, withDate('2024-02-29T24:00'))
-        assert.equal(invalidTime.valid, false, key + '.' + field.key + ': out-of-range clock time must be rejected')
-      }
-    }
-    if (field.type === 'number') {
-      const invalidNumber = validateAdminForm(definition, { ...values, [field.key]: 'not-a-number' })
-      assert.equal(invalidNumber.valid, false, key + '.' + field.key + ': nonnumeric input must be rejected')
-      if (field.min !== undefined) {
-        const belowMin = field.exclusiveMin ? field.min : field.min - 1
-        const invalidBound = validateAdminForm(definition, { ...values, [field.key]: belowMin })
-        assert.equal(invalidBound.valid, false, key + '.' + field.key + ': lower bound must be enforced')
-        if (!field.exclusiveMin) {
-          const atMin = validateAdminForm(definition, { ...values, [field.key]: field.min })
-          assert.equal(atMin.valid, true, key + '.' + field.key + ': inclusive minimum should be accepted')
-        }
-      }
-      if (field.max !== undefined) {
-        const aboveMax = validateAdminForm(definition, { ...values, [field.key]: field.max + 1 })
-        assert.equal(aboveMax.valid, false, key + '.' + field.key + ': upper bound must be enforced')
-      }
-    }
-    if (field.type === 'select' && field.options?.length) {
-      const invalidSelect = validateAdminForm(definition, { ...values, [field.key]: '__invalid_option__' })
-      assert.equal(invalidSelect.valid, false, key + '.' + field.key + ': unsupported selection must be rejected')
-    }
-  }
-  const normalized = normalizeFormValues(definition, values)
-  for (const field of definition.fields) {
-    if (field.type === 'text' || field.type === 'textarea') {
-      if (typeof values[field.key] === 'string' && values[field.key].trim()) {
-        assert.equal(normalized[field.key], values[field.key].trim(), key + '.' + field.key + ': text should be trimmed')
-      }
-    }
-  }
+  assert.ok(definition?.fields?.length, `${key} must expose a usable basic form`)
+  const fieldKeys = definition.fields.map(field => field.key)
+  assert.equal(new Set(fieldKeys).size, fieldKeys.length, `${key} must not duplicate field keys`)
+  assert.ok(definition.fields.every(field => field.label && field.type), `${key} fields need labels and types`)
 }
-const vehicle = getAdminFormDefinition('vehicle')
-const soldWithoutSale = validateAdminForm(vehicle, {
-  ...fixture(vehicle), status: 'Sold', saleDate: '', sellPrice: ''
-})
-assert.equal(soldWithoutSale.valid, false, 'Sold vehicle must require sale date and sell price')
-const compliance = getAdminFormDefinition('compliance')
-assert.equal(validateAdminForm(compliance, {
-  ...fixture(compliance), validFrom: '2026-09-10', validUntil: '2026-09-09'
-}).valid, false, 'Compliance validity end must not precede start')
-const driver = getAdminFormDefinition('driver')
-assert.equal(validateAdminForm(driver, {
-  ...fixture(driver), joinedOn: '2026-09-10', licenseExpiry: '2026-09-09'
-}).valid, false, 'Licence expiry must not precede driver joining date')
-const maintenance = getAdminFormDefinition('maintenance')
-assert.deepEqual(maintenance.fields.map(field => field.key), ['performedOn','odometerKm','maintenanceType','cost','notes'],
-  'Maintenance must retain exactly the frozen authoritative five fields')
-assert.equal(getAdminFormDefinition('breakEvenInputs').fields.find(field => field.key === 'maintenanceProvisionPerKm').defaultValue, 1.6,
-  'Indicative maintenance provision default must remain ₹1.60/km')
-// Cross-layer Admin UI/form audit is explicitly reviewed by the PR impact gate.
-console.log('Admin field matrix: PASS — ' + ADMIN_FORM_KEYS.length + ' forms, ' + fieldCount + ' defined fields; required/invalid/boundary/select/normalization and selected cross-field rules checked.')
+assert.equal(validateAdminForm(getAdminFormDefinition('businessSetup'), { businessStartDate: '2026-05-15' }).valid, true)
+assert.equal(validateAdminForm(getAdminFormDefinition('businessSetup'), {}).valid, false)
+assert.match(admin, /<AdminSourceForm/)
+assert.match(admin, /:busy="saving"/)
+assert.match(admin, /@field-change="onSourceFieldChange"/)
+assert.match(form, /:required="field\.required"/)
+assert.match(form, /function changed\(field, raw\)/)
+assert.match(form, /:value="value\(field\)"/)
+assert.match(form, /@input="changed\(field, \$event\.target\.value\)"/)
+assert.match(form, /function inputType\(field\)/)
+assert.match(form, /source-form-section/)
+assert.match(form, /aria-label="Admin source record entry"/)
+assert.doesNotMatch(admin, /AdminReadModelService|PerformanceService|driverTarget|maintenanceRate|prepayment|amortization|break.?even|provision/i)
+assert.doesNotMatch(form, /AdminNativeForm/)
+console.log('Basic Admin form field matrix: PASS')

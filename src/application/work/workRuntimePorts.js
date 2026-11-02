@@ -1,8 +1,12 @@
 const requiredMethods = Object.freeze({
   nativeWorkActions: ['clearPendingAction', 'addListener', 'consumePendingActions', 'consumePendingAction', 'acknowledgeAction', 'recordActionFailure'],
-  canonicalWork: ['putRecord', 'persistTripBoundarySnapshot', 'updateTripBoundaryPlaceName', 'getRecord', 'listRecords', 'getOperation', 'isAvailable'],
+  canonicalWork: ['putRecord', 'restoreRecord', 'commitTripLifecycle', 'commitTripForm', 'getRecord', 'listRecords', 'getOperation', 'isAvailable', 'prepareCreateIntent', 'completeCreateIntent', 'migrateLegacySnapshot', 'verifyLegacyMigration', 'getMigration', 'beginCanonicalReset', 'clearCanonicalReset', 'completeCanonicalReset', 'releaseCanonicalReset', 'getCanonicalResetState'],
+  browserCanonicalWork: ['putRecord', 'getRecord', 'listRecords', 'getOperation'],
+  gpsPermissions: ['isNativePlatform', 'getLocationStatus', 'openBackgroundLocationSettings', 'requestLocationPermissions', 'requestBackgroundLocationPermission'],
   androidOverlay: ['hide', 'update', 'prepare', 'fareSaved', 'cancelSaved'],
-  platform: ['getPlatform'],
+  platform: ['getPlatform', 'isOnline', 'getStartupPermissionStatus', 'requestStartupPermission', 'openStartupSetting', 'getConfirmedOemSettings', 'saveConfirmedOemSettings', 'waitForForegroundReturn'],
+  tripBoundaryLocation: ['queueEventLocationCapture', 'captureOneShotLocation'],
+  locationNames: ['resolveLocationNameDetailed', 'resolveLocationName'],
 })
 
 let configuredPorts = null
@@ -31,6 +35,10 @@ const createPortProxy = group => new Proxy(Object.create(null), {
 export const WorkRuntimePorts = Object.freeze({
   nativeWorkActions: createPortProxy('nativeWorkActions'),
   canonicalWork: createPortProxy('canonicalWork'),
+  browserCanonicalWork: createPortProxy('browserCanonicalWork'),
+  gpsPermissions: createPortProxy('gpsPermissions'),
   androidOverlay: createPortProxy('androidOverlay'),
   platform: createPortProxy('platform'),
+  tripBoundaryLocation: createPortProxy('tripBoundaryLocation'),
+  locationNames: createPortProxy('locationNames'),
 })

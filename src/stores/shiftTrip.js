@@ -17,7 +17,6 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   const isShiftActive = computed(() => shift.value?.status === 'ACTIVE')
   const isTripActive = computed(() => trip.value?.status === 'ACTIVE')
   const isOnline = isShiftActive
-  const isFinancialDayActive = computed(() => isShiftActive.value && registeredTrips.value.length > 0)
   const headerShiftStatus = computed(() => isShiftActive.value ? 'ONLINE' : 'OFFLINE')
   const headerTripStatus = computed(() => isTripActive.value ? 'ON' : 'OFF')
   const startOdometer = computed(() => shift.value?.startOdometer ?? lastKnownOdometer.value)
@@ -43,17 +42,15 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
   }
 
   const initialize = async () => { if (!initialized.value) await refresh() }
-  const calculateGap = odo => firstKfeDay.value
+  const validateStartOdometer = odo => firstKfeDay.value
     ? WorkService.validateFirstDayShiftStartOdometer(odo, businessStartBaseline.value?.businessStartOdometer)
     : WorkService.validateShiftStartOdometer(odo, lastKnownOdometer.value)
 
-  const startShift = async (odo, allocation = null, createIntentKey = '') => {
+  const startShift = async (odo, createIntentKey = '') => {
     if (isShiftActive.value) return { ok: false, reason: 'A Shift is already active.' }
-    const check = calculateGap(odo)
+    const check = validateStartOdometer(odo)
     if (!check.valid) return { ok: false, reason: check.reason }
-    const allocationCheck = WorkService.validateGapAllocation(check.gapKm, allocation?.category)
-    if (!allocationCheck.valid) return allocationCheck
-    const record = await WorkService.startShift({ startOdometer: Number(odo), openingPersonalKm: allocationCheck.personalKm, openingDeadKm: allocationCheck.deadKm, openingPersonalToll: Number(allocation?.personalToll || 0), openingPersonalParking: Number(allocation?.personalParking || 0), openingBaselineType: firstKfeDay.value ? 'BUSINESS_START_FIRST_DAY' : 'POST_KFE_GAP', historicalOdometerGapKm: firstKfeDay.value ? Number(check.historicalKm || 0) : 0, businessStartDate: businessStartBaseline.value?.businessStartDate || null, businessStartOdometer: businessStartBaseline.value?.businessStartOdometer ?? null, createIntentKey })
+    const record = await WorkService.startShift({ startOdometer: Number(odo), createIntentKey })
     // The shift write is authoritative. Do not turn a successful persisted
     // start into a false failure because a post-write refresh/enrichment read fails.
     shift.value = record
@@ -116,18 +113,18 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return true
   }
 
-  const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', revenue = '' } = {}) => {
+  const cancelTrip = async ({ reason = 'DRIVER_MISTAKE', cancelledRevenue = '' } = {}, operationId = '') => {
     if (!isTripActive.value) return false
     if (!String(reason || '').trim()) return { ok: false, reason: 'Cancellation reason is required.' }
     const tripId = trip.value.id
-    const result = await WorkService.cancelTrip({ id: tripId, reason, revenue })
+    const result = await WorkService.cancelTrip({ id: tripId, reason, cancelledRevenue }, operationId)
     if (result?.ok === false) return result
     await refresh()
     return { ok: true }
   }
 
-  const updateTrip = async data => {
-    const result = await WorkService.updateTrip(data)
+  const saveTripDetails = async (data, operationId = '') => {
+    const result = await WorkService.saveTripDetails(data, operationId)
     if (result?.ok === false) return result
     await refresh()
     return { ok: true }
@@ -143,5 +140,5 @@ export const useShiftTripStore = defineStore('shiftTrip', () => {
     return result
   }
 
-  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, isShiftActive, isTripActive, isOnline, isFinancialDayActive, headerShiftStatus, headerTripStatus, initialize, refresh, calculateGap, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, updateTrip, endShift }
+  return { shift, trip, registeredTrips, completedTrips, operators, defaultOperator, lastKnownOdometer, businessStartBaseline, firstKfeDay, startOdometer, validateStartOdometer, isShiftActive, isTripActive, isOnline, headerShiftStatus, headerTripStatus, initialize, refresh, startShift, beginPickup, startRide, startTrip, endTrip, cancelTrip, saveTripDetails, endShift }
 })

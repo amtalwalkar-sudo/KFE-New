@@ -5,39 +5,35 @@ const first = (...values) => values.find(value => value !== null && value !== un
 export const normalizeShiftInput = input => {
   const value = { ...input }
   value.startOdometer = number(first(input.startOdometer, input.start_odometer, input.openingOdometer, input.opening_odometer), 'startOdometer')
-  if (first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer) !== undefined) value.endOdometer = number(first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer), 'endOdometer')
-  for (const [canonical, aliases] of Object.entries({ openingPersonalKm: ['opening_personal_km'], openingDeadKm: ['opening_dead_km'], openingPersonalToll: ['opening_personal_toll'], openingPersonalParking: ['opening_personal_parking'], totalDistance: ['total_distance'], revenue: ['fare', 'amount'], toll: ['tollCost', 'toll_cost'], parking: ['parkingCost', 'parking_cost'] })) {
-    const source = first(input[canonical], ...aliases.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = number(source, canonical); for (const alias of aliases) delete value[alias]
-  }
+  const endOdometer = first(input.endOdometer, input.end_odometer, input.closingOdometer, input.closing_odometer)
+  if (endOdometer !== undefined) value.endOdometer = number(endOdometer, 'endOdometer')
   value.shiftStartAt = first(input.shiftStartAt, input.shift_start_at, input.startAt, input.start_at) ?? input.shiftStartAt
   value.shiftEndAt = first(input.shiftEndAt, input.shift_end_at, input.endAt, input.end_at) ?? input.shiftEndAt
-  for (const field of ['tollTreatment', 'parkingTreatment']) {
-    if (input[field] === undefined) continue
-    const treatment = String(input[field] || '').toUpperCase()
-    if (!['INCLUDED', 'EXCLUDED'].includes(treatment)) throw new Error(`Shift ${field} must be INCLUDED or EXCLUDED.`)
-    value[field] = treatment
-  }
-  if (input.tollParkingCaptureMode !== undefined) {
-    const mode = String(input.tollParkingCaptureMode || '').toUpperCase()
-    if (!['ADDITIONAL_ONLY', 'LEGACY_AGGREGATE'].includes(mode)) throw new Error('Shift tollParkingCaptureMode must be ADDITIONAL_ONLY or LEGACY_AGGREGATE.')
-    value.tollParkingCaptureMode = mode
-  }
-  for (const key of ['start_odometer','end_odometer','openingOdometer','opening_odometer','closingOdometer','closing_odometer']) delete value[key]
+
+  // Shift records own only their opening/closing odometer and lifecycle facts.
+  // Old gap-allocation, per-shift fare/toll and supplied distance inputs are not
+  // accepted as new Shift source facts; existing stored records remain untouched.
+  for (const key of [
+    'start_odometer', 'end_odometer', 'openingOdometer', 'opening_odometer',
+    'closingOdometer', 'closing_odometer', 'openingPersonalKm', 'opening_personal_km',
+    'openingDeadKm', 'opening_dead_km', 'openingPersonalToll', 'opening_personal_toll',
+    'openingPersonalParking', 'opening_personal_parking', 'totalDistance', 'total_distance',
+    'revenue', 'liveFareRevenue', 'fare', 'amount', 'toll', 'tollCost', 'toll_cost', 'parking',
+    'parkingCost', 'parking_cost', 'tollTreatment', 'parkingTreatment',
+    'tollParkingCaptureMode', 'tollParkingRevenueTreatment',
+  ]) delete value[key]
   return value
 }
 
 export const normalizeTripInput = input => {
   const value = { ...input }
-  const aliases = { tripStartAt: ['trip_start_at', 'startAt', 'start_at'], tripEndAt: ['trip_end_at', 'endAt', 'end_at'], tripKm: ['trip_km', 'distanceKm', 'distance_km'], revenue: ['fare', 'amount', 'totalFare', 'total_fare'], toll: ['tollCost', 'toll_cost'], parking: ['parkingCost', 'parking_cost'] }
-  for (const [canonical, candidates] of Object.entries(aliases)) { const source = first(input[canonical], ...candidates.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = ['tripKm', 'revenue', 'toll', 'parking'].includes(canonical) ? number(source, canonical) : source; for (const alias of candidates) delete value[alias] }
-  for (const field of ['tollTreatment', 'parkingTreatment']) {
-    if (input[field] === undefined) continue
-    const treatment = String(input[field] || '').toUpperCase()
-    if (!['INCLUDED', 'EXCLUDED'].includes(treatment)) throw new Error(`Trip ${field} must be INCLUDED or EXCLUDED.`)
-    value[field] = treatment
-  }
-  if (input.tripKmProvenance !== undefined) value.tripKmProvenance = input.tripKmProvenance
-  if (input.revenueProvenance !== undefined) value.revenueProvenance = input.revenueProvenance
+  const aliases = { tripStartAt: ['trip_start_at', 'startAt', 'start_at'], tripEndAt: ['trip_end_at', 'endAt', 'end_at'], revenue: ['fare', 'amount', 'totalFare', 'total_fare'], toll: ['tollCost', 'toll_cost'], parking: ['parkingCost', 'parking_cost'] }
+  for (const [canonical, candidates] of Object.entries(aliases)) { const source = first(input[canonical], ...candidates.map(key => input[key])); if (source !== undefined && source !== null && source !== '') value[canonical] = ['revenue', 'toll', 'parking'].includes(canonical) ? number(source, canonical) : source; for (const alias of candidates) delete value[alias] }
+  delete value.tollTreatment; delete value.parkingTreatment; delete value.tollParkingCaptureMode; delete value.tollParkingRevenueTreatment
+  delete value.revenueAuthority; delete value.revenueProvenance
+  delete value.tripStartLocation; delete value.tripEndLocation
+  delete value.tripStartLocationStatus; delete value.tripEndLocationStatus
+  delete value.tripKm; delete value.tripKmAuthority; delete value.tripKmProvenance; delete value.trip_km; delete value.distanceKm; delete value.distance_km; delete value.distanceProvenance
   if (input.cancelReason !== undefined) value.cancelReason = String(input.cancelReason)
   return value
 }

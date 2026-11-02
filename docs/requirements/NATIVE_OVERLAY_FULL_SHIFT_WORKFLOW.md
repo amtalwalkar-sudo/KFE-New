@@ -1,32 +1,48 @@
-# Frozen Requirement: Native Overlay Full-Shift Trip Workflow
+# Frozen Requirement: Native Overlay Ride Workflow Within a PWA-Owned Shift
 
-**Status:** Frozen requirement  
-**Scope:** Native Android overlay and main PWA trip workflow
+**Status:** Frozen implementation requirement  
+**Authority:** `docs/KFE-ARCHITECTURE-CONTRACT.md`, `docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md`, and `KFE_BUSINESS_RULES_REGISTER.md`.
 
-## Authoritative requirement
+## Ownership
 
-The native overlay must independently execute and persist the full trip workflow for an entire shift, including fare and cancellation submissions. Opening the main app must not be required to advance any trip state.
+The PWA main app owns Shift start and Shift end, including opening and closing odometer entry.
+
+During an active Shift, the native Android overlay owns ride-stage controls and ride-event capture. It must support multiple rides, fare entry/save or explicit skip, and cancellation/cancellation-fee entry without requiring the PWA WebView to remain open.
+
+The overlay cannot create, close or otherwise mutate Shift lifecycle state.
+
+## One canonical model, platform-specific command adapters
+
+PWA and Android use the same canonical Shift/Trip identities, record meanings, lifecycle invariants and domain business rules. They have platform-specific command and persistence adapters:
+
+- PWA commands enter the Work application service and browser/Android repository adapter.
+- Android overlay commands enter the native command adapter and commit transactionally to canonical SQLite. This must work while the WebView is unavailable.
+- The durable native event journal synchronizes committed native actions into the PWA read projection and supports acknowledgement/recovery. Replay must not create a second business commit.
+
+Separate IndexedDB and SQLite physical stores are allowed only as platform persistence implementations of the same canonical model. They are not separate business histories.
 
 ## Non-negotiable constraints
 
-1. **One shared source of truth.** The native overlay and PWA must use the same authoritative trip records and business rules. The overlay must not maintain a separate, conflicting trip history or a parallel source of truth.
-2. **Independent workflow execution.** With the main PWA closed or suspended, the overlay must advance through pickup, trip start, trip end, fare entry and save, cancellation entry and save, and subsequent trips for the active shift.
-3. **Authoritative persistence.** Native actions and form submissions must be validated and persisted through a durable mechanism consistent with the PWA's domain rules and data model.
-4. **Acknowledgement and idempotency.** Each submitted action must have a durable outcome, reject invalid transitions, and prevent duplicate trips, fares, cancellations, or repeated side effects when retried.
-5. **Interruption recovery.** Pending work must survive app process death, temporary loss of connectivity, and device restart. Recovery must not silently lose or duplicate a submission.
-6. **PWA synchronization.** When the PWA opens, it must reflect the records and workflow state already committed through the overlay. Opening the PWA must not be required to replay queued events in order to make the workflow progress.
-7. **No false readiness claims.** CI and automated tests can establish software-level evidence, but final background, screen-off, restart, and offline behavior still requires physical-device acceptance testing.
+1. Shift start/end remain PWA-owned.
+2. Native ride commands are limited to an already-active canonical Shift.
+3. Native commits must enforce the same lifecycle and validation invariants as the PWA path.
+4. Every command has a stable operation identity, durable outcome, idempotent retry and safe interruption recovery.
+5. Native fare/cancellation form commits update the canonical Trip and Shift revenue projection atomically; the native projection is only a parity-constrained persistence mirror of the domain rule.
+6. GPS capture is event-time only at the four agreed events, offline-capable, bounded and optional. It never blocks a ride action or changes its timestamp.
+7. When the PWA opens, it synchronizes native-committed canonical records without a duplicate write.
+8. No continuous tracking, route/distance calculation, dead-kilometre accounting, reconciliation, notification-based ride controls or second overlay workflow may be added.
 
-## Required acceptance scenarios
+## Acceptance scenarios
 
-- Keep the main PWA closed and complete multiple trips in one shift through the overlay.
-- Submit and save a fare, then advance to the next pickup without opening the PWA.
-- Submit and save a cancellation, then continue the shift without opening the PWA.
-- Exercise the same workflow offline and with the screen off/backgrounded.
-- Interrupt a submission or terminate the relevant process, then verify safe recovery.
-- Retry an action and verify that no duplicate trip or financial record is created.
-- Reopen the PWA and verify that it displays the same authoritative shift, trip, fare, cancellation, and workflow state.
+- Start a Shift in the PWA with opening odometer.
+- Suspend/close the PWA WebView while the Shift remains active.
+- Complete multiple rides in the overlay, including a completed ride with fare and a cancelled ride with cancellation fee.
+- Continue with another pickup without reopening the PWA.
+- Exercise ride actions offline and with screen/background interruptions.
+- Interrupt a submission, then verify recovery and retry without duplicate business facts.
+- Reopen the PWA and verify the same active Shift and canonical Trip/fare/cancellation state.
+- Return to the PWA for closing odometer and Shift end; verify overlay cannot close the Shift.
 
 ## Implementation guardrail
 
-Do not satisfy this requirement by optimistically advancing only the overlay UI, by adding a separate native trip database that can diverge from the PWA, or by relying on foreground PWA JavaScript to process or acknowledge actions. The implementation must establish a shared authoritative persistence and domain-operation path that works while the PWA is not running.
+Do not route native overlay submissions through foreground PWA JavaScript as a prerequisite. Do not maintain a separate native trip history. Use the native command/persistence adapter for native-first durable commits, then synchronize through the event journal. The UI must display success only after the native transaction reports a durable outcome.

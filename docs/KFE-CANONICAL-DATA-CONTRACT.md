@@ -1,6 +1,5 @@
 # KFE Canonical Data Contract
 
-**Phase:** Canonical Domain & Data Model / ERP input audit  
 **Status:** AUTHORITATIVE  
 **Calendar timezone:** `Asia/Kolkata` (IST)  
 **Scope:** Canonical persisted/application data boundary for the single-vehicle KFE ERP
@@ -9,23 +8,39 @@
 
 This document defines the canonical data contract that implementation, repositories, domain calculations, tests, and future backup/sync layers must preserve.
 
-The contract is provider-independent. Storage, OCR/AI provider, backup provider, cloud provider, and sync provider must not redefine canonical business meaning.
+The contract is provider-independent. Storage, backup provider, cloud provider, and cross-runtime synchronization must not redefine canonical business meaning.
 
 ```text
-External / UI / OCR / import / legacy shape
+External / UI / imported or legacy shape
                   ↓
              NORMALIZATION
                   ↓
           CANONICAL ENTITY
                   ↓
-             REPOSITORY
+             REPOSITORY / COMMAND CONTRACT
                   ↓
-          LOCAL PERSISTENCE
+        RUNTIME DURABLE COMMIT STORE
+          ├─ Browser/PWA: IndexedDB
+          └─ Native Android: SQLite
                   ↓
      mutation + audit + notification
+                  ↓
+     idempotent cross-runtime convergence
 ```
 
 Compatibility aliases belong only at normalization boundaries. Canonical domain logic uses canonical names and semantics.
+
+## 1.1 One logical authority across platform stores
+
+KFE has one canonical business/data model and one logical operational state. It does not have one physical database shared by the browser and native Android runtimes.
+
+- Browser-only commands commit through the IndexedDB-backed repository path.
+- On Android, Work and native overlay commands commit durably to native SQLite first; the PWA's IndexedDB representation is synchronized/reconciled as a projection when the WebView is active.
+- The runtime-specific durable commit is the authority for that command. A UI, queue enqueue, or projection update alone is not proof of commit.
+- Stable record and operation identities, idempotent replay, stale-write rejection, and canonical reconstruction are required for convergence.
+- The stores are platform persistence adapters/projections of the same logical model; neither may define separate business rules or independently invent a competing business outcome.
+- This is a replicated cross-runtime boundary, not zero coupling. Its convergence and recovery behavior must be tested at the repository, emulator, and physical-device proof levels as applicable.
+
 
 ## 2. Identity and time
 
@@ -37,9 +52,9 @@ Business calendar dates (`effectiveFrom`, `validUntil`, `performedOn`) are IST d
 
 ## 3. Provenance and authority
 
-Provenance records where a value came from: manual, OCR/multimodal, imported/restored, synthetic/test, or system-derived as applicable.
+Provenance records where a value came from: manual, imported/restored, synthetic/test, or system-derived as applicable.
 
-Authority is separate from provenance. A value being manually entered or OCR-derived does not by itself make it authoritative. Calculation authority is defined explicitly below.
+Authority is separate from provenance. A value's source does not by itself make it authoritative. Calculation authority is defined explicitly below.
 
 ## 4. Validation and normalization
 
@@ -49,100 +64,53 @@ Normalization is the only compatibility boundary. It converts representations to
 
 ## 5. Canonical entities
 
-### Vehicle
+### Vehicle and Driver
 
-Authoritative vehicle/master-data input. Administrative deletion is soft deletion; identity and historical references remain available.
-
-### Driver
-
-Authoritative driver/master-data input. Administrative deletion is soft deletion; historical references remain available.
+Vehicle and Driver are authoritative Admin master records. Preserve their identity and historical references when records are soft-deleted.
 
 ### Shift
 
-Operational boundary for vehicle movement and shift lifecycle. `Shift.startOdometer` and `Shift.endOdometer` are authoritative for vehicle KM.
+Shift is the authoritative operational boundary for shift lifecycle and start/end odometer observations. Shift start/end remain PWA-owned.
 
-**Revenue authority:** `Shift.revenue` is a canonical projection of eligible saved fares on completed Trips plus cancellation fees. It is recomputed from canonical Trips during shift completion and is used by performance, target, break-even and reporting calculations. A separately entered shift-end total is not an alternate authority.
-
-`Shift.toll` and `Shift.parking` represent additional shift-level actual expenses only for records marked `tollParkingCaptureMode: 'ADDITIONAL_ONLY'`; they must not duplicate expenses already recorded against Trips. New Work-created shifts use this mode. Legacy shifts without the mode retain aggregate compatibility and must not have trip-level amounts added twice. `Shift.tollTreatment` and `Shift.parkingTreatment` independently retain Included/Excluded treatment. The legacy `Shift.tollParkingRevenueTreatment` remains readable as a fallback for historical records without independent treatment fields.
-
-A Shift cannot be administratively deleted through the normal Admin repository. Corrections are updates to the Work-created source record and are audited.
+`Shift.revenue` is the canonical projection of saved fares on completed Trips plus saved cancellation fees. A missing cancellation fee contributes zero. Shift revenue is not manually entered at shift end. The domain rule is the semantic authority; Android SQLite mirrors that exact rule transactionally as a persistence invariant for native overlay commits made while the WebView is unavailable. That mirror must use one native helper and remain covered by cross-runtime parity tests; it cannot add or alter business rules.
 
 ### Trip / Ride
 
-Ride-level operational detail linked to a Shift through `shiftId`. Completed `tripKm` is the authoritative business-KM input.
+Trip records represent the ride workflow and remain linked to a Shift through `shiftId`. Completed and cancelled outcomes remain distinct. Cancellation is a retained status, not deletion. Saved fare and cancellation-fee facts remain distinct. Trip.revenue is supporting detail for the canonical Shift.revenue projection, not an independent shift-level revenue authority.
 
-`Trip.revenue` is the source detail for eligible completed-trip fares in the `Shift.revenue` projection. Fare detail explicitly skipped is excluded; pending/missing fare detail is not fabricated as a fare. Missing optional detail never blocks the next pickup or shift closure. Its provenance may be retained for audit and ride-level display.
-
-`Trip.toll` and `Trip.parking` are optional trip-associated actual expense details captured after a completed trip. They retain the Trip identity and completion timestamp for reconciliation and monthly expense-ledger display. `Trip.tollTreatment` and `Trip.parkingTreatment` independently retain Included/Excluded treatment for their respective actual expense records. Legacy `Shift.toll` and `Shift.parking` values remain readable for historical records; current Work capture must not duplicate the same expense in both places.
-
-Ride cancellation is an operational status/outcome, not deletion. Trip history is retained.
-
-Cancellation-fee detail defaults to numeric `0` when blank or not applicable. An explicitly entered zero is also stored as numeric `0`. Cancellation fees are included in the `Shift.revenue` projection while the Trip remains classified as `CANCELLED`, not `COMPLETED`.
-
-### Odometer
-
-No separate persisted Odometer entity is required in the current single-vehicle model. Shift start/end odometer observations own vehicle movement.
-
-`vehicleKm = Shift.endOdometer - Shift.startOdometer`.
+Ride-distance fields may remain in historical records for compatibility, but the current Timeline and Performance screens must not derive or display ride-distance metrics.
 
 ### Fuel / Refuelling
 
-`fuel_logs` are authoritative fuel cost/quantity inputs. Fuel efficiency and rolling fuel cost/km are derived from fuel-log history and applicable boundaries.
+`fuel_logs` are authoritative recorded fuel-spending inputs. Partial refills remain saved and contribute to recorded spending. Fuel cost/km is derived only from consecutive valid full-tank odometer readings.
 
-### Maintenance
+### Maintenance and Compliance
 
-`maintenance_records.cost` and related source fields are authoritative maintenance inputs. Maintenance provisions and reporting aggregates are derived.
+Maintenance and Compliance records are authoritative Admin-entered source facts. The current product may display and edit their saved form data, but it does not calculate maintenance provisions, compliance provisions, break-even, targets, or profitability from them.
 
-### Compliance / Renewal
+### Loan and historical finance records
 
-`compliance_records` are authoritative compliance and renewal inputs. Validity uses IST calendar-date semantics; renewal provision is derived.
+The current model retains Loan terms as source facts. The Admin UI may display a derived monthly EMI estimate from principal, tenure and annual interest rate; the estimate is not persisted. Historical loan-payment, prepayment, settlement, driver-target, and break-even-input stores are retired and removed by the schema 18 migration. Legacy backup formats remain readable as migration inputs, but those retired store payloads are discarded and are not restored. No payment schedule, payment history, remaining-balance tracking, prepayment, payment allocation or loan ledger is active.
 
-### Loan / Financing
+### GPS event snapshots
 
-`loans` contain explicit contractual source terms for each loan: lender/reference where applicable, principal, tenure, start date, and **`annualInterestRatePercent`**. There is **no KFE-wide default interest rate**.
-
-The finance domain calculates EMI and financing results from the individual loan's explicit terms. Stored contractual terms are authoritative once active.
-
-Normal edit of an existing loan cannot change contractual source terms. Genuine contractual correction uses `AdminRepository.correctLoan(values, correctionReason, existingId)`, which recalculates EMI from the corrected explicit terms and writes an audited `CORRECTION` mutation. A correction reason is required.
-
-Loan status (`Active`, `Closed`, `Settled`) is lifecycle state and is distinct from administrative deletion. Performance finance selection considers only a non-deleted `Active` loan whose start date is effective as of the reporting boundary.
-
-`loan_payments` are authoritative actual-payment events. `prepayments` are authoritative actual prepayment events. Scheduled obligation and actual financing outflow remain separate concepts.
-
-### Driver Target
-
-`driver_targets` are effective-dated authoritative target inputs. The Driver Target domain owns rolling obligation, remaining obligation, eligible days, and current daily target.
-
-### Break-even Inputs
-
-`break_even_inputs` are effective-dated authoritative cost inputs. `deriveAuthoritativeBreakEven()` owns the monthly break-even result. Daily break-even is only a derived service representation.
+GPS event snapshots are supporting evidence attached to the four ride event moments: `PICKUP_START`, `TRIP_CANCELLED`, `TRIP_START`, and `TRIP_END`. Keep `capturedAt` and `eventAt` separate. A GPS snapshot must not mutate the ride or shift record. Trip records do not embed pickup/drop GPS objects or locality-resolution status; all four event snapshots live only in the canonical GPS snapshot store. A cancellation snapshot is not a drop-off.
 
 ### Audit / Mutation
 
 Canonical writes that support mutation/audit coupling write the canonical record, pending mutation, and audit history transactionally. Mutation/audit records have their own UUIDs and retain the affected canonical `entityId`.
 
-## 6. Authoritative calculation map
+## 6. In-scope derived values
 
-| Concept | Authority | Derived result |
+| Value | Saved source | Rule |
 |---|---|---|
-| Shift revenue | completed Shift `revenue`, derived from eligible completed-trip fares plus cancellation fees | reporting-period revenue |
-| Trip fare / cancellation fee | canonical Trip `revenue` / `cancelledRevenue` | source detail for the Shift revenue projection; cancellation stays a distinct outcome |
-| Trip toll/parking | `Trip.toll` / `Trip.parking` plus legacy shift-level values | actual expense ledger and BR-11 treatment |
-| Vehicle KM | Shift start/end odometer | `vehicleKm` |
-| Business KM | completed Trip `tripKm` | `businessKm` |
-| Dead KM | vehicle KM − business KM | `deadKm` |
-| Fuel cost/quantity | Fuel logs | efficiency/cost metrics |
-| Maintenance | Maintenance records | actual maintenance/provision |
-| Toll/Parking | Shift inputs | reporting totals |
-| Scheduled financing | Loan terms + schedule | scheduled obligation |
-| Actual financing outflow | Loan payments + applied prepayments | actual financing outflow |
-| Renewal | Compliance records | renewal provision |
-| Monthly break-even | Break-even inputs + canonical monthly cost inputs | monthly break-even revenue |
-| Driver Target inputs | Driver Target records | target-domain outputs |
-| Current Driver Target | Driver Target domain | service/UI target |
-| Pace | performance domain | pace and variance |
+| Recorded revenue | Saved Shift/Trip facts | Completed ride fares plus saved cancellation fees; missing fees are zero |
+| Completed ride count | Saved Trip records | Count completed rides in the selected period |
+| Fuel spending | Saved fuel logs | Sum recorded refill amounts in the selected period, including partial refills |
+| Fuel cost/km | Saved full-tank fuel observations | Consecutive valid full-tank odometer readings only |
+| Income after fuel | Recorded revenue and fuel logs | Recorded revenue minus recorded fuel spending |
 
-No UI or presentation component may reproduce these formulas or create a competing authority.
+No other derived financial values are in scope. UI and presentation must not reproduce formulas or create a competing source of truth.
 
 ## 7. Lifecycle and deletion
 
@@ -156,48 +124,32 @@ ADMINISTRATIVE LIFECYCLE
 ACTIVE / SOFT-DELETED
 ```
 
-- Vehicle, Driver, Compliance, Maintenance, Loan, Loan Payment, Prepayment, Driver Target and Break-even input records use governed Admin soft deletion.
-- Shift, Trip and Fuel repositories do not expose incidental physical deletion; historical business evidence remains retained.
-- Operational status transitions are never implemented as deletion.
-- Soft-deleted records are excluded from normal active lists and live calculation snapshots unless a calculation explicitly defines historical inclusion.
-- Hard deletion of canonical business records requires a separately governed data-destruction contract.
+- Vehicle, Driver, Compliance, Maintenance, and Loan source records use the existing governed Admin lifecycle.
+- Retired day, odometer-gap, movement-artifact, payment, prepayment, settlement, target, break-even, and financial-period stores are removed from the canonical schema and are not included in new backups.
+- Shift, Trip, Fuel, and GPS event evidence remain retained as canonical business/operational history.
+- Hard deletion of canonical business records requires an explicit data-destruction action; removing an obsolete feature must not delete its saved records.
 
 ## 8. Relationships and mutation boundary
 
-Required relationships are validated at the repository boundary, including Trip → Shift, Compliance/Maintenance → Vehicle, Driver Target → Driver, and Loan Payment/Prepayment → Loan.
+Validate existing canonical relationships at the repository boundary, including Trip → Shift, Compliance/Maintenance → Vehicle, and Driver → Shift/Trip where recorded. Retired finance stores have no active relationship or persistence path.
 
-Canonical mutation propagation is:
+Canonical persistence and read models must be accessed through the application/repository boundary. Presentation screens must not become a second persistence authority.
 
-```text
-Canonical DB mutation
-      ↓
-canonical-data-changed notification
-      ↓
-Performance snapshot refresh
-      ↓
-computed metrics recompute
-      ↓
-UI updates
-```
+## 9. Input and derivation rule
 
-## 9. ERP input rule
+Users enter source facts through the Work or Admin forms. Only the explicitly supported values listed in Section 6 are derived for Performance. Missing or invalid inputs must not be fabricated. Historical fields and records can be preserved without activating their former calculation models.
 
-Users enter source facts and contractual/source inputs. KFE derives values that are mathematically determined from those inputs.
+## 10. Timeline and location evidence boundary
 
-Manual input must not be provided for derived values such as ride duration, total vehicle KM, dead KM, fuel quantity when calculated from amount/price, EMI, interest/principal allocation, outstanding balance, financing outflow, renewal provision, maintenance provision, break-even revenue, or target calculations.
+Timeline is a read-only projection of saved ride and fuel records. It must not create or alter business facts.
 
-Shift revenue is not manually entered at shift end: it is derived from eligible completed-trip fares plus cancellation fees, with blank/not-applicable cancellation fees counted as ₹0.
-
-## 10. Ledger and location evidence boundary
-
-The historical Ledger is a read-only representation of canonical persisted source records. It is not a separate financial store or authority.
-
-- Toll and parking ledger rows are reconstructed from their canonical source records and governed source dates.
-- Fuel ledger rows are reconstructed from authoritative fuel logs and their recorded timestamps/dates.
-- Ledger filters such as day, week, and month are presentation/read-model concerns and must not create new financial records.
-- A ledger aggregate never replaces the underlying source record.
-
-Location events are supporting operational evidence unless a business rule explicitly makes a particular location result authoritative. Persisted location evidence retains its timestamp and captured location data, including place information when available. Background/native collection may have a separate infrastructure implementation, but it must converge into the canonical evidence path and cannot create a second operational lifecycle.
+- GPS capture never starts reverse geocoding. The only locality-resolution entry point is an explicit user-initiated Timeline pull-to-refresh; it may resolve eligible unresolved snapshots when online. Ride actions, app startup, resume, and native snapshot discovery never initiate lookup.
+- New reverse geocoding is limited to event timestamps within the latest seven days. Native Android stores coordinates only.
+- Successful locality names are stored permanently in PWA IndexedDB keyed by canonical GPS snapshot ID. A saved name is not silently overwritten by ordinary retries.
+- Show a saved verified locality when available or the original valid coordinates when unresolved, regardless of network state. Timeline reads never check connectivity; only explicit pull-to-refresh requests locality resolution. No automatic retry or connectivity polling is permitted.
+- Do not use continuous connectivity polling, automatic locality retry loops, or a background geocoding queue. Reject unreliable accuracy, invalid coordinates, distant provider matches, and broad-only locality results.
+- Location evidence keeps the provider capture timestamp (`capturedAt`) distinct from the ride event timestamp (`eventAt`).
+- A cancellation location is cancellation evidence, not a drop-off location.
 
 ## 11. Authority boundary
 
@@ -205,10 +157,10 @@ This document is the sole canonical data-model authority. Phase persistence/oper
 
 If a data rule is discovered in a supporting document, it must be migrated here (or to the business-rule/calculation authority when its responsibility is semantic/formula ownership) before the supporting document is treated as current.
 
-## 12. Removed legacy/supporting store
+## 12. Removed legacy/supporting stores
 
-`driver_collected_data` is not part of the current canonical model. The former store was supporting-only and did not own an independent calculation authority; its operational fields duplicated facts already owned by Shift/Work or had no authoritative ERP calculation role.
+Schema version 18 removes the obsolete stores `odoGaps`, `days`, `movement_artifacts`, `loan_payments`, `prepayments`, `driver_targets`, `break_even_inputs`, `settlements`, `financial_period_snapshots`, `driver_collected_data`, `admin_records`, and `financial_inputs`. None has an active product workflow, current calculation authority, or current write path. There is no replacement store or Admin entry.
 
-The canonical database migration from version 9 to version 10 explicitly removes the obsolete store. New backups no longer contain it. Backup format version 3 remains backward-compatible with legacy format versions 1 and 2 by accepting and discarding the removed `driver_collected_data` payload during validation/upgrade before restore.
+Backup format version 6 contains only the active canonical records and required recovery evidence. Backup formats 1 through 5 remain accepted as migration inputs: their structure is validated, active in-scope records are retained, and retired store payloads are discarded before restore. Phone export, Dropbox backup, internal recovery checkpoints, and restore all use the same current store set.
 
-There is intentionally no replacement Admin entry for generic driver-collected data. Operational facts have one natural entry point and one authority.
+The schema migration drops retired object stores on upgrade. It does not rewrite or delete active Shift, Trip, Fuel, GPS, Vehicle, Driver, Compliance, Maintenance, Loan source, Settings, mutation, or audit records.

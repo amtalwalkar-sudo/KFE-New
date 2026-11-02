@@ -1,1 +1,23 @@
-# KFE Security / Permissions Gate — Phase 8\n\n**Date:** 2026-09-26  \n**Status:** COMPLETE / CLOSED — NON-DEVICE PASS\n\n## Scope\n\nPhase 8 covers the practical security and permission gate that can be verified without the final physical-device audit:\n\n- required Android permissions are explicit and limited to current product needs;\n- background-location permission is not requested;\n- notification permission is runtime-gated on Android 13+;\n- overlay permission denial is handled safely and does not start/show the overlay;\n- Android services, receiver, and FileProvider are not exported;\n- Android backup is disabled;\n- secure secrets use Android Keystore with AES-GCM;\n- notification preference can disable the notification workflow;\n- accidental hard-coded secret patterns are rejected in tracked application source;\n- the Phase 8 security contract is included in the consolidated contract runner.\n\n## Evidence\n\nThe Phase 8 contract checks the Android manifest, native overlay/notification/secure-storage plugins, MainActivity registration, Android overlay lifecycle, and notification service.\n\nAutomated result: **PASS** on the release-gated main branch CI.\n\n## Device boundary\n\nThis gate does **not** convert physical-device scenarios to PASS.\n\nReal permission-dialog behavior, GPS denial/recovery, notification behavior on a physical Android device, overlay behavior under real OS lifecycle conditions, and final APK acceptance remain deferred until after Phase 13, as required by the launch sequencing rule.\n\n## Exit decision\n\n**Phase 8 COMPLETE / CLOSED — NON-DEVICE PASS.**\n\n**Phase 9 — Production Configuration Gate ACTIVE.**
+# KFE Security and Permissions Gate — Phase 8
+
+**Status:** Historical automated-gate record; not the current permission or release authority.  
+**Current authorities:** `KFE_ANDROID_RELEASE_GATE.md`, `docs/ANDROID-NATIVE-GPS-CONTRACT.md`, and `docs/KFE-ARCHITECTURE-CONTRACT.md`.  
+**Current phase status:** `KFE_LAUNCH_STATUS.md`.
+
+This document preserves the Phase 8 checkpoint without carrying forward its superseded permission assumptions. The current product has no separate ride-notification product or notification preference workflow. Android foreground-service notifications remain platform behavior for the native ride/GPS capability.
+
+## Current permission boundary
+
+- Overlay permission is required for the floating native ride controls. On Android, the current startup permission gate surfaces required overlay/notification and OEM background settings before rendering app routes; the browser-only PWA is independent of those Android permissions. The overlay itself remains hidden when overlay permission is absent.
+- Android notification permission supports the persistent foreground-service notification used by native ride/GPS behavior. It does not enable a separate notification product.
+- Native background GPS capture requires precise location and background-location permission. KFE does not request GPS permissions as a prerequisite to starting a ride action. The user may explicitly enable background capture from the GPS status panel.
+- If either required GPS permission is absent or denied, KFE must not attempt background coordinate capture. The ride action and its business timestamp remain unaffected; the durable GPS event remains pending for a later eligible trigger.
+- GPS capture is offline, event-scoped and bounded to 30 seconds from the original event timestamp. Interrupted capture may resume only while that window remains open; expired events cannot accept later fixes. No continuous tracking, route tracing, ride-distance calculation or idle timed retry service is permitted.
+- Android app backup remains disabled. Sensitive credentials use Android Keystore-backed secure storage.
+- Native services and providers remain non-exported except the narrowly scoped lifecycle recovery receiver for protected system boot/package-replacement events.
+
+## Evidence boundary
+
+Automated permission, manifest, secure-storage and native-registration contracts are evidence only for the exact source revision on which they ran. They do not prove physical-device permission-dialog behavior, OEM lifecycle behavior, GPS capture or overlay operation.
+
+The current exact-APK and physical-device scenarios are defined by `KFE_ANDROID_RELEASE_GATE.md`. Never treat this historical Phase 8 checkpoint or a prior CI run as acceptance evidence for a newer PR head.

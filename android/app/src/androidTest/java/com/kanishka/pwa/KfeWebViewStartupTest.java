@@ -60,7 +60,7 @@ public class KfeWebViewStartupTest {
             + "if(document.body.innerText.includes('KFE WORK')&&document.body.innerText.includes('START SHIFT'))return 'READY';"
             + "const skip=[...document.querySelectorAll('button')].find(b=>b.innerText.includes(\"Skip — I'll fill this later\")&&!b.disabled);"
             + "if(skip){skip.click();return 'SKIPPED';}"
-            + "return 'WAIT';"
+            + "return 'WAIT body='+document.body.innerText.slice(0,1200)+'; url='+location.href+'; mounted='+!!window.__KFE_APP_MOUNTED__+'; startupReady='+window.__KFE_STARTUP_READY__+'; startupError='+window.__KFE_STARTUP_ERROR__;"
             + "})()",
           value -> { dom.set(value == null ? "null" : value); check.countDown(); }
         ));

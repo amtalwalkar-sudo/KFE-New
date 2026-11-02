@@ -1,5 +1,42 @@
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { initializeCanonicalStorage } from '../../utils/indexedDB.js'
+
+const NativeGate = NativePlugins.system
+const OEM_CONFIRMATIONS_KEY = 'kfe.startup.oemSettingsConfirmed.v1'
+
+const getConfirmedOemSettings = () => {
+  try {
+    const stored = JSON.parse(globalThis.localStorage?.getItem(OEM_CONFIRMATIONS_KEY) || '[]')
+    return Array.isArray(stored) ? stored.filter(key => key === 'oemAutostart' || key === 'oemBattery') : []
+  } catch (_) { return [] }
+}
+const saveConfirmedOemSettings = values => {
+  try {
+    const safe = Array.isArray(values) ? values.filter(key => key === 'oemAutostart' || key === 'oemBattery') : []
+    globalThis.localStorage?.setItem(OEM_CONFIRMATIONS_KEY, JSON.stringify(safe))
+    return true
+  } catch (_) { return false }
+}
+const waitForForegroundReturn = () => new Promise(resolve => {
+  let leftApp = false, settled = false
+  const cleanup = () => {
+    window.removeEventListener('blur', onBlur)
+    window.removeEventListener('focus', onFocus)
+    document.removeEventListener('visibilitychange', onVisibility)
+    clearTimeout(timeout)
+  }
+  const finish = () => { if (settled) return; settled = true; cleanup(); resolve() }
+  const onBlur = () => { leftApp = true }
+  const onFocus = () => { if (leftApp) finish() }
+  const onVisibility = () => {
+    if (document.visibilityState === 'hidden') leftApp = true
+    else if (leftApp && document.visibilityState === 'visible') finish()
+  }
+  const timeout = setTimeout(finish, 120000)
+  window.addEventListener('blur', onBlur)
+  window.addEventListener('focus', onFocus)
+  document.addEventListener('visibilitychange', onVisibility)
+})
 
 const getWebAppBase = () => {
   if (typeof window === 'undefined') return '/'
@@ -10,6 +47,15 @@ const getWebAppBase = () => {
 }
 
 export const PlatformStartup = Object.freeze({
+  getPlatform: () => Capacitor.getPlatform(),
+  // Connectivity is exposed through the platform port; application services do not read browser globals.
+  isOnline: () => globalThis.navigator?.onLine !== false,
+  getStartupPermissionStatus: () => NativeGate.getStartupPermissionStatus(),
+  requestStartupPermission: args => NativeGate.requestStartupPermission(args),
+  openStartupSetting: args => NativeGate.openStartupSetting(args),
+  getConfirmedOemSettings,
+  saveConfirmedOemSettings,
+  waitForForegroundReturn,
   initializeStorage: () => initializeCanonicalStorage(),
   async registerServiceWorker() {
     if (Capacitor.isNativePlatform()) return null

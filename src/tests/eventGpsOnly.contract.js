@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const read = path => fs.readFileSync(path, 'utf8')
+const overlay = read('android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java')
+const gpsPlugin = read('android/app/src/main/java/com/kanishka/pwa/KfeTripBoundaryLocationPlugin.java')
+const tripBoundary = read('src/domain/location/tripBoundaryLocation.js')
+const eventLocations = read('src/application/location/eventLocationService.js')
+const workService = read('src/application/work/workService.js')
+const timeline = read('src/views/ActivityTimelineView.vue')
+const workRecords = read('src/domain/work/canonicalWorkRecords.js')
+const eventGpsPolicy = read('src/domain/location/eventGpsPolicy.js')
+const gpsJournal = read('android/app/src/main/java/com/kanishka/pwa/KfeGpsEventJournal.java')
+
+for (const event of ['PICKUP_START','TRIP_CANCELLED','TRIP_START','TRIP_END']) {
+  assert.ok(overlay.includes(`\"${event}\"`), `Native overlay must capture the ${event} event.`)
+}
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', result\.id, 'TRIP_START'/)
+assert.match(workService, /captureAndPersistEventLocation\('TRIP', data\?\.id, 'TRIP_END'/)
+assert.match(eventLocations, /WorkRuntimePorts\.tripBoundaryLocation\.captureOneShotLocation/)
+assert.doesNotMatch(eventLocations, /EventLocalityService|resolveSnapshot|resolveNativeSnapshotAfterCapture|setTimeout|setInterval/,
+  'event GPS capture must not initiate locality lookup or poll for native snapshots')
+assert.doesNotMatch(tripBoundary, /watchPosition|setInterval|routeTrace|fetch\(/)
+assert.match(overlay, /requestLocationUpdates\(provider,3000L,0f/)
+assert.match(overlay, /handler\.postDelayed\(stop,remainingWindowMs\)/)
+assert.match(overlay, /KfeGpsEventPolicy\.isFixWithinEventWindow/)
+assert.match(overlay, /KfeGpsEventPolicy\.remainingCaptureWindowMs/)
+assert.match(overlay, /gpsCaptureBatchStarting/)
+assert.match(eventGpsPolicy, /EVENT_GPS_CAPTURE_WINDOW_MS = 30_000/)
+assert.doesNotMatch(gpsJournal, /RETRY_DELAYS_MS|nextAttemptAt|recordFailure/)
+assert.match(overlay, /removeUpdates\(this\)/)
+assert.doesNotMatch(overlay, /pendingGpsRetry|scheduleNextPendingGpsSoon/)
+assert.match(overlay, /journal is resumed only at a later event, app-open, or explicit status refresh/)
+assert.match(gpsPlugin, /if \(pendingCount > 0 && fine && background\) KfeOverlayService\.retryPendingLocations\(context\)/)
+assert.doesNotMatch(overlay, /startLocationUpdates|routeTrace|calculateTraceDistanceKm/)
+assert.doesNotMatch(workRecords, /tripKmAuthority|tripKm:\s*normalized/)
+assert.match(timeline, /refreshLocationNames/)
+assert.match(timeline, /EventLocalityService\.resolveSnapshots\(snapshots\)/)
+assert.match(timeline, /EventLocationService\.allSnapshots\(\)/)
+assert.match(timeline, /Pull down to resolve unsaved GPS locality names from the last seven days when online/)
+console.log('Event GPS contract: four offline event snapshots bounded to their original event-time window, manual-only locality resolution, and no route tracking or ride-distance calculation.')

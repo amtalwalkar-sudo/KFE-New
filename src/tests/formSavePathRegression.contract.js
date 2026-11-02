@@ -11,15 +11,14 @@ const workView = read('../views/WorkModuleView.vue')
 const workForm = read('../components/work/WorkContextForm.vue')
 const workService = read('../application/work/workService.js')
 const workRepo = read('../repositories/shiftTripRepository.js')
-const fuelModal = read('../components/CngFuelModal.vue')
+const fuelModal = read('../components/work/WorkFuelForm.vue')
 const fuelService = read('../application/work/fuel.js')
 const fuelRepo = read('../repositories/fuelRepository.js')
-const performanceService = read('../application/performance/performanceService.js')
+const performanceService = read('../application/performance/phaseOnePerformanceService.js')
 const universal = read('../presentation/forms/universalFormSystem.js')
 
 const adminKeys = [
-  'businessSetup', 'vehicle', 'driver', 'compliance', 'maintenance', 'loan',
-  'loanPayment', 'prepayment', 'settlement', 'driverTarget', 'breakEvenInputs'
+  'businessSetup', 'vehicle', 'driver', 'compliance', 'maintenance', 'loan'
 ]
 
 // Form inventory -> presentation -> validation -> persistence.
@@ -37,12 +36,12 @@ assert.match(adminRepo, /writeMutationAndAudit/, 'Admin persistence must retain 
 
 // Work form inventory -> store/application service -> canonical repository.
 assert.match(workView, /await store\.startShift\(/, 'Start Shift must use the shift store')
-assert.match(workView, /await store\.updateTrip\(details\)/, 'Trip details must use the shift store')
+assert.match(workView, /await store\.saveTripDetails\(details, operationId\)/, 'Trip details must use the shift store')
 assert.match(workView, /await store\.cancelTrip\(/, 'Cancellation must use the shift store')
 assert.match(workView, /WorkService\.recordFuel\(/, 'Fuel must use WorkService')
 assert.match(workView, /await store\.endShift\(/, 'End Shift must use the shift store')
 assert.match(workService, /ShiftTripRepository\.createShift/, 'Start Shift must reach canonical shift persistence')
-assert.match(workService, /ShiftTripRepository\.updateTrip/, 'Trip details must reach canonical trip persistence')
+assert.match(workService, /ShiftTripRepository\.saveTripDetails/, 'Trip details must reach canonical trip persistence')
 assert.match(workService, /ShiftTripRepository\.cancelTrip/, 'Cancellation must reach canonical trip persistence')
 assert.match(fuelService, /FuelRepository\.create/, 'Fuel must reach canonical fuel persistence')
 assert.match(fuelRepo, /objectStore\('fuel_logs'\)/, 'Fuel repository must write fuel_logs')
@@ -51,7 +50,9 @@ assert.match(workForm, /update:fuel-partial/, 'Partial-fill control must have an
 assert.match(workView, /fuelPartial = computed/, 'Partial-fill state must be derived consistently from stored full-tank state')
 
 // Saved source facts must feed the existing calculation/read-model consumers.
-assert.match(performanceService, /AdminRepository|PerformanceRepository|driverTarget|breakEvenInputs/, 'Performance must consume persisted source facts/read models')
+assert.match(performanceService, /PerformanceRepository\.getSnapshot\(\)/, 'Performance must read saved canonical records')
+assert.match(performanceService, /calculateFuelPeriodSummary/, 'Performance must use the basic fuel summary')
+assert.doesNotMatch(performanceService, /driverTarget|breakEvenInputs|amortization|forecast|provision/i)
 
 // Keyboard behavior is a shared form contract, not a cosmetic hint.
 assert.match(universal, /function handleEnter/, 'Shared form runtime must implement Enter/Next/Done navigation')

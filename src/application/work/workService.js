@@ -2,17 +2,14 @@ import { ShiftTripRepository, configureCanonicalReadBoundary } from '../../repos
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { completeEndShift } from './endShift.js'
 import { recordFuelEntry } from './fuel.js'
-import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer, validateGapAllocation } from '../../domain/work/shift.js'
+import { validateShiftStartOdometer, validateFirstDayShiftStartOdometer } from '../../domain/work/shift.js'
 import { calculateFuelQuantity, validateFuelEntry } from '../../domain/work/fuel.js'
-import { calculateRollingFuelCostPerKm } from '../../domain/math/fuel.js'
-import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripCorrection } from '../../domain/work/trip.js'
+import { WORK_TRIP_OPERATORS, validateTripOperator, validateTripDetails, applyTripDetails } from '../../domain/work/trip.js'
 import { BackupService } from '../backup/backupService.js'
 import { WorkRuntimePorts } from './workRuntimePorts.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { CanonicalWorkBoundary } from './canonicalWorkBoundary.js'
 import { recoverCanonicalWorkSnapshot } from './canonicalWorkRecovery.js'
-import { reconcileShiftRevenue } from '../../domain/work/revenueReconciliation.js'
-import { normalizeShiftInput, normalizeTripInput } from '../../domain/canonicalNormalization.js'
 import { transitionTrip, transitionTripStage } from '../../domain/work/tripLifecycle.js'
 import { deriveLiveRevenue } from '../../domain/work/liveRevenue.js'
 import { createCanonicalShiftRecord, createCanonicalTripRecord } from '../../domain/work/canonicalWorkRecords.js'
@@ -89,15 +86,23 @@ const mirrorCanonicalTripById = async id => {
 
 let canonicalReadAttempt = null
 const reconcileCanonicalReads = () => {
-  if (!nativeCanonicalAvailable()) return Promise.resolve()
+  // Android reads must never silently fall back to a stale IndexedDB projection
+  // when SQLite is unavailable. Browser-only PWA remains IndexedDB-authoritative.
+  const nativeAvailable = requireLifecycleStorage()
+  if (!nativeAvailable) return Promise.resolve()
   if (canonicalReadAttempt) return canonicalReadAttempt
   canonicalReadAttempt = recoverCanonicalWorkSnapshot({
     readCanonical: async () => {
       const [shifts, trips] = await Promise.all([
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-        WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+        CanonicalWorkBoundary.listAllRecords('SHIFT'),
+        CanonicalWorkBoundary.listAllRecords('TRIP'),
       ])
-      return { shifts, trips }
+      // Keep the recovery contract explicit: each canonical entity snapshot
+      // carries its records collection, while listAllRecords owns pagination.
+      return {
+        shifts: { records: shifts },
+        trips: { records: trips },
+      }
     },
     readLocal: async () => {
       const [shifts, trips] = await Promise.all([
@@ -117,11 +122,11 @@ configureCanonicalReadBoundary(reconcileCanonicalReads)
 // Android lifecycle writes commit to SQLite before touching the IndexedDB read model.
 // The entity/version operation key makes a retry of the same payload idempotent.
 const readNativeWorkSnapshot = async () => {
-  const [shiftResult, tripResult] = await Promise.all([
-    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'SHIFT', limit: 1000 }),
-    WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'TRIP', limit: 1000 }),
+  const [shifts, trips] = await Promise.all([
+    CanonicalWorkBoundary.listAllRecords('SHIFT'),
+    CanonicalWorkBoundary.listAllRecords('TRIP'),
   ])
-  return { shifts: shiftResult.records || [], trips: tripResult.records || [] }
+  return { shifts, trips }
 }
 const stableIntentValue = value => {
   if (Array.isArray(value)) return value.map(stableIntentValue)
@@ -134,14 +139,18 @@ const stableCreateIntentKey = (entityType, data) => {
     ? JSON.stringify({ entityType, createIntentKey: String(explicitKey) })
     : JSON.stringify({ entityType, input: stableIntentValue(data || {}) })
 }
-const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
+const commitPreparedCreateIntent = async (entityType, proposedRecord, data, { lifecycleAction = '' } = {}) => {
   const intent = await CanonicalWorkBoundary.prepareCreateIntent({
     entityType, intentKey: stableCreateIntentKey(entityType, data), record: proposedRecord,
   })
   if (intent.status !== 'COMPLETED') {
-    const result = await CanonicalWorkBoundary.putRecord({
-      operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
-    })
+    const result = lifecycleAction
+      ? await CanonicalWorkBoundary.commitTripLifecycle({
+        operationId: intent.operationId, action: lifecycleAction, record: intent.record, expectAbsent: true,
+      })
+      : await CanonicalWorkBoundary.putRecord({
+        operationId: intent.operationId, entityType, record: intent.record, expectAbsent: true,
+      })
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error(`Native canonical ${entityType} create was not acknowledged.`)
     // If the process dies after record commit but before this marker, retry replays
     // the same operation id and SQLite returns the existing outcome without a duplicate.
@@ -151,12 +160,20 @@ const commitPreparedCreateIntent = async (entityType, proposedRecord, data) => {
   // cannot turn a user retry into a second shift or trip.
   const snapshot = await readNativeWorkSnapshot()
   await ShiftTripRepository.syncCanonicalRecords(snapshot)
-  return intent.record
+  const latest = (entityType === 'SHIFT' ? snapshot.shifts : snapshot.trips)
+    .find(record => record?.id === intent.record?.id)
+  return latest || intent.record
 }
-const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false } = {}) => {
+const commitNativeFirst = async (entityType, record, { expectedUpdatedAt = null, expectAbsent = false, operationId = '', lifecycleAction = '', formMode = '' } = {}) => {
   if (!nativeCanonicalAvailable()) throw new Error('Native-first lifecycle writes require Android canonical storage.')
-  const operationId = `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
-  const result = await CanonicalWorkBoundary.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
+  const durableOperationId = operationId || `pwa-${entityType.toLowerCase()}-${record.id}-${record.updatedAt}`
+  const result = formMode
+    ? await CanonicalWorkBoundary.commitTripForm({ operationId: durableOperationId, mode: formMode, record, expectedUpdatedAt })
+    : lifecycleAction
+    ? await CanonicalWorkBoundary.commitTripLifecycle({
+      operationId: durableOperationId, action: lifecycleAction, record, expectedUpdatedAt, expectAbsent,
+    })
+    : await CanonicalWorkBoundary.putRecord({ operationId: durableOperationId, entityType, record, expectedUpdatedAt, expectAbsent })
   if (result?.accepted !== true || !result?.outcome?.record) {
     throw new Error(`Native canonical ${entityType} commit was not acknowledged.`)
   }
@@ -180,24 +197,14 @@ const createNativeShiftRecord = data => createCanonicalShiftRecord(data, {
 const createNativeTripRecord = data => createCanonicalTripRecord(data, {
   createId: () => CanonicalWorkBoundary.createOperationId(),
 })
-const correctNativeTrip = (trip, data, now) => {
-  const normalized = normalizeTripInput(data)
-  const next = { ...trip }
-  if (normalized.operator !== undefined) next.operator = normalized.operator
-  if (normalized.tripKm !== undefined) { next.tripKm = normalized.tripKm; next.tripKmAuthority = 'MANUAL'; if (normalized.tripKmProvenance !== undefined) next.tripKmProvenance = normalized.tripKmProvenance }
-  if (normalized.revenue !== undefined) { next.revenue = normalized.revenue; if (next.status === 'CANCELLED') next.cancelledRevenue = normalized.revenue; next.revenueAuthority = 'SUPPORTING_ONLY'; if (normalized.revenueProvenance !== undefined) next.revenueProvenance = normalized.revenueProvenance }
-  for (const field of ['toll', 'parking', 'tollTreatment', 'parkingTreatment', 'cancelReason', 'fareDetailsSkipped']) if (normalized[field] !== undefined) next[field] = normalized[field]
-  next.updatedAt = now
-  return next
-}
-
 const captureAndPersistEventLocation = (entityType, entityId, eventType, eventAt) => EventLocationService.captureForEvent(entityType, entityId, eventType, eventAt)
 
 
 export const WorkService = Object.freeze({
+  async ensureCanonicalReadModel() { await reconcileCanonicalReads(); return true },
   getTripOperators() { return WORK_TRIP_OPERATORS },
   validateTripOperator(operator) { return validateTripOperator(operator) },
-  validateTripCorrection(data) { return validateTripCorrection(data) },
+  validateTripDetails(data) { return validateTripDetails(data) },
   validateFuelEntry(data) { return validateFuelEntry(data) },
   async getActiveState() {
     // The repository owns the single-flight canonical read boundary so startup,
@@ -215,22 +222,15 @@ export const WorkService = Object.freeze({
     await ShiftTripRepository.getPrimaryVehicleId()
     return FuelRepository.getAll()
   },
-  calculateFuelMetrics(logs = []) { return calculateRollingFuelCostPerKm(logs) },
-  async getFuelMetrics() {
-    await ShiftTripRepository.getPrimaryVehicleId()
-    return calculateRollingFuelCostPerKm(await FuelRepository.getAll())
-  },
   validateShiftStartOdometer(currentOdometer, previousOdometer) { return validateShiftStartOdometer(currentOdometer, previousOdometer) },
   validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) { return validateFirstDayShiftStartOdometer(currentOdometer, businessStartOdometer) },
-  validateGapAllocation(gapKm, category) { return validateGapAllocation(gapKm, category) },
   calculateFuelQuantity(pricePerKg, amount) { return calculateFuelQuantity({ pricePerKg, amount }) },
-  reconcileShiftRevenue(data) { return reconcileShiftRevenue(data) },
-  async startShift(data) { const nativeAvailable = requireLifecycleStorage(); const result = nativeAvailable ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeAvailable) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); captureAndPersistEventLocation('SHIFT', result.id, 'SHIFT_START', result.shiftStartAt || result.createdAt); return result },
+  async startShift(data) { const nativeAvailable = requireLifecycleStorage(); const result = nativeAvailable ? await (async () => { const record = createNativeShiftRecord(data); return await commitPreparedCreateIntent('SHIFT', record, data) })() : await ShiftTripRepository.createShift(data); if (!nativeAvailable) await mirrorCanonicalRecord('SHIFT', result); checkpoint(); return result },
   async startTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
     const validation = validateTripOperator(data?.operator)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeAvailable ? await (async () => { const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData) })() : await ShiftTripRepository.createTrip(tripData); if (!nativeAvailable) await mirrorCanonicalRecord('TRIP', result); checkpoint()
+    const tripData = { ...data, operator: validation.operator, tripStage: data?.tripStage || 'GOING_TO_PICKUP' }; const result = nativeAvailable ? await (async () => { const record = createNativeTripRecord(tripData); return await commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' }) })() : await ShiftTripRepository.createTrip(tripData); if (!nativeAvailable) await mirrorCanonicalRecord('TRIP', result); checkpoint()
     // Pickup journey origin is optional metadata captured after the canonical trip record commits.
     // It never delays the user's pickup workflow and uses the same offline-capable one-shot GPS path.
     if (result?.id) captureAndPersistEventLocation('TRIP', result.id, 'PICKUP_START', result.createdAt || result.tripStartAt)
@@ -238,7 +238,7 @@ export const WorkService = Object.freeze({
   },
   async startRide(data) {
     const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) return false; let next; try { next = transitionTripStage(trip, 'RIDE_STARTED', { at: new Date().toISOString() }) } catch (_) { return false }; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return next })() : await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
+    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) return false; let next; try { next = transitionTripStage(trip, 'RIDE_STARTED', { at: new Date().toISOString() }) } catch (_) { return false }; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, lifecycleAction: 'START_RIDE' }); return next })() : await ShiftTripRepository.setTripStage(data?.id, 'RIDE_STARTED')
     if (!nativeAvailable && result && typeof result === 'object') await mirrorCanonicalRecord('TRIP', result)
     checkpoint()
     if (result && typeof result === 'object' && result.tripStage === 'RIDE_STARTED') {
@@ -248,23 +248,53 @@ export const WorkService = Object.freeze({
   },
   async completeTrip(data) {
     const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'COMPLETED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.completeTrip({ ...data }); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint()
-    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', data?.tripEndAt || new Date().toISOString())
-    return result
-  },
-  async cancelTrip(data) {
-    const nativeAvailable = requireLifecycleStorage()
-    const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); const now = new Date().toISOString(); const next = transitionTrip(trip, 'CANCELLED', data); next.tripEndAt = data.tripEndAt || trip.tripEndAt || now; next.updatedAt = nextCanonicalTimestamp(trip.updatedAt); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.cancelTrip(data)
-    if (!nativeAvailable) await mirrorCanonicalTripById(data?.id)
+    let eventAt = data?.tripEndAt || ''
+    const result = nativeAvailable ? await (async () => {
+      const trip = await findNativeRecord('TRIP', data?.id)
+      if (!trip) throw new Error('Trip not found.')
+      const now = new Date().toISOString()
+      const next = transitionTrip(trip, 'COMPLETED', data)
+      eventAt = data?.tripEndAt || trip.tripEndAt || now
+      next.tripEndAt = eventAt
+      next.updatedAt = nextCanonicalTimestamp(trip.updatedAt)
+      await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, lifecycleAction: 'END_RIDE' })
+      return true
+    })() : await ShiftTripRepository.completeTrip({ ...data })
+    if (!nativeAvailable) {
+      await mirrorCanonicalTripById(data?.id)
+      eventAt = eventAt || new Date().toISOString()
+    }
     checkpoint()
-    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', data?.tripEndAt || new Date().toISOString())
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_END', eventAt)
     return result
   },
-  async updateTrip(data) {
+  async cancelTrip(data, operationId = '') {
     const nativeAvailable = requireLifecycleStorage()
-    const validation = validateTripCorrection(data)
+    let eventAt = data?.tripEndAt || ''
+    const result = nativeAvailable ? await (async () => {
+      const trip = await findNativeRecord('TRIP', data?.id)
+      if (!trip) throw new Error('Trip not found.')
+      const now = new Date().toISOString()
+      const next = transitionTrip(trip, 'CANCELLED', data)
+      eventAt = data?.tripEndAt || trip.tripEndAt || now
+      next.tripEndAt = eventAt
+      next.updatedAt = nextCanonicalTimestamp(trip.updatedAt)
+      await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId, formMode: 'CANCEL' })
+      return true
+    })() : await ShiftTripRepository.cancelTrip(data)
+    if (!nativeAvailable) {
+      await mirrorCanonicalTripById(data?.id)
+      eventAt = eventAt || new Date().toISOString()
+    }
+    checkpoint()
+    captureAndPersistEventLocation('TRIP', data?.id, 'TRIP_CANCELLED', eventAt)
+    return result
+  },
+  async saveTripDetails(data, operationId = '') {
+    const nativeAvailable = requireLifecycleStorage()
+    const validation = validateTripDetails(data)
     if (!validation.valid) return { ok: false, reason: validation.reason }
-    const correction = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (!['COMPLETED', 'CANCELLED'].includes(trip.status)) throw new Error('Only completed or cancelled trips can be corrected.'); const next = correctNativeTrip(trip, correction, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt }); return true })() : await ShiftTripRepository.updateTrip(correction); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
+    const details = { ...data, ...validation }; const result = nativeAvailable ? await (async () => { const trip = await findNativeRecord('TRIP', data?.id); if (!trip) throw new Error('Trip not found.'); if (trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.'); const next = applyTripDetails(trip, details, nextCanonicalTimestamp(trip.updatedAt)); await commitNativeFirst('TRIP', next, { expectedUpdatedAt: trip.updatedAt, operationId, formMode: 'FARE' }); return true })() : await ShiftTripRepository.saveTripDetails(details); if (!nativeAvailable) await mirrorCanonicalTripById(data?.id); checkpoint(); return result
   },
   async updateFuel(data) { const result = await FuelRepository.update(data.id, data); checkpoint(); return { ok: true, record: result } },
   async deleteFuel(id) { const result = await FuelRepository.remove(id); checkpoint(); return { ok: result } },
@@ -274,7 +304,7 @@ export const WorkService = Object.freeze({
       const snapshot = await readNativeWorkSnapshot()
       const shift = snapshot.shifts.find(item => item.id === data?.shiftId && item.status === 'ACTIVE')
       if (!shift) return { ok: false, reason: 'Active shift not found.' }
-      const activeTrip = snapshot.trips.find(item => item.shiftId === shift.id && item.status === 'ACTIVE')
+      const activeTrip = snapshot.trips.find(item => item.shiftId === shift.id && !item?.deletedAt && item?.deleted !== true && item.status === 'ACTIVE')
       if (activeTrip) return { ok: false, reason: 'ACTIVE_TRIP_IN_PROGRESS' }
       const validation = validateEndShiftEntry({
         closingOdometer: data?.closingOdometer,
@@ -291,16 +321,9 @@ export const WorkService = Object.freeze({
       const revenue = deriveLiveRevenue(shiftTrips)
       const completedShift = {
         ...shift,
-        revenue, liveFareRevenue: revenue, revenueSource: 'TRIP_FARES',
-        revenueReconciliation: reconcileShiftRevenue({
-          shiftRevenue: revenue, trips: shiftTrips, toll: shift.toll, parking: shift.parking,
-          tollTreatment: shift.tollTreatment, parkingTreatment: shift.parkingTreatment,
-          tollParkingCaptureMode: shift.tollParkingCaptureMode,
-          tollParkingRevenueTreatment: shift.tollParkingRevenueTreatment,
-        }),
+        revenue, revenueSource: 'TRIP_FARES',
         endOdometer: validation.closingOdometer,
         totalDistance: validation.closingOdometer - Number(shift.startOdometer),
-        ...(data?.movementReconciliation ? { movementReconciliation: data.movementReconciliation } : {}),
         shiftEndAt: now,
         shiftDurationMs: Math.max(0, Date.parse(now) - Date.parse(shift.shiftStartAt || now)),
         status: 'COMPLETED', updatedAt: now,
@@ -308,18 +331,11 @@ export const WorkService = Object.freeze({
       // Commit terminal state to SQLite before refreshing the IndexedDB read model.
       await commitNativeFirst('SHIFT', completedShift, { expectedUpdatedAt: shift.updatedAt })
       checkpoint()
-      captureAndPersistEventLocation('SHIFT', shift.id, 'SHIFT_END', now)
       return { ok: true, endOdometer: validation.closingOdometer, distanceKm: validation.distanceKm }
     }
 
-    const active = await ShiftTripRepository.getActive()
     const result = await completeEndShift(data)
     checkpoint()
-    if (result?.ok && active.shift?.id) {
-      const localShifts = await ShiftTripRepository.getAllShifts({ skipCanonicalReadBoundary: true })
-      const completedShift = localShifts.find(shift => shift.id === active.shift.id && shift.status === 'COMPLETED') || null
-      captureAndPersistEventLocation('SHIFT', active.shift.id, 'SHIFT_END', completedShift?.shiftEndAt || null)
-    }
     return result
   },
   async recordFuel(data) {
@@ -327,7 +343,6 @@ export const WorkService = Object.freeze({
     // Fuel persistence is the user-visible commit. Local backup is best-effort
     // follow-up work and must not hold the form open after the record is saved.
     void Promise.resolve().then(() => checkpoint()).catch(() => {})
-    if (result?.ok && result.record?.id) captureAndPersistEventLocation('FUEL', result.record.id, 'FUEL_ENTRY', result.record.createdAt || result.record.capturedAt)
     return result
   },
 })

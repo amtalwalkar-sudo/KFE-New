@@ -29,9 +29,9 @@ assert.match(backupRepository, /tx\.oncomplete = \(\) => \{ notifyCanonicalDataC
 assert.match(backupRepository, /tx\.onabort = \(\) => reject/)
 
 assert.match(indexedDb, /const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'/)
-assert.match(indexedDb, /const SYNTHETIC_DB_NAME = 'kanishka_kfe_synthetic_db'/)
-assert.match(indexedDb, /export const openCanonicalDB = \(\) => initializeCanonicalStorage\(\{ dataSource: 'canonical' \}\)/)
-assert.match(indexedDb, /export const setActiveDataSource = source =>/)
-assert.match(indexedDb, /dbInstances\.clear\(\); initializationPromises\.clear\(\)/)
+assert.doesNotMatch(indexedDb, /SYNTHETIC_DB_NAME|setActiveDataSource|initializeSyntheticStorage/, 'The app must use one canonical storage path.')
+assert.match(indexedDb, /export const openCanonicalDB = initializeCanonicalStorage/)
+assert.match(indexedDb, /dbInstances\.delete\(name\)/)
+assert.match(indexedDb, /initializationPromises\.delete\(name\)/)
 
 console.log('Phase 7 data/recovery gate contract: PASS')

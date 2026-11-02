@@ -16,11 +16,11 @@ assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*state: 'C
   'Reset must block writes before taking and verifying its durable checkpoint.')
 assert.match(backupService, /setCanonicalResetBarrier\(resetId\)[\s\S]*saveResetJournal\([\s\S]*state: 'CHECKPOINTING'/,
   'Reset must establish a synchronous mutation barrier and durable reset journal before either store is cleared.')
-assert.match(backupService, /await NativeCanonicalWorkService\.beginCanonicalReset\(resetId\)/,
+assert.match(backupService, /await WorkRuntimePorts\.canonicalWork\.beginCanonicalReset\(resetId\)/,
   'Native reset intent must be durable before native canonical records are cleared.')
-assert.match(backupService, /await backupRepository\.resetCanonicalData\(\{ resetId \}\)[\s\S]*await NativeCanonicalWorkService\.clearCanonicalReset\(resetId\)/,
+assert.match(backupService, /await backupRepository\.resetCanonicalData\(\{ resetId \}\)[\s\S]*await WorkRuntimePorts\.canonicalWork\.clearCanonicalReset\(resetId\)/,
   'Browser and native clear phases must use the same reset ID and be retryable.')
-assert.match(backupService, /await NativeCanonicalWorkService\.completeCanonicalReset\(resetId\)[\s\S]*nativeState\.state !== 'COMPLETE'/,
+assert.match(backupService, /await WorkRuntimePorts\.canonicalWork\.completeCanonicalReset\(resetId\)[\s\S]*nativeState\.state !== 'COMPLETE'/,
   'Reset must verify native completion before reporting success.')
 assert.match(backupService, /getBackupSummary\(after\)\.totalRecords !== 0/,
   'Reset must verify that the browser canonical stores are empty.')
@@ -35,7 +35,7 @@ assert.match(backupRepository, /resetStores = \[\.\.\.new Set\(\[\.\.\.stores, '
 assert.match(backupRepository, /async verifyCanonicalReset\(\)/, 'Reset verifies every canonical store, not only exportable backup stores.')
 assert.match(backupService, /assertNoActiveShift\(checkpoint\)/, 'Browser-side active shifts must block reset even if the native mirror is stale.')
 assert.match(backupService, /backupRepository\.resetSessionPreferencesToDefaults\(\)/, 'Reset must restore the default canonical data-source preference.')
-assert.match(backupRepository, /resetSessionPreferencesToDefaults\(\) \{ return setActiveDataSource\('canonical'\) \}/)
+assert.match(backupRepository, /resetSessionPreferencesToDefaults\(\) \{ if \(typeof sessionStorage !== 'undefined'\)/)
 assert.match(startup, /await BackupService\.recoverPendingReset\(\)[\s\S]*await MutationRepository\.recoverStaleSyncing\(\)/,
   'Pending reset recovery must precede stale mutation replay at startup.')
 assert.match(nativeStore, /canonical_reset_state[\s\S]*CANCELLED_BY_RESET/,

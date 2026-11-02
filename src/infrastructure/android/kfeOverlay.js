@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const KfeOverlay = registerPlugin('KfeOverlay')
+const KfeOverlay = NativePlugins.overlay
 
 const isAndroid = () => Capacitor.getPlatform() === 'android'
 
@@ -8,10 +8,6 @@ export const AndroidOverlay = Object.freeze({
   async canDrawOverlays() {
     if (!isAndroid()) return { supported: false, granted: false }
     return KfeOverlay.canDrawOverlays()
-  },
-  async openPermissionSettings() {
-    if (!isAndroid()) return
-    return KfeOverlay.openPermissionSettings()
   },
   async prepare() {
     if (!isAndroid()) return

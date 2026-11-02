@@ -36,12 +36,15 @@ for (const id of Array.from({ length: 11 }, (_, index) => String(index + 1))) {
 }
 assertIncludes(runAll, 'endToEndConformance.contract.js', 'The conformance gate must be part of the full contract suite.')
 
-// 2. One canonical state/command path.
-assertIncludes(lifecycleContract, 'PWA and Android overlay actions must invoke the same authoritative command/mutation path', 'Lifecycle authority must forbid private surface mutation paths.')
+// 2. One canonical record model/history with platform-specific command adapters.
+assertIncludes(lifecycleContract, 'not a second set of trips or a second record history.', 'Lifecycle authority must forbid private surface mutation paths.')
 assertIncludes(workService, 'ShiftTripRepository.createTrip', 'START/GO TO PICKUP must use the canonical Trip repository.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'START TRIP must use the canonical Trip stage repository.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'END TRIP must use the canonical Trip repository.')
 assertIncludes(workService, 'ShiftTripRepository.cancelTrip', 'CANCEL TRIP must use the canonical Trip repository.')
+assertIncludes(workService, "formMode: 'FARE'", 'Android PWA fare saves must use the native canonical Trip-form transaction.')
+assertIncludes(workService, "formMode: 'CANCEL'", 'Android PWA cancellation must use the native canonical Trip-form transaction.')
+assertIncludes(workService, 'CanonicalWorkBoundary.commitTripForm', 'PWA Android forms must not bypass the dedicated native Trip-form command.')
 assertIncludes(store, 'WorkService.startTrip', 'PWA Work must enter pickup through WorkService.')
 assertIncludes(store, 'WorkService.startRide', 'PWA Work must start a ride through WorkService.')
 assertIncludes(store, 'WorkService.completeTrip', 'PWA Work must end a ride through WorkService.')
@@ -50,10 +53,15 @@ assertIncludes(store, 'WorkService.completeTrip', 'PWA Work must end a ride thro
 assertIncludes(workView, 'deriveWorkCockpitState', 'PWA must derive presentation from the shared cockpit state.')
 assertIncludes(overlayLifecycle, 'deriveWorkCockpitState', 'Android overlay lifecycle must derive from the same cockpit state.')
 assertIncludes(overlayLifecycle, 'WorkService.getActiveState', 'Overlay reconstruction must read canonical active state.')
-assertIncludes(overlayBridge, 'registerPlugin(\'KfeOverlay\')', 'PWA overlay bridge must use the native KfeOverlay plugin.')
-assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must return to the PWA command path.')
-assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START TRIP must return to the PWA command path.')
-assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END TRIP must return to the PWA command path.')
+assertIncludes(overlayBridge, 'NativePlugins.overlay', 'PWA overlay bridge must use the shared native KfeOverlay plugin registration.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("GO_TO_PICKUP","GOING_TO_PICKUP",false)', 'Native GO TO PICKUP must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'store.commitTripLifecycle(', 'Native lifecycle writes must use the transactionally guarded native command boundary.')
+assertIncludes(dataContract, 'saved cancellation fees', 'Canonical data rules must keep cancellation fees distinct from Trip fares.')
+assertIncludes(nativeOverlay, 'emitAction("GO_TO_PICKUP",pendingTripId', 'Native GO TO PICKUP must publish its durable event for PWA synchronization.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("START_RIDE","RIDE_STARTED",true)', 'Native START RIDE must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'emitAction("START_RIDE",pendingTripId', 'Native START RIDE must publish its durable event for PWA synchronization.')
+assertIncludes(nativeOverlay, 'persistLifecycleAction("END_RIDE","COMPLETED",false)', 'Native END RIDE must commit through the native command adapter.')
+assertIncludes(nativeOverlay, 'emitAction("END_RIDE",pendingTripId', 'Native END RIDE must publish its durable event for PWA synchronization.')
 assertIncludes(nativeOverlay, 'KfeNativeWorkActionsPlugin.recordPendingAction', 'Overlay actions must enter the independent durable native action bridge.')
 assertIncludes(nativeWorkActions, 'recordPendingAction(Context context', 'Overlay actions must be durably recorded before PWA processing.')
 
@@ -68,7 +76,6 @@ trip = transitionTripStage(trip, TRIP_STAGES.RIDE_STARTED, { at: '2026-10-03T08:
 assert.equal(deriveWorkCockpitState({ shift, trip }).state, WORK_COCKPIT_STATES.TRIP_ACTIVE)
 trip = transitionTrip(trip, TRIP_STATES.COMPLETED, {
   tripEndAt: '2026-10-03T08:30:00.000Z',
-  tripKm: 12.4,
 })
 assert.equal(trip.id, 'trip-1')
 assert.equal(trip.status, TRIP_STATES.COMPLETED)
@@ -94,25 +101,29 @@ assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.CANCELLED), fa
 assert.equal(canTransitionTrip(TRIP_STATES.CANCELLED, TRIP_STATES.COMPLETED), false)
 assert.equal(canTransitionTrip(TRIP_STATES.COMPLETED, TRIP_STATES.COMPLETED), true)
 
-// 7. Calculation convergence / no native competing business authority.
+// 7. Calculation convergence / one native persistence projection with domain parity.
 assertIncludes(dataContract, 'Shift.revenue', 'Canonical data contract must identify Shift revenue authority.')
 assertIncludes(dataContract, 'Trip.revenue', 'Trip revenue must remain supporting detail.')
-assertIncludes(workView, 'deriveLiveRevenue(trips)', 'PWA live revenue must be derived from saved Trip fares.')
+assertIncludes(workView, 'LiveRevenueReadModel.forTrips(trips)', 'PWA live revenue must be derived from saved Trip fares through the application read model.')
+assertIncludes(workView, 'LiveRevenueReadModel.forShift(store.registeredTrips', 'Work UI must request the active Shift total through the application read model.')
+assertIncludes(readRepo('src/application/work/liveRevenueReadModel.js'), 'deriveLiveRevenue', 'The application read model must delegate to the single domain revenue formula.')
 assertIncludes(nativeOverlay, 'canonical.commitTripForm(operationId,mode,trip)', 'Native fare/cancellation must commit the canonical Trip and Shift.revenue projection atomically.')
-assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Canonical native store must derive revenue from canonical Trip records in the same transaction.')
+assertIncludes(readRepo('android/app/src/main/java/com/kanishka/pwa/KfeCanonicalWorkStore.java'), 'double revenue = 0d;', 'Native SQLite must mirror the domain revenue rule transactionally as a persistence projection.')
 assertIncludes(workService, 'ShiftTripRepository.setTripStage', 'Start Trip must persist its canonical stage.')
 assertIncludes(workService, 'ShiftTripRepository.completeTrip', 'End Trip must persist its canonical terminal state.')
 assert.match(workService, /captureAndPersistEventLocation\('TRIP'/, 'PWA trip start/end must use the shared event-location service.')
 assert.match(nativeOverlay, /captureOneShotEventLocation/, 'Native overlay must capture one-shot event snapshots without PWA replay.')
 assert.match(nativeOverlay, /putRecord\(operationId,"GPS_SNAPSHOT",snapshot\)/, 'Native overlay must write to the shared GPS_SNAPSHOT authority.')
-assert.doesNotMatch(workService + nativeOverlay, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'Continuous GPS and routing must be absent from lifecycle paths.')
+assert.doesNotMatch(workService, /captureLifecycleLocation|KfeNativeGpsService|ValhallaRoutingAdapter|routeTrace|requestLocationUpdates/, 'PWA lifecycle paths must not own native GPS provider calls.')
+assert.match(nativeOverlay, /requestLocationUpdates\(provider,3000L,0f/)
+assert.match(nativeOverlay, /handler\.postDelayed\(stop,remainingWindowMs/)
+assert.match(nativeOverlay, /removeUpdates\(this\)/, 'native GPS provider requests must be bounded and removed after a valid fix.')
 assert.ok(!/const totalRevenue = trips\.reduce/.test(overlayLifecycle), 'Overlay must not calculate ERP revenue by summing Trip fares.')
 
 // 8. Requirement → implementation → test → evidence coverage.
 assertIncludes(authorityMap, 'KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md', 'Authority map must expose lifecycle authority.')
 assertIncludes(authorityMap, 'KFE-CANONICAL-DATA-CONTRACT.md', 'Authority map must expose canonical data authority.')
 assertIncludes(authorityMap, 'KFE_WORK_COCKPIT_BASELINE.md', 'Authority map must expose Work presentation authority.')
-assertIncludes(readRepo('docs/GPS-VALHALLA-REMOVAL.md'), 'GPS tracking and Valhalla removal', 'Current architecture decision must record GPS/Valhalla removal.')
 assertIncludes(matrix, '### Level A — Repository/CI', 'Matrix must define Level A proof.')
 assertIncludes(matrix, '### Level B — Android emulator', 'Matrix must define Level B proof.')
 assertIncludes(matrix, '### Level C — Physical Android device', 'Matrix must define Level C proof.')
@@ -123,26 +134,29 @@ assertIncludes(matrix, 'A passing repository or emulator gate does **not** subst
 // 10. Golden Ride is one deterministic scenario, not disconnected screenshots.
 assertIncludes(matrix, '## Golden Ride scenario', 'Golden Ride must be explicitly documented.')
 assertIncludes(matrix, 'one stable Trip ID from pickup through completion and fare', 'Golden Ride must verify identity continuity.')
+assert.doesNotMatch(matrix, /ODOMETER \/ GAP GATE|RECONCILIATION|SHIFT REVIEW/, 'Golden Ride evidence must not retain retired gap/reconciliation workflows.')
+assertIncludes(matrix, 'END SHIFT (PWA; closing odometer)', 'Golden Ride must end through the PWA-owned shift workflow.')
 assert.equal(trip.id, 'trip-1', 'Golden Ride must preserve one Trip ID through completion.')
-const fareUpdate = { ...trip, revenue: 250, revenueAuthority: 'SUPPORTING_ONLY' }
+const fareUpdate = { ...trip, revenue: 250 }
 assert.equal(fareUpdate.id, trip.id)
 assert.equal(fareUpdate.status, TRIP_STATES.COMPLETED)
 const cancelled = transitionTrip(
   { id: 'trip-cancel', shiftId: shift.id, status: TRIP_STATES.ACTIVE, tripStage: TRIP_STAGES.GOING_TO_PICKUP },
   TRIP_STATES.CANCELLED,
-  { revenue: '', reason: 'DRIVER_MISTAKE' }
+  { cancelledRevenue: '', reason: 'DRIVER_MISTAKE' }
 )
 assert.equal(cancelled.id, 'trip-cancel')
 assert.equal(cancelled.cancelledRevenue, 0, 'Blank cancellation fee defaults to zero')
 
 // 11. Release enforcement.
 assertIncludes(workflow, 'run: npm test', 'Consolidated CI must run the complete contract suite.')
-assertIncludes(workflow, 'Run Phase 4 Cross-surface Lifecycle', 'Cross-surface lifecycle evidence must remain in CI.')
+assertIncludes(workflow, 'Run Core Persistence and Repository Contract Matrix', 'Core persistence/recovery evidence must remain in CI.')
+assertIncludes(workflow, 'Run Phase 4 Runtime Visual Verification', 'Core UI runtime evidence must remain in CI.')
 assertIncludes(workflow, 'Android Exact APK Smoke Gate', 'Android release evidence must include exact APK smoke testing.')
 assertIncludes(workflow, 'Upload tested Android Debug APK', 'The exact tested APK must be retained as CI evidence.')
 
 console.log('✓ 1/11 Frozen requirements are executable and gated')
-console.log('✓ 2/11 Canonical command/repository path is enforced')
+console.log('✓ 2/11 Canonical record model and platform command adapters are enforced')
 console.log('✓ 3/11 PWA ↔ Android parity is source-gated')
 console.log('✓ 4/11 Golden Ride reaches the full operational lifecycle')
 console.log('✓ 5/11 Restart/interruption recovery is durable and replayable')

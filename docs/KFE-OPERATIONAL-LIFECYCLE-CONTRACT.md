@@ -1,135 +1,95 @@
 # KFE Operational Lifecycle Contract
 
 **Status:** AUTHORITATIVE  
-**Scope:** Cross-surface operational state and transition semantics for Shift, Pickup, Trip, Cancellation, Reconciliation, and operational recovery.
+**Scope:** The single Shift and Trip state machine shared by the PWA Work cockpit and Android ride overlay.
 
-## 1. Purpose
+## 1. Ownership
 
-This is the sole human-readable authority for the KFE operational lifecycle.
-
-It defines the canonical operational state machine and transition ownership used by the PWA Work cockpit, Android operational overlay, and background/native operational capture.
-
-Those surfaces are representations/controllers of the same canonical operational state. None is a second workflow or business system.
-
-Business meaning remains governed by KFE_BUSINESS_RULES_REGISTER.md. Canonical persisted entities and source-of-truth fields remain governed by docs/KFE-CANONICAL-DATA-CONTRACT.md. Arithmetic remains governed by docs/KFE-CALCULATION-SPECIFICATION.md.
+- The PWA owns Shift start and Shift end.
+- The Android overlay exposes ride actions only while a canonical Shift is active.
+- The PWA browser runtime persists canonical Work records in IndexedDB.
+- On Android, native SQLite is the durable canonical Work store; the PWA IndexedDB copy is the synchronized read model.
+- The PWA and native overlay must preserve the same transition invariants and stable record identities, but their command adapters are platform-specific: PWA actions use the Work application service; Android overlay actions use the native command service and commit to canonical SQLite even when the WebView is unavailable. Native action events are durably journaled and replayed to synchronize/acknowledge the PWA projection; they are not a second set of trips or a second record history.
+- Business meaning is defined only by `KFE_BUSINESS_RULES_REGISTER.md`; stored fields and relationships are defined by `docs/KFE-CANONICAL-DATA-CONTRACT.md`.
 
 ## 2. Canonical lifecycle
 
-OFFLINE → START SHIFT → ODOMETER / GAP GATE → ONLINE / READY → GO TO PICKUP → READY FOR TRIP → TRIP ACTIVE → TRIP COMPLETION → FARE / COMPLETION CONFIRMATION → NEXT PICKUP → END SHIFT → RECONCILIATION → SHIFT REVIEW → SHIFT ENDED → OFFLINE
+```text
+OFFLINE
+  → START SHIFT (PWA; opening odometer)
+  → SHIFT ACTIVE
+  → GO TO PICKUP (PWA or Android overlay)
+  → PICKUP / READY FOR RIDE
+       ├─ CANCEL (PWA or Android overlay) → CANCELLED → SHIFT ACTIVE
+       └─ START RIDE (PWA or Android overlay) → RIDE ACTIVE
+             → END RIDE (PWA or Android overlay)
+             → COMPLETED → optional fare entry or explicit skip
+             → SHIFT ACTIVE
+  → END SHIFT (PWA; closing odometer; no active trip)
+  → OFFLINE
+```
 
-From READY FOR TRIP, CANCEL TRIP is available while the canonical trip remains in pickup and returns to the applicable ready state.
-
-The precise persisted state names may differ from presentation labels, but every implementation state must map to exactly one position in this lifecycle.
+A cancelled Trip is not a completed Trip. A completed Trip remains history. A Shift cannot end while a Trip is active.
 
 ## 3. Authoritative transition ownership
 
-| Transition | Authority |
+| Transition | Owner |
 |---|---|
-| Start Shift | canonical Work/application command path |
-| Odometer gap acknowledgement/allocation | canonical Work/application command path |
-| Go to Pickup | canonical operational command path |
-| Start Trip | canonical operational command path |
-| Cancel Trip while in pickup | canonical Trip lifecycle path |
-| End Trip | canonical operational command path |
-| Fare/completion confirmation | canonical Trip/Shift application path |
-| End Shift | canonical Work/application command path |
-| Reconciliation | canonical reconciliation/application path |
-| Shift Review / closure | canonical Work/application path |
+| Start Shift / opening odometer | PWA Work application |
+| Go to Pickup | PWA Work application or Android overlay command adapter |
+| Start Ride | PWA Work application or Android overlay command adapter |
+| Cancel Trip / optional cancellation fee | PWA Work application or Android overlay command adapter |
+| End Ride / completion timestamp | PWA Work application or Android overlay command adapter |
+| Fare entry or explicit skip | PWA Work application, or native SQLite form transaction when submitted in the Android overlay; PWA replay synchronizes the read model |
+| End Shift / closing odometer | PWA Work application |
+| GPS event snapshot capture | Native Android capability on Android; PWA browser adapter only where supported |
+| Locality resolution and Timeline labels | PWA application and IndexedDB |
 
-PWA and Android overlay actions must invoke the same authoritative command/mutation path for a transition. A surface must never implement a private second mutation path.
+There is no separate reconciliation, shift-review, personal-kilometre or dead-kilometre workflow.
 
 ## 4. Transition invariants
 
-- A trip cannot be cancelled after it has started.
-- A completed trip remains history; completion is not deletion.
-- Fare entry after trip completion remains available until the authoritative completion/fare workflow is resolved.
-- Only a valid active operational state can expose the corresponding primary action.
-- Repeated taps, swipes, process resumes, and retries must not create duplicate authoritative mutations.
+- Only one active Shift is allowed.
+- Only one active Trip is allowed within a Shift.
+- A Trip can be cancelled only while it is in the pickup stage; cancellation is unavailable after ride start.
+- A completed or cancelled Trip remains part of history and cannot be silently converted into the other terminal state.
+- Fare entry after completion is recoverable. The driver may save the fare or explicitly skip it; skipping records no fare and contributes zero to revenue.
+- A cancellation fee is optional; blank/not-applicable is zero. It remains distinct from completed-trip fare.
+- Shift revenue is a canonical projection of eligible completed-trip fares and recorded cancellation fees; no manual shift-revenue reconciliation is performed.
+- Repeated taps, swipes, process resumes and retries must not create duplicate Trips or duplicate business outcomes.
 - A failed commit must not be presented as committed.
-- Network availability must not be required for an action that the canonical local-first business path permits offline.
-- GPS availability must not block an operational command unless the governing business rule explicitly requires GPS evidence for that command.
-- Temporary UI state, animation, notification text, overlay visibility, or draft data is never proof that a transition committed.
+- GPS or network availability must not block a ride action.
 
-## 5. Odometer / shift-start gate
+## 5. Odometer rules
 
-At shift start, the current odometer is reconciled against the previous authoritative odometer boundary.
+- Shift start requires a finite positive current odometer.
+- The current reading cannot be lower than the previous completed Shift's closing odometer.
+- For the first KFE Shift, the current reading cannot be lower than the Business Setup opening odometer when that baseline exists.
+- Shift end requires a valid closing odometer not lower than the Shift opening reading. An unusually large difference above the configured 500 km confirmation threshold requires explicit confirmation.
+- Odometer readings support shift continuity and fuel records. KFE does not classify odometer gaps into personal/dead kilometres and does not derive ride distance.
 
-Where a gap exists, the complete gap must be classified through the governed allocation flow. The driver must not bypass the gate by inventing a different authoritative odometer history.
+## 6. GPS event evidence
 
-The current frozen operational rule permits the gap to be allocated to the governed Personal KM or Dead KM categories. Exact business treatment remains governed by the business-rule register and canonical data/calculation contracts.
+Native Android captures one-shot GPS snapshots at exactly four Trip events: `PICKUP_START`, `TRIP_START`, `TRIP_END`, and `TRIP_CANCELLED`.
 
-## 6. Pickup and cancellation
+- Capture is offline-capable and never blocks a ride transition.
+- Capture is bounded to 30 seconds with fresh provider requests approximately every three seconds.
+- Missing permissions or unavailable fixes leave a durable pending event; no coordinate is fabricated.
+- Provider capture time (`capturedAt`) is distinct from the existing Trip event time (`eventAt`).
+- No continuous tracking, route matching, GPS-derived distance or idle timed retry service is permitted.
+- GPS snapshot capture never initiates locality resolution. PWA locality resolution is invoked only by explicit Timeline pull-to-refresh for eligible unresolved snapshots. Successful locality labels are persisted by snapshot ID; no automatic connectivity polling, capture-triggered lookup, or locality retry loop is permitted.
+- A cancellation snapshot is not a passenger drop-off location.
 
-While a canonical trip is in PICKUP / READY FOR TRIP:
-- Go to Pickup and cancellation are available according to the current Work command contract.
-- Cancellation records the existing canonical Trip as cancelled; it does not create a second trip.
-- A blank/not-applicable cancellation fee defaults to numeric `0`; an explicitly entered zero is also stored as numeric `0`.
-- A blank or not-applicable cancellation fee is normalized to numeric `0`; eligible cancellation fees on cancelled Trips contribute to canonical `Shift.revenue` alongside eligible completed-trip fares. The fee is part of the canonical Trip outcome, not a separate competing revenue authority.
+## 7. PWA / Android behavior and recovery
 
-Once the trip enters TRIP ACTIVE, cancellation is no longer an available operational command.
+The PWA Work cockpit and Android overlay are two interaction surfaces for the same canonical Shift/Trip history.
 
-## 7. Trip completion and fare
+- Shift start/end remain available only through the PWA Work application.
+- The Android overlay may issue ride actions only while a canonical Shift is active.
+- Native ride actions are durably journaled and idempotent. The PWA replays/acknowledges native events and refreshes its IndexedDB projection from SQLite.
+- On browser PWA, IndexedDB is the canonical local store. On Android, SQLite is canonical for Work and native GPS snapshots; IndexedDB is a synchronized projection for PWA views and application forms.
+- After backgrounding, screen lock, process restart, temporary network loss, GPS loss or overlay dismissal, reconstruct state from canonical persisted records and durable native journals. UI state and form drafts are never business authority.
 
-End Trip commits the canonical trip-completion transition.
+## 8. Change control
 
-The completion/fare workflow must appear as the immediate next operational context and remain recoverable until its authoritative outcome is resolved.
-
-Eligible saved fare detail on completed Trips contributes to the canonical `Shift.revenue` projection. The driver may save or explicitly skip fare detail. Skipping preserves the completed Trip and contributes ₹0 for that fare; missing optional fare detail must not block the next pickup or shift closure. The fare form must not create a competing revenue authority.
-
-## 8. End shift / reconciliation
-
-End Shift is available only when the current lifecycle permits closure.
-
-Closure proceeds through END SHIFT → RECONCILIATION → SHIFT REVIEW → SHIFT ENDED.
-
-Reconciliation is derived from canonical persisted records. A reconstructed total is a read representation, not a replacement persisted authority. It must distinguish missing optional trip-level fare detail from missing authoritative shift-level revenue; missing fare detail alone is not a closure gate.
-
-## 9. PWA / Android overlay parity
-
-The three operational surfaces may differ in presentation, touch mechanics, and available controls, but they must represent the same canonical state.
-
-canonical operational state → PWA / Android overlay
-
-The Android overlay is not an alternate Work screen with alternate business logic. Android foreground-service notifications are lifecycle notices only; they do not expose ride actions, request revenue, or participate in the ride state machine. The PWA Work cockpit is not permitted to bypass the canonical application/repository transition path.
-
-## 10. Background, interruption and restart
-
-Operational truth is the persisted canonical state, not the last rendered screen.
-
-After app backgrounding, screen lock, browser refresh, process restart, temporary network loss, GPS loss, or overlay dismissal/restoration, KFE must reconstruct the current operational state from canonical persisted state and applicable durable native evidence.
-
-Transient UI state may be restored for convenience but cannot override canonical state.
-
-## 11. GPS boundary
-
-GPS/location evidence is supporting operational evidence unless a specific canonical business rule explicitly makes it authoritative for a calculation or event.
-
-The native Android GPS collector may continue during the screen-off/background lifecycle where the Android capability contract permits it. Native trace collection/import is governed by docs/ANDROID-NATIVE-GPS-CONTRACT.md; the lifecycle meaning of starting/stopping operational capture is governed here.
-
-GPS collection must never become a second operational lifecycle.
-
-## 12. Recovery / duplicate protection
-
-Every authoritative operational command must be safe under replay:
-
-intent → validate current canonical state → commit one canonical mutation → publish resulting state → surface result
-
-If a pending recovery record exists, it is a recovery mechanism for the same command, not a second business operation.
-
-## 13. Work cockpit relationship
-
-KFE_WORK_COCKPIT_BASELINE.md is the Work presentation/interaction baseline. It may define what the driver sees, action-surface presentation, shell placement, keyboard/viewport behavior, swipe presentation, and attention hierarchy.
-
-It must not redefine the lifecycle above.
-
-## 14. Android relationship
-
-docs/ANDROID-NATIVE-GPS-CONTRACT.md defines native GPS collection/import implementation and its physical-device acceptance boundary. It must not redefine operational state semantics.
-
-KFE_ANDROID_RELEASE_GATE.md defines release acceptance and does not redefine the lifecycle.
-
-## 15. Change control
-
-Any lifecycle change must update this document first, then affected tests, application transitions, PWA/Android surfaces, and evidence.
-
-A phase freeze, audit, overlay implementation, or UI document cannot silently change the operational state machine.
+A lifecycle change must update this contract, then the affected domain/application transition, repository/native adapter, PWA and Android surfaces, regression tests, and evidence. Supporting documents and phase history cannot expand the current lifecycle.

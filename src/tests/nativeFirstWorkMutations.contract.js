@@ -10,14 +10,20 @@ const androidTest = fs.readFileSync(new URL('../../android/app/src/androidTest/j
 const commit = service.slice(service.indexOf('const commitNativeFirst'), service.indexOf('const findNativeRecord'))
 assert.ok(commit.indexOf('await CanonicalWorkBoundary.putRecord') < commit.indexOf('await ShiftTripRepository.syncCanonicalRecords'), 'native acknowledgement must precede IndexedDB refresh')
 assert.ok(commit.includes('result?.accepted !== true || !result?.outcome?.record'), 'unacknowledged native commits must fail closed')
-assert.ok(commit.includes('const operationId ='), 'native operation identity must be stable for the record version')
+assert.ok(commit.includes('const durableOperationId ='), 'native operation identity must be stable for the record version')
+assert.ok(commit.includes('await CanonicalWorkBoundary.commitTripLifecycle('), 'PWA-originated Android lifecycle writes must use the guarded native transition boundary.')
+for (const action of ["lifecycleAction: 'START_RIDE'", "lifecycleAction: 'END_RIDE'"]) {
+  assert.ok(service.includes(action), `PWA Android lifecycle must route ${action} through the native guard.`)
+}
+assert.ok(service.includes("formMode: 'FARE'") && service.includes("formMode: 'CANCEL'"), 'PWA Android fare and cancellation forms must route through the dedicated native form transaction.')
+assert.ok(commit.includes('CanonicalWorkBoundary.commitTripForm('), 'native-first form writes must use the guarded Trip-form command.')
 for (const [method, nextMethod] of [
   ['async startShift(data)', 'async startTrip(data)'],
   ['async startTrip(data)', 'async startRide(data)'],
   ['async startRide(data)', 'async completeTrip(data)'],
-  ['async completeTrip(data)', 'async cancelTrip(data)'],
-  ['async cancelTrip(data)', 'async updateTrip(data)'],
-  ['async updateTrip(data)', 'async updateFuel(data)'],
+  ['async completeTrip(data)', 'async cancelTrip(data, operationId = \'\')'],
+  ['async cancelTrip(data, operationId = \'\')', 'async saveTripDetails(data, operationId = \'\')'],
+  ['async saveTripDetails(data, operationId = \'\')', 'async updateFuel(data)'],
   ['async endShift(data)', 'async recordFuel(data)'],
 ]) {
   const start = service.indexOf(method)
@@ -39,10 +45,12 @@ assert.ok(store.includes('existing.put("record", new JSONObject(cursor.getString
 assert.ok(store.includes('values.put("status", "COMPLETED")'), 'intent completion must be durable after native record acknowledgement')
 assert.ok(plugin.includes('prepareCreateIntent') && plugin.includes('completeCreateIntent'), 'native bridge must expose durable intent lifecycle')
 assert.ok(service.includes('CanonicalWorkBoundary.prepareCreateIntent'), 'PWA create must persist intent before canonical record commit')
-assert.ok(service.indexOf('const intent = await CanonicalWorkBoundary.prepareCreateIntent') < service.indexOf('const result = await CanonicalWorkBoundary.putRecord({'), 'intent journal must precede record write')
+assert.ok(service.indexOf('const intent = await CanonicalWorkBoundary.prepareCreateIntent') < service.indexOf('const result = lifecycleAction'), 'intent journal must precede the selected canonical create command')
+assert.ok(service.includes('await CanonicalWorkBoundary.commitTripLifecycle({'), 'Trip create intent must commit through the guarded lifecycle boundary when GO_TO_PICKUP is selected.')
+assert.ok(service.includes('await CanonicalWorkBoundary.putRecord({'), 'Non-lifecycle canonical creates must retain the generic record boundary.')
 assert.ok(service.includes('await CanonicalWorkBoundary.completeCreateIntent(intent.intentId)'), 'intent completes only after native record acknowledgement')
 assert.ok(service.includes("return await commitPreparedCreateIntent('SHIFT', record, data)"), 'Start Shift must use crash-recoverable create intent')
-assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData)"), 'Start Trip must use crash-recoverable create intent')
+assert.ok(service.includes("return await commitPreparedCreateIntent('TRIP', record, tripData, { lifecycleAction: 'GO_TO_PICKUP' })"), 'Start Trip must use a crash-recoverable create intent and guarded active-Shift lifecycle transaction.')
 
 assert.ok(store.includes('"entity_type=? AND intent_key=?"'), 'intent lookup must include completed intents, not only pending intents')
 assert.ok(service.includes("if (intent.status !== 'COMPLETED')"), 'retry after intent completion must reuse the completed intent instead of creating again')
@@ -51,8 +59,8 @@ assert.ok(service.includes('Completed intents are retained as idempotency keys')
 
 assert.ok(service.includes('data?.createIntentKey || data?.idempotencyKey'), 'create intent must use a durable caller-owned submission token')
 assert.ok(shiftTrip.includes('createIntentKey = \'\'') && shiftTrip.includes('createIntentKey: createIntentKey'), 'shift and trip stores must pass create intent tokens into WorkService')
-assert.ok(view.includes('WorkDraftService.save(startDraftIdentity()') && view.includes('startWorkflowId.value)'), 'shift create token must be durably stored before submission')
-assert.ok(view.includes('WorkDraftService.save(identity, { createIntentKey })'), 'trip create token must be durably stored before submission')
+assert.ok(view.includes('await saveDraftBeforeCommit(startDraftIdentity()') && view.includes('startWorkflowId.value)'), 'shift create token must be durably stored before submission')
+assert.ok(view.includes('await saveDraftBeforeCommit(identity, { createIntentKey })'), 'trip create token must be durably stored before submission')
 assert.ok(androidTest.includes('Retry after the final acknowledgement is lost must reuse the completed intent'), 'instrumentation must cover retry after completion acknowledgement loss')
 assert.match(androidTest, /prepareCreateIntentProcessDeathAtDurableBoundary/, 'Android instrumentation must park after the durable create-intent boundary for real process-death testing.')
 assert.match(androidTest, /verifyCreateIntentProcessDeathRecovery/, 'Android instrumentation must recover the same create intent in a fresh process after SIGKILL.')

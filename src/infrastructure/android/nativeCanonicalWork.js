@@ -1,7 +1,7 @@
-import { registerPlugin, Capacitor } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 import { getCanonicalResetBarrier } from '../../utils/indexedDB.js'
 
-const NativeCanonicalWork = registerPlugin('KfeCanonicalWork')
+const NativeCanonicalWork = NativePlugins.canonicalWork
 const native = () => Capacitor?.isNativePlatform?.() === true
 const assertNoResetInProgress = () => {
   const resetId = getCanonicalResetBarrier()
@@ -56,31 +56,36 @@ export const NativeCanonicalWorkService = Object.freeze({
     assertNoResetInProgress()
     requireNative()
     if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
+    if (entityType === 'TRIP') throw new Error('Generic native Trip writes are prohibited; use a lifecycle, form, or restore command.')
     const result = await NativeCanonicalWork.putRecord({ operationId, entityType, record, expectedUpdatedAt, expectAbsent })
     if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical persistence did not confirm the record commit.')
     return result
   },
-  async persistTripBoundarySnapshot({ operationId, tripId, field, snapshot } = {}) {
+  async restoreRecord({ operationId, entityType, record } = {}) {
     assertNoResetInProgress()
     requireNative()
-    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !snapshot) {
-      throw new Error('operationId, tripId, a supported boundary field and snapshot are required.')
-    }
-    const result = await NativeCanonicalWork.persistTripBoundarySnapshot({ operationId, tripId, field, snapshot })
-    if (result?.accepted !== true || !result?.outcome?.record?.[field]) {
-      throw new Error('Native canonical boundary snapshot was not durably acknowledged.')
-    }
+    if (!operationId || !entityType || !record?.id) throw new Error('operationId, entityType and record.id are required.')
+    const result = await NativeCanonicalWork.restoreRecord({ operationId, entityType, record })
+    if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Canonical restore did not confirm the record commit.')
     return result
   },
-  async updateTripBoundaryPlaceName({ operationId, tripId, field, placeName } = {}) {
+  async commitTripLifecycle({ operationId, action, record, expectedUpdatedAt = null, expectAbsent = false } = {}) {
     assertNoResetInProgress()
     requireNative()
-    if (!operationId || !tripId || !['tripStartLocation', 'tripEndLocation'].includes(field) || !String(placeName || '').trim()) {
-      throw new Error('operationId, tripId, a supported boundary field and placeName are required.')
+    if (!operationId || !action || !record?.id) throw new Error('operationId, action and record.id are required.')
+    const result = await NativeCanonicalWork.commitTripLifecycle({ operationId, action, record, expectedUpdatedAt, expectAbsent })
+    if (result?.accepted !== true || !result?.outcome?.record) throw new Error('Native Trip lifecycle command was not durably acknowledged.')
+    return result
+  },
+  async commitTripForm({ operationId, mode, record } = {}) {
+    assertNoResetInProgress()
+    requireNative()
+    if (!operationId || !['FARE', 'CANCEL'].includes(mode) || !record?.id) {
+      throw new Error('operationId, supported form mode and record.id are required.')
     }
-    const result = await NativeCanonicalWork.updateTripBoundaryPlaceName({ operationId, tripId, field, placeName: String(placeName).trim() })
-    if (result?.accepted !== true || !result?.outcome?.record?.[field]?.placeName) {
-      throw new Error('Native canonical boundary label was not durably acknowledged.')
+    const result = await NativeCanonicalWork.commitTripForm({ operationId, mode, record })
+    if (result?.accepted !== true || !(result?.outcome?.record || result?.outcome?.trip)) {
+      throw new Error('Native Trip form command was not durably acknowledged.')
     }
     return result
   },

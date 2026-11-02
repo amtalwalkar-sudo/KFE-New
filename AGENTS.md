@@ -69,21 +69,14 @@ Do not ask for confirmation merely because another implementation step remains.
 ## 6. Technical decisions belong to implementation
 Once the objective and product intent are authorized, the engineering implementation details are owned by the engineering workflow. This includes selecting affected files, batching changes, choosing implementation order, running tests, diagnosing failures, and repairing implementation regressions.
 
-## 7. Preserve frozen KFE rules
-Technical changes must preserve established KFE 2.0 business/domain rules unless the user explicitly changes them.
+## 7. Preserve the current KFE rules
+Technical changes must preserve the current product and business rules in `KFE_BUSINESS_RULES_REGISTER.md`, the architecture boundaries in `docs/KFE-ARCHITECTURE-CONTRACT.md`, and the canonical data rules in `docs/KFE-CANONICAL-DATA-CONTRACT.md`.
 
-In particular, do not silently alter:
+The current product is limited to Work/ride and shift workflow, read-only Timeline, basic recorded-data Performance, basic Admin source forms and saved data, Capacitor-native Android overlay/GPS capabilities, and essential backup/recovery.
 
-- single-vehicle-first scope and extensible foundation;
-- established module/domain boundaries;
-- personal-use separation from business profitability calculations;
-- fixed-expense lifecycle behavior;
-- loan lifecycle, amortization, and prepayment rules;
-- maintenance allocation/amortization rules;
-- Work Session and Break handling;
-- permanent exclusion of the Tax Reserve sub-account concept.
+Do not restore retired targets, break-even, provisions, forecasts, profitability models, loan amortization/payment allocation, personal/dead-kilometre allocation, movement reconciliation, ride-distance/route calculations, OCR ride import, or separate notification products merely because historical code or documents mention them. Preserve historical records only where required for compatibility and recovery; do not reactivate their former workflows.
 
-Future capabilities such as GPS, cloud sync, multi-vehicle fleet management, advanced analytics, ML, recommendations, and KFE Advisor remain future scope unless explicitly authorized.
+GPS snapshots are captured at the four ride event moments offline-capably. GPS capture, app startup, and resume never initiate locality lookup. Only explicit Timeline pull-to-refresh may resolve eligible snapshots while online; there is no automatic locality retry, connectivity polling, or background geocoding queue.
 
 ## 8. CI and deployment
 For CI/deployment work, inspect the current workflows and recent failures before modifying them. Prefer a clean, understandable primary path and preserve meaningful critical protections.

@@ -5,6 +5,7 @@ const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 const adminForm = read('../components/admin/AdminSourceForm.vue')
 const adminView = read('../views/AdminView.vue')
 const workView = read('../views/WorkModuleView.vue')
+const workDraftController = read('../application/work/workDraftController.js')
 const drafts = read('../repositories/formDraftRepository.js')
 
 const failures = []
@@ -28,7 +29,10 @@ check('Admin draft clearing is tied to successful parent save', () => {
 
 check('Work draft writes cannot race commit-time clearing', () => {
   assert.doesNotMatch(workView, /void saveDraft\(/, 'Draft writes must be serialized/awaitable, not fire-and-forget')
-  assert.match(workView, /flushDraft|awaitDraftWrites|draftWriteQueue|serializeDraft/, 'Commit must wait for pending draft writes before clearing')
+  assert.match(workView, /await\s+saveDraftBeforeCommit\(/, 'Create commits must await the application draft controller before canonical writes')
+  assert.match(workView, /clearCommittedDraft\(/, 'Committed forms must clear drafts through the application controller')
+  assert.match(workDraftController, /let writeQueue = Promise\.resolve\(\)/, 'Application draft controller must serialize writes')
+  assert.match(workDraftController, /await writeQueue/, 'Commit-time clearing must wait for pending draft writes')
   assert.doesNotMatch(workView, /const clearCommittedDraft[\\s\\S]{0,180}catch/, 'Draft-clear failures must be surfaced or reconciled rather than silently swallowed')
 })
 

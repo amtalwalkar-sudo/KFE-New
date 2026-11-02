@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { PhaseOnePerformanceService } from '../application/performance/phaseOnePerformanceService.js'
+import { createCoalescedRefresh } from '../application/performance/performanceRefreshCoordinator.js'
 import '../styles/performance.css'
 
 const period = ref('DAY')
@@ -8,21 +9,10 @@ const overview = ref(null)
 const loading = ref(false)
 const error = ref('')
 let requestVersion = 0
-let unsubscribe = null
+let unsubscribeCanonicalChanges = null
 
-const money = value => value == null || !Number.isFinite(Number(value))
-  ? 'Unavailable'
-  : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value))
-const costPerKm = value => value == null || !Number.isFinite(Number(value))
-  ? 'Unavailable'
-  : `${money(value)}/km`
-const sourceLabel = source => source === 'FULL_TANK_INTERVAL'
-  ? 'Based on qualified full-tank intervals'
-  : source === 'OBSERVED_PERIOD'
-    ? 'Indicative: period fuel spending ÷ recorded vehicle KM'
-    : 'Unavailable until sufficient valid fuel and mileage records exist'
-
-const load = async () => {
+const relevantStores = new Set(['shifts', 'trips', 'fuel_logs', 'settings'])
+const refresh = createCoalescedRefresh(async () => {
   const version = ++requestVersion
   loading.value = true
   error.value = ''
@@ -34,15 +24,27 @@ const load = async () => {
   } finally {
     if (version === requestVersion) loading.value = false
   }
-}
+})
+const load = () => refresh.request()
+
+const money = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value))
+const costPerKm = value => value == null || !Number.isFinite(Number(value))
+  ? 'Unavailable'
+  : `${money(value)}/km`
+
 watch(period, () => { void load() })
 onMounted(() => {
+  unsubscribeCanonicalChanges = PhaseOnePerformanceService.subscribeDataChanges(({ stores = [] } = {}) => {
+    if (!stores.length || stores.some(store => relevantStores.has(store))) void load()
+  })
   void load()
-  unsubscribe = PhaseOnePerformanceService.subscribeDataChanges(() => { void load() })
 })
 onUnmounted(() => {
+  unsubscribeCanonicalChanges?.()
+  refresh.dispose()
   requestVersion += 1
-  if (typeof unsubscribe === 'function') unsubscribe()
 })
 </script>
 
@@ -93,7 +95,7 @@ onUnmounted(() => {
         <article class="performance-metric">
           <span>Fuel cost per km</span>
           <strong>{{ costPerKm(overview.fuelCostPerKm) }}</strong>
-          <small>{{ sourceLabel(overview.fuelCostPerKmSource) }}</small>
+          <small>{{ overview.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'From consecutive full-tank odometer readings' : 'Unavailable until two valid full-tank readings exist' }}</small>
         </article>
         <article class="performance-metric performance-metric-highlight">
           <span>Income after fuel</span>
@@ -101,7 +103,7 @@ onUnmounted(() => {
           <small>Fare income + cancellation fees − fuel spending</small>
         </article>
       </section>
-      <p class="performance-footnote">Income after fuel is an operating summary, not net profit. Maintenance, EMI and other costs are not included in Phase 1.</p>
+      <p class="performance-footnote">Income after fuel is recorded shift revenue (including cancellation fees), less recorded fuel spending. Maintenance and EMI costs are not included in Phase 1.</p>
     </template>
   </section>
 </template>

@@ -27,16 +27,14 @@ assert.equal(writes[1][1].mutationId, written.id)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const indexedDb = read('utils/indexedDB.js')
-assert.match(fs.readFileSync('src/constants/canonicalDatabase.js', 'utf8'), /CANONICAL_DB_VERSION\s*=\s*16/)
+assert.match(fs.readFileSync('src/constants/canonicalDatabase.js', 'utf8'), /CANONICAL_DB_VERSION\s*=\s*18/)
 assert.match(indexedDb, /audit_history/)
-assert.match(indexedDb, /deleteObjectStore\('driver_collected_data'\)/)
+assert.match(indexedDb, /db\.deleteObjectStore\(retiredStore\)/)
 
 const mutationWriters = [
   'repositories/adminRepository.js',
   'repositories/fuelRepository.js',
-  'repositories/odoGapRepository.js',
   'repositories/shiftTripRepository.js',
-  'repositories/movementArtifactRepository.js',
   'repositories/locationRepository.js'
 ]
 for (const relative of mutationWriters) {

@@ -1,28 +1,16 @@
 # KFE Launch Status
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-11-01  
+**Current work:** PR #412 — systematic PWA + Capacitor architecture audit, current-scope cleanup, four-event GPS and aligned acceptance contracts.  
+**PR:** https://github.com/amtalwalkar-sudo/KFE-New/pull/412
 
 ## Active phase
 
-**PHASE 11 — CONTROLLED REAL-WORLD PILOT**
+**PHASE 5 — ARCHITECTURE AND PRODUCT CLEANUP**
 
-Status: **ACTIVE**
+Status: **IN PROGRESS**
 
-**Phase 4:** COMPLETE / CLOSED for all non-device operational work.
-
-**Phase 5:** COMPLETE / CLOSED — no accepted non-device operational defects required implementation.
-
-**Phase 6:** COMPLETE / CLOSED — applicable non-device operational re-audit passed on CI #1738.
-
-**Phase 7:** COMPLETE / CLOSED — automated data/recovery gate passed.
-
-**Phase 8:** COMPLETE / CLOSED — non-device security/permissions gate passed.
-
-**Phase 9:** COMPLETE / CLOSED — non-device production configuration gate passed.
-
-**Phase 10:** COMPLETE / CLOSED — release candidate frozen at the final Phase 10 PR revision; PWA/APK generation is tied to that exact revision.
-
-**Physical-device audit:** DEFERRED — final validation activity of the entire launch plan, after Phase 13.
+The current source and documentation audit is still being completed. The physical-device pilot is not active until the release-candidate freeze and required gates are complete.
 
 ## Phase state
 
@@ -32,58 +20,44 @@ Status: **ACTIVE**
 | 1 — Business Rules Audit | **COMPLETE / CLOSED** |
 | 2 — Fix Business-Rule Defects | **COMPLETE / CLOSED** |
 | 3 — Business Rules Re-Audit | **COMPLETE / CLOSED** |
-| 4 — Real-World Operational Audit | **COMPLETE / CLOSED — NON-DEVICE CHECKPOINT** |
-| 5 — Fix Operational Defects | **COMPLETE / CLOSED — NO NON-DEVICE DEFECTS** |
-| 6 — Operational Re-Audit | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 7 — Data / Recovery Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 8 — Security / Permissions Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 9 — Production Configuration Gate | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 10 — Release Candidate Freeze | **COMPLETE / CLOSED — NON-DEVICE PASS** |
-| 11 — Controlled Real-World Pilot | **ACTIVE** |
-| 12 — Pilot Reconciliation | LOCKED / PENDING |
-| 13 — Final Release Gate | LOCKED / PENDING |
-| Launch | LOCKED / PENDING |
+| 4 — Whole-Application Architecture Audit | **SOURCE / AUTOMATION CHECKPOINT COMPLETE; final follow-up audit in progress** |
+| 5 — Architecture and Product Cleanup | **ACTIVE** — source, contracts and documentation aligned on PR #412 |
+| 6 — Operational Re-Audit | **PENDING fresh verification on the final cleanup head** |
+| 7 — Data / Recovery Gate | **PENDING fresh verification on the final cleanup head** |
+| 8 — Security / Permissions Gate | **PENDING fresh verification on the final cleanup head** |
+| 9 — Production Configuration Gate | **PENDING fresh verification on the final cleanup head** |
+| 10 — Release Candidate Freeze | **PENDING Phase 5 closure and exact candidate identity** |
+| 11 — Controlled Real-World / Physical-Device Pilot | **LOCKED / PENDING Phase 10** |
+| 12 — Pilot Reconciliation | **LOCKED / PENDING Phase 11 evidence** |
+| 13 — Final Release Gate | **LOCKED / PENDING Phase 12 and final CI** |
+| Launch | **LOCKED / PENDING Phase 13 and explicit authorization** |
 
-## Phase 10 exit decision — 2026-09-26
+## Current evidence
 
-The Phase 10 release-candidate freeze is **COMPLETE / CLOSED — NON-DEVICE PASS**.
+- PR #412 is open and unmerged.
+- Commit `9b460affe6acb58c5b00e1aa7a272e0ea6a79e30` passed the governance, business-foundation, UI-isolation and consolidated KFE CI workflows.
+- Additional follow-up changes after that green head corrected the native-first overlay command description, consolidated native Shift revenue projection code, removed obsolete form documentation, replaced the retired Android trace/reconciliation runbook, and aligned the authoritative UI shell contract.
+- Those newer changes require a fresh CI run on the latest PR head. The earlier green result must not be represented as proof for a later commit.
+- No physical-device acceptance has been performed or claimed.
 
-Evidence:
-- application version remains 2.0.0;
-- canonical Capacitor app ID remains com.kanishka.pwa;
-- production PWA build and artifact validation remain CI-gated;
-- the Phase 10 hardening/release contract is included in the consolidated CI;
-- the exact PR revision is the frozen source revision for the release-candidate PWA and Android APK;
-- Android APK generation is performed by the repository's exact-revision APK workflow;
-- no physical-device result is represented as PASS.
+## Latest GPS integrity follow-up
 
-The exact source SHA, CI run, APK workflow run, artifact identity, and APK SHA-256 are recorded in the Phase 10 PR/CI evidence.
+- Native and browser capture now measure the 30-second window from the original ride-event timestamp, not from a later retry attempt.
+- Timeline and manual locality resolution reject snapshots outside that event-time window.
+- Cached locality labels are bound to the exact event/capture timestamp pair, preventing reuse after a snapshot is replaced.
+- Pending GPS work has no timed backoff or idle retry loop; eligible requests resume only on a ride event, app open, or explicit GPS-status refresh.
 
-## Current gate
+## Remaining work
 
-**Phase 11 — Controlled Real-World Pilot — ACTIVE**
+1. Finish the whole-application source, documentation and contract audit on PR #412.
+2. Run all governance, business-foundation, UI-isolation, PWA build/runtime, persistence/recovery and Android exact-APK emulator gates on the final PR head.
+3. Review the exact APK identity from that run and install it on the target phone.
+4. Verify the four GPS events offline, permission denial, degraded signal, and retry only while the original 30-second event-time window remains open; expired events must remain unavailable rather than receive a later fix.
+5. Verify locality resolution occurs only after explicit Timeline pull-to-refresh and that credible saved labels persist after restart.
+6. Verify native overlay commits, PWA synchronization, shift ownership, Admin navigation/Android Back, forms and recovery.
+7. Verify Timeline, basic Performance, Phone Backup, Dropbox foreground backup, restore and reset safeguards.
+8. Fix any observed defect and rerun affected gates before merge.
 
-Use KFE for controlled real business activity and capture reconciliation evidence.
+## Evidence discipline
 
-## Change-control rule
-
-If the active phase changes, this file must be updated in the same controlled change as the roadmap decision.
-
-
-## Phase E — Final Release Gate (2026-10-04)
-
-**Automated release sequence: PASS on exact main commit `abc11a5a208046a1ecdf8dbba1c9b5d11ce2338b`.**
-
-- Consolidated CI run #2625 (`37169395454`): SUCCESS; foundation contracts, end-to-end conformance, production PWA build, Pages artifact validation, browser runtime smoke, Phase 4 A–J matrix, operational gap suite, visual verification, rendered calculation UI smoke, and semantic control audit passed.
-- GitHub Pages artifact: `github-pages`, artifact ID `11290444687`, SHA-256 `23753b5ada9f509fb769650e662a30866ffbc7961e4115b4c8d9dfb021ba5e07`.
-- GitHub Pages deployment and deployed SPA-route/runtime verification: SUCCESS in the same run. Deployment target: https://amtalwalkar-sudo.github.io/KFE-New/
-- Android release gate: SUCCESS. Exact APK smoke gate passed; APK artifact `kfe-android-debug-apk`, artifact ID `11291015326`, artifact ZIP SHA-256 `d4b7f6627df944c2dad69103757d73302410a8f44bc99a8ee72bdecde8b6ea7f`.
-- Exact APK identity from the workflow's golden-gate artifact: SHA-256 `cc9f2fd2ab4b0d8bb9a880f4e3f388f4c34685d45f222d50550252d24dd332cd`. Independently extracted the APK from artifact 11291015326 and recomputed its SHA-256; it matches the golden-gate identity exactly.
-- Release source SHA: `abc11a5a208046a1ecdf8dbba1c9b5d11ce2338b`.
-
-**Physical-phone validation: PENDING — not represented as passed.** Automated CI/runtime/APK smoke is not physical-device evidence. Install the exact APK above on the target Android phone and validate permissions, overlay/notification lifecycle, screen-off/background GPS behavior, swipe transitions, cancellation/fare flow, persistence/restart recovery, and end-shift reconciliation. Record device/OS and outcomes before declaring the device gate complete.
-
-
-## Prelaunch Production Readiness
-
-A–J and L–M are the frozen prelaunch scope. K is intentionally excluded because no real business data has been entered yet. The implementation branch adds production cleanup, guided first-run setup, local-first cloud-backup wiring, in-place APK upgrade checks, calculation completeness diagnostics, schema-safe setup metadata, and reproducible release identity evidence. CI/device/pilot evidence remains pending until those gates run.
+CI, emulator and source inspection do not prove physical-phone behavior. A skipped or unavailable gate is not a pass. A new commit invalidates the previous head's CI result until the new head is verified. Do not merge PR #412 without explicit user authorization.

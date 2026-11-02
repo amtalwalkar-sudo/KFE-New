@@ -1,5 +1,4 @@
 import { WorkRuntimePorts } from './workRuntimePorts.js'
-import { BrowserCanonicalWorkService } from '../../infrastructure/work/browserCanonicalWork.js'
 import { generateUUID } from '../../utils/uuid.js'
 import { assertLifecycleStorageAvailable } from './lifecycleStorageGuard.js'
 
@@ -35,33 +34,63 @@ export const CanonicalWorkBoundary = Object.freeze({
       expectAbsent: input?.expectAbsent === true,
     }
     if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record)) throw new Error('record must be an object.')
+    if (normalized.entityType === 'TRIP') throw new Error('Generic Trip writes are prohibited; use commitTripLifecycle or commitTripForm.')
     const nativeAvailable = requireCanonicalWriteRoute()
     if (nativeAvailable) return WorkRuntimePorts.canonicalWork.putRecord(normalized)
-    return BrowserCanonicalWorkService.putRecord(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord(normalized)
   },
-  async persistTripBoundarySnapshot(input) {
+  async restoreRecord(input) {
     const normalized = {
       operationId: requireText(input?.operationId, 'operationId'),
-      tripId: requireText(input?.tripId, 'tripId'),
-      field: requireText(input?.field, 'field'),
-      snapshot: input?.snapshot,
+      entityType: requireText(input?.entityType, 'entityType'),
+      record: input?.record,
     }
-    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary snapshot field.')
-    if (!normalized.snapshot || typeof normalized.snapshot !== 'object' || Array.isArray(normalized.snapshot)) throw new Error('snapshot must be an object.')
-    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Dedicated trip-boundary persistence is available only with native canonical storage.')
-    return WorkRuntimePorts.canonicalWork.persistTripBoundarySnapshot(normalized)
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical restore record is required.')
+    }
+    if (!['SHIFT', 'TRIP', 'GPS_SNAPSHOT'].includes(normalized.entityType)) {
+      throw new Error('Unsupported canonical restore entity type.')
+    }
+    if (!requireCanonicalWriteRoute()) throw new Error('Canonical restore requires native SQLite storage.')
+    return WorkRuntimePorts.canonicalWork.restoreRecord(normalized)
   },
-  async updateTripBoundaryPlaceName(input) {
+  async commitTripLifecycle(input) {
     const normalized = {
       operationId: requireText(input?.operationId, 'operationId'),
-      tripId: requireText(input?.tripId, 'tripId'),
-      field: requireText(input?.field, 'field'),
-      placeName: requireText(input?.placeName, 'placeName'),
+      action: requireText(input?.action, 'action'),
+      record: input?.record,
+      expectedUpdatedAt: input?.expectedUpdatedAt ?? null,
+      expectAbsent: input?.expectAbsent === true,
     }
-    if (!['tripStartLocation', 'tripEndLocation'].includes(normalized.field)) throw new Error('Unsupported trip-boundary place-name field.')
-    const nativeAvailable = requireCanonicalWriteRoute()
-    if (nativeAvailable) return WorkRuntimePorts.canonicalWork.updateTripBoundaryPlaceName(normalized)
-    return BrowserCanonicalWorkService.updateTripBoundaryPlaceName(normalized)
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical Trip record is required.')
+    }
+    if (requireCanonicalWriteRoute()) return WorkRuntimePorts.canonicalWork.commitTripLifecycle(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord({
+      operationId: normalized.operationId,
+      entityType: 'TRIP',
+      record: normalized.record,
+      expectedUpdatedAt: normalized.expectedUpdatedAt,
+      expectAbsent: normalized.expectAbsent,
+    })
+  },
+  async commitTripForm(input) {
+    const normalized = {
+      operationId: requireText(input?.operationId, 'operationId'),
+      mode: requireText(input?.mode, 'mode'),
+      record: input?.record,
+    }
+    if (!['FARE', 'CANCEL'].includes(normalized.mode)) throw new Error('Unsupported canonical Trip form mode.')
+    if (!normalized.record || typeof normalized.record !== 'object' || Array.isArray(normalized.record) || !normalized.record.id) {
+      throw new Error('A canonical Trip form record is required.')
+    }
+    if (requireCanonicalWriteRoute()) return WorkRuntimePorts.canonicalWork.commitTripForm(normalized)
+    return WorkRuntimePorts.browserCanonicalWork.putRecord({
+      operationId: normalized.operationId,
+      entityType: 'TRIP',
+      record: normalized.record,
+      expectedUpdatedAt: input?.expectedUpdatedAt ?? null,
+    })
   },
   async persistEventLocationSnapshot(snapshot) {
     if (!snapshot?.id || !snapshot?.entityType || !snapshot?.entityId || !snapshot?.eventType) {
@@ -75,10 +104,38 @@ export const CanonicalWorkBoundary = Object.freeze({
       record,
     })
   },
+  async listAllRecords(entityType, { pageSize = 500 } = {}) {
+    if (typeof entityType !== 'string' || !entityType.trim()) throw new Error('A canonical entity type is required for paginated reads.')
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 1000) throw new Error('Canonical page size must be an integer from 1 to 1000.')
+    if (!WorkRuntimePorts.canonicalWork.isAvailable()) throw new Error('Paginated canonical reads require native SQLite.')
+    const records = []
+    const seenIds = new Set()
+    let offset = 0
+    let expectedTotal = null
+    do {
+      const page = await WorkRuntimePorts.canonicalWork.listRecords({ entityType, limit: pageSize, offset })
+      const rows = Array.isArray(page?.records) ? page.records : []
+      if (!Number.isInteger(page?.totalCount) || page.totalCount < 0 || page.offset !== offset) {
+        throw new Error(`Native ${entityType} pagination returned invalid count/offset metadata.`)
+      }
+      if (expectedTotal === null) expectedTotal = page.totalCount
+      else if (page.totalCount !== expectedTotal) throw new Error(`Native ${entityType} records changed during paginated retrieval.`)
+      if (!rows.length && offset < expectedTotal) throw new Error(`Native ${entityType} pagination stopped at ${offset} of ${expectedTotal} records.`)
+      if (rows.length > pageSize) throw new Error(`Native ${entityType} pagination exceeded the requested page size.`)
+      for (const row of rows) {
+        if (!row?.id || seenIds.has(row.id)) throw new Error(`Native ${entityType} pagination returned a missing or duplicate record ID.`)
+        seenIds.add(row.id)
+      }
+      records.push(...rows)
+      offset += rows.length
+      if (records.length > expectedTotal) throw new Error(`Native ${entityType} pagination returned duplicate or extra records.`)
+    } while (offset < expectedTotal)
+    if (records.length !== expectedTotal) throw new Error(`Native ${entityType} pagination is incomplete: expected ${expectedTotal}, read ${records.length}.`)
+    return records
+  },
   async listEventLocationSnapshots() {
     if (!WorkRuntimePorts.canonicalWork.isAvailable()) return []
-    const result = await WorkRuntimePorts.canonicalWork.listRecords({ entityType: 'GPS_SNAPSHOT', limit: 1000 })
-    return Array.isArray(result?.records) ? result.records : []
+    return this.listAllRecords('GPS_SNAPSHOT')
   },
   async getEventLocationSnapshot(snapshotId) {
     if (!snapshotId || !WorkRuntimePorts.canonicalWork.isAvailable()) return null
@@ -86,8 +143,8 @@ export const CanonicalWorkBoundary = Object.freeze({
     if (!result || result.found === false) return null
     return result.record || result
   },
-  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : BrowserCanonicalWorkService.getRecord(input) },
-  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : BrowserCanonicalWorkService.listRecords(input) },
-  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : BrowserCanonicalWorkService.getOperation(operationId) },
+  async getRecord(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getRecord(input) : WorkRuntimePorts.browserCanonicalWork.getRecord(input) },
+  async listRecords(input) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.listRecords(input) : WorkRuntimePorts.browserCanonicalWork.listRecords(input) },
+  async getOperation(operationId) { return WorkRuntimePorts.canonicalWork.isAvailable() ? WorkRuntimePorts.canonicalWork.getOperation(operationId) : WorkRuntimePorts.browserCanonicalWork.getOperation(operationId) },
   createOperationId() { return generateUUID() },
 })

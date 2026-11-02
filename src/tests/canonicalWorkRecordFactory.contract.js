@@ -14,13 +14,12 @@ const shift = createCanonicalShiftRecord({
 }, { createId, now: fixedNow })
 assert.equal(shift.id, 'generated-1')
 assert.equal(shift.startOdometer, 12500)
-assert.equal(shift.openingPersonalKm, 2)
-assert.equal(shift.openingDeadKm, 3)
+assert.equal(shift.openingPersonalKm, undefined, 'New shifts must not create retired Personal KM allocation fields')
+assert.equal(shift.openingDeadKm, undefined, 'New shifts must not create retired Dead KM allocation fields')
 assert.equal(shift.status, 'ACTIVE')
 assert.equal(shift.shiftStartAt, fixedNow)
 assert.equal(shift.createdAt, fixedNow)
 assert.equal(shift.updatedAt, fixedNow)
-assert.equal(shift.tollParkingCaptureMode, 'ADDITIONAL_ONLY')
 
 const suppliedShift = createCanonicalShiftRecord({
   id: 'existing-shift-id',
@@ -33,17 +32,21 @@ const trip = createCanonicalTripRecord({
   shiftId: 'generated-1',
   operator: 'DRIVER',
   tripStage: 'GOING_TO_PICKUP',
-  tripKm: 4.5,
+  tripStartLocation: { latitude: 19.07, longitude: 72.87 },
+  tripEndLocation: { latitude: 19.08, longitude: 72.88 },
 }, { createId, now: fixedNow })
 assert.equal(trip.id, 'generated-2')
 assert.equal(trip.shiftId, 'generated-1')
 assert.equal(trip.status, 'ACTIVE')
 assert.equal(trip.tripStage, 'GOING_TO_PICKUP')
-assert.equal(trip.tripKm, 4.5)
-assert.equal(trip.tripKmAuthority, 'MANUAL')
-assert.equal(trip.revenueAuthority, 'SUPPORTING_ONLY')
-assert.equal(trip.tripStartLocationStatus, 'MISSING')
-assert.equal(trip.tripEndLocationStatus, 'MISSING')
+assert.equal(trip.tripKm, undefined, 'Ride distance is not part of the active canonical workflow')
+assert.equal(trip.tripKmAuthority, undefined, 'Ride distance authority is retired')
+assert.equal(trip.revenueAuthority, undefined, 'New canonical Trips must not carry obsolete revenue-authority metadata')
+assert.equal(trip.revenueProvenance, undefined, 'New canonical Trips must not carry unused revenue provenance metadata.')
+assert.equal(trip.tripStartLocation, undefined, 'Canonical Trips must not embed GPS snapshots.')
+assert.equal(trip.tripEndLocation, undefined, 'Canonical Trips must not embed GPS snapshots.')
+assert.equal(trip.tripStartLocationStatus, undefined, 'Embedded GPS resolution state is retired.')
+assert.equal(trip.tripEndLocationStatus, undefined, 'Embedded GPS resolution state is retired.')
 assert.equal(trip.createdAt, fixedNow)
 assert.equal(trip.updatedAt, fixedNow)
 

@@ -13,16 +13,27 @@ This document is an index, not a replacement for the domain authorities listed b
 
 When two documents appear to define the same responsibility, the authority listed here wins. Supporting, phase, freeze, audit, traceability, defect, and evidence documents may explain or prove an authority but may not override it.
 
+## Product scope boundary — enforce before any future work
+
+KFE contains only these product capabilities:
+
+1. Ride and shift workflow. Shift start/end and driver setup are owned by the PWA main app; the native Android overlay handles ride actions during an active shift.
+2. Timeline: read-only ride and fuel history, including the four offline-capable event-time GPS snapshots; locality resolution is user-initiated only through explicit pull-to-refresh, limited to eligible events within seven days, and successful names are permanently saved in PWA storage.
+3. Basic Performance: recorded shift revenue, completed rides, cancellation fees, recorded fuel spending, fuel cost/km from valid consecutive full-tank odometer readings, and income after fuel. Income after fuel includes cancellation fees. Do not add forecasts, targets, break-even models, provisions, profitability models, or unrelated financial calculations.
+4. Basic Admin: the existing essential forms and their saved records. Forms store source data; they must not grow into a separate calculations or planning product.
+5. Capacitor + PWA: the PWA owns shared UI and workflows; Capacitor/native Android owns Android-specific capabilities, including the ride overlay and native GPS collection.
+
+Anything outside these five capabilities is out of product scope. Do not restore it from historical phase notes, audit files, unused screens, or tests. Remove obsolete code, wiring, tests, and documentation when no longer needed by the five capabilities. Preserve existing business records and required form data while removing obsolete derived features. Do not introduce replacement features without an explicit request.
+
 ## 2. Canonical human-readable authorities
 
 | Responsibility | Sole authority | Boundary |
 |---|---|---|
 | Governance / authority map | KFE-AUTHORITY-MAP.md | This index only |\n| Stable functional baseline | KFE_STABLE_FUNCTIONAL_BASELINE.md | Top-level stable starting-point record; references domain authorities and does not duplicate them |
 | Business meaning and business rules | KFE_BUSINESS_RULES_REGISTER.md | Rule meaning, invariants, business semantics |
-| Arithmetic and formulas | docs/KFE-CALCULATION-SPECIFICATION.md | Formula mechanics; subordinate to business meaning |
 | Architecture / ownership / layer boundaries | docs/KFE-ARCHITECTURE-CONTRACT.md | Responsibility and implementation boundaries |
 | Canonical domain/data model | docs/KFE-CANONICAL-DATA-CONTRACT.md | Entities, fields, relationships, source-of-truth data |
-| Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation/reconciliation transitions across surfaces |
+| Operational lifecycle/state machine | docs/KFE-OPERATIONAL-LIFECYCLE-CONTRACT.md | Shift/trip/cancellation and end-shift transitions across surfaces |
 | PWA UI / shell / presentation boundary | docs/UI-UX-SHELL-CONTRACT.md | Visual and presentation architecture |
 | Work cockpit presentation | KFE_WORK_COCKPIT_BASELINE.md | Work-specific presentation of the canonical lifecycle |
 | Universal form architecture | docs/KFE-UNIVERSAL-FORM-STANDARD.md | Form interaction/viewport/resilience |
@@ -33,30 +44,17 @@ When two documents appear to define the same responsibility, the authority liste
 
 ## 3. Supporting documents — not competing authorities
 
-### Business / calculation evidence
-- docs/KFE-BUSINESS-RULES-AUDIT-EVIDENCE.md — consolidated business-rule audit, re-audit, and defect evidence.
-- docs/CALCULATION-AUTHORITY-MATRIX.md — calculation traceability/evidence.
-- docs/DRIVER-TARGET-AUTHORITATIVE-AUDIT-2026-09-16.md — Driver Target audit/evidence.
-- docs/DRIVER-TARGET-IMPLEMENTATION-BOUNDARY.md — Driver Target implementation boundary.
-- docs/DRIVER-TARGET-STABILIZATION-REGRESSION.md — regression/evidence.
-- docs/OPERATING-KM-FORECAST.md — operating-KM forecast implementation/reference.
-- docs/PROFIT_TARGET_RECOVERY_AUDIT.md — profit/target/recovery audit.
-- docs/KFE-FINANCE-FREEZE-2026-09-17.md — frozen finance implementation supplement.
-- docs/KFE-PHASE-5-CALCULATION-EVIDENCE.md — consolidated calculation integration and traceability evidence.
+### Current UI and basic Performance evidence
+- docs/ADMIN-ARCHITECTURE-AUDIT-2026-10-31.md — Admin implementation audit evidence; subordinate to the architecture and universal form contracts.
+- docs/ADMIN-EXTENSIBILITY-AND-STABILITY-CONTRACT.md — current Admin source-form and stability mechanics; does not authorize new workflows.
+- docs/KFE-WHOLE-APP-ARCHITECTURE-AUDIT-2026-10-31.md — whole-app implementation audit evidence; does not create new product scope.
 
 ### Data / persistence / operational evidence
-- docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — persistence implementation/evidence under canonical data contract.
-- docs/KFE-PHASE-3-RIDE-CAPTURE-CONTRACT.md — ingestion adapter implementation/evidence under canonical Trip data.
-- docs/KFE-PHASE-4-OPERATIONAL-RECORDS-CONTRACT.md — operational reconstruction/evidence under canonical data + lifecycle.
+- docs/KFE-PHASE-2-PERSISTENCE-CONTRACT.md — historical persistence implementation/evidence under the canonical data contract.
 - KFE_DATA_RECOVERY_GATE_PHASE7.md — recovery gate/evidence.
-- KFE_OPERATIONAL_AUDIT_PHASE4.md — operational audit/evidence.
-- KFE_OPERATIONAL_REAUDIT_PHASE6.md — operational re-audit/evidence.
-- KFE_PHASE4_AUTOMATED_AUDIT.md — automated audit/evidence.
-- KFE_PHASE4_STATE_FORM_GATE_AUDIT.md — state/form audit/evidence.
-- docs/PRELAUNCH-SOURCE-RECONCILIATION-2026-10-02.md — reconciliation evidence.
+
 
 ### UI / interaction evidence
-- docs/KFE-PWA-VISUAL-APPLICATION.md — presentation implementation/reference.
 - docs/PERFORMANCE-FOUNDATION.md — Performance presentation foundation.
 - docs/TIMELINE-FOUNDATION.md — Timeline presentation foundation.
 - docs/KFE-PHASE-4-RUNTIME-VISUAL-VERIFICATION.md — runtime visual evidence.
@@ -67,7 +65,6 @@ When two documents appear to define the same responsibility, the authority liste
 - KFE_PRODUCTION_CONFIGURATION_GATE_PHASE9.md — production configuration gate evidence.
 - KFE_RELEASE_CANDIDATE_PHASE10.md — release-candidate gate evidence.
 - KFE_CONTROLLED_PILOT_GATE_PHASE11.md — controlled-pilot gate evidence.
-- docs/KFE-RIDE-NOTIFICATION-CAPABILITY-FUTURE.md — future capability boundary.
 - docs/FOUNDATION-SECURITY-PERFORMANCE.md — foundation constraints/reference.
 - docs/LOCAL-HTTPS.md — development infrastructure reference.
 
@@ -80,7 +77,6 @@ When two documents appear to define the same responsibility, the authority liste
 - KFE_PR_MERGE_DISCIPLINE.md — merge process.
 - docs/KFE-EFFICIENT-PHASE-EXECUTION-PROTOCOL.md — execution process.
 - docs/KFE-HOLISTIC-CI-FAILURE-PROTOCOL.md — CI failure process.
-- docs/PRE-CI-HOLISTIC-AUDIT.md — pre-CI audit evidence.
 - spec/KFE-SPECIFICATION.md — top-level product index; it points to the canonical authorities and must not duplicate their rules.
 
 ## 4. Phase freeze documents
@@ -90,7 +86,6 @@ The following are historical/frozen phase evidence and are not independent autho
 - docs/KFE-PHASE-1-FREEZE.md
 - docs/KFE-PHASE-2-FREEZE.md
 - docs/KFE-PHASE-3-FREEZE.md
-- docs/KFE-PHASE-4-FREEZE.md
 - docs/KFE-PHASE-6-FREEZE.md
 - docs/KFE-PHASE-7-FREEZE.md
 - docs/KFE-PHASE-8-FREEZE.md
@@ -101,7 +96,7 @@ The following are historical/frozen phase evidence and are not independent autho
 If a phase freeze contains a substantive rule that is still active, that rule must be represented in the appropriate canonical authority. The freeze remains as evidence/history.
 
 
-## 6. Conflict rule
+## 5. Conflict rule
 
 If any supporting document conflicts with a canonical authority:
 1. Treat the canonical authority as the intended current rule.
@@ -109,7 +104,7 @@ If any supporting document conflicts with a canonical authority:
 3. If it is historical evidence, retain the historical statement but label it as historical/evidence and do not use it as a current rule.
 4. Do not create a third document to resolve the conflict.
 
-## 7. Future-document rule
+## 6. Future-document rule
 
 A new document must declare one of:
 - CANONICAL AUTHORITY — only if it owns a responsibility not already owned here;
@@ -118,7 +113,7 @@ A new document must declare one of:
 
 Creating a second canonical document for an existing responsibility is prohibited.
 
-## 8. Change-control rule
+## 7. Change-control rule
 
 A permanent rule change must update:
 

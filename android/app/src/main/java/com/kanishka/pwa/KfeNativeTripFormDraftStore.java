@@ -11,11 +11,10 @@ final class KfeNativeTripFormDraftStore {
 
   static final class Draft {
     final String mode, fare, toll, parking, reason;
-    final boolean cancelFormPwaSynchronized, tollExpanded, parkingExpanded, tollExcluded, parkingExcluded;
+    final boolean cancelFormPwaSynchronized, tollExpanded, parkingExpanded;
 
     Draft(String mode, String fare, String toll, String parking, String reason,
-        boolean cancelFormPwaSynchronized, boolean tollExpanded, boolean parkingExpanded,
-        boolean tollExcluded, boolean parkingExcluded) {
+        boolean cancelFormPwaSynchronized, boolean tollExpanded, boolean parkingExpanded) {
       this.mode = mode == null ? "" : mode;
       this.fare = fare == null ? "" : fare;
       this.toll = toll == null ? "" : toll;
@@ -24,8 +23,6 @@ final class KfeNativeTripFormDraftStore {
       this.cancelFormPwaSynchronized = cancelFormPwaSynchronized;
       this.tollExpanded = tollExpanded;
       this.parkingExpanded = parkingExpanded;
-      this.tollExcluded = tollExcluded;
-      this.parkingExcluded = parkingExcluded;
     }
   }
 
@@ -38,9 +35,7 @@ final class KfeNativeTripFormDraftStore {
         prefs.getString("cancelReason", ""),
         prefs.getBoolean("cancelFormPwaSynchronized", false),
         prefs.getBoolean("tollExpanded", false),
-        prefs.getBoolean("parkingExpanded", false),
-        prefs.getBoolean("tollExcluded", false),
-        prefs.getBoolean("parkingExcluded", false));
+        prefs.getBoolean("parkingExpanded", false));
   }
 
   static void save(SharedPreferences prefs, Draft draft) {
@@ -53,15 +48,12 @@ final class KfeNativeTripFormDraftStore {
         .putBoolean("cancelFormPwaSynchronized", draft.cancelFormPwaSynchronized)
         .putBoolean("tollExpanded", draft.tollExpanded)
         .putBoolean("parkingExpanded", draft.parkingExpanded)
-        .putBoolean("tollExcluded", draft.tollExcluded)
-        .putBoolean("parkingExcluded", draft.parkingExcluded)
         .apply();
   }
 
   static void clear(SharedPreferences prefs) {
     prefs.edit().remove("formMode").remove("formValue").remove("tollValue")
         .remove("parkingValue").remove("cancelReason").remove("cancelFormPwaSynchronized")
-        .remove("tollExpanded").remove("parkingExpanded").remove("tollExcluded")
-        .remove("parkingExcluded").apply();
+        .remove("tollExpanded").remove("parkingExpanded").apply();
   }
 }

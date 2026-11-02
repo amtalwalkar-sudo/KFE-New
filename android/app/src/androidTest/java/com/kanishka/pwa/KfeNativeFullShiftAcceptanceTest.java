@@ -136,7 +136,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(store.putRecord("active-projection-collision-shift-create-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE")
             .put("startOdometer", 1000).put("revenue", 0).put("updatedAt", shiftStart)).accepted);
-    assertTrue(store.putRecord("active-projection-collision-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("active-projection-collision-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("revenue", 250d).put("fareDetailsSkipped", false).put("updatedAt", tripVersion)).accepted);
 
@@ -172,89 +172,315 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(1000d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("startOdometer"), 0.001d);
   }
 
-  @Test public void oneShotBoundarySnapshotMergePreservesFareAndDoesNotAdvanceBusinessVersion() throws Exception {
+  @Test public void corruptGpsEventJournalMustNotMasqueradeAsAnEmptyQueue() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    SharedPreferences preferences = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
+    String key = "pendingEventGpsCaptures.v1";
+    boolean hadPrior = preferences.contains(key);
+    String prior = preferences.getString(key, null);
+    try {
+      assertTrue(preferences.edit().putString(key, "{malformed").commit());
+      KfeGpsEventJournal journal = new KfeGpsEventJournal(context);
+      boolean countFailedClosed = false;
+      try { journal.count(); }
+      catch (IllegalStateException expected) { countFailedClosed = true; }
+      assertTrue("A corrupt GPS journal must not be reported as an empty queue.", countFailedClosed);
+
+      boolean retryReadFailedClosed = false;
+      try { journal.pending(new java.util.HashSet<>()); }
+      catch (IllegalStateException expected) { retryReadFailedClosed = true; }
+      assertTrue("A corrupt GPS journal must block retry recovery instead of returning no pending event.", retryReadFailedClosed);
+    } finally {
+      SharedPreferences.Editor restore = preferences.edit();
+      if (hadPrior) restore.putString(key, prior); else restore.remove(key);
+      assertTrue("GPS journal test fixture must be restored.", restore.commit());
+    }
+  }
+
+  @Test public void nativeLifecycleStoreRejectsInvalidTransitionsAndRequiresAnActiveShift() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     String suffix = Long.toString(System.currentTimeMillis());
-    String shiftId = "boundary-merge-shift-" + suffix;
-    String tripBeforeGps = "boundary-merge-gps-first-" + suffix;
-    String tripAfterFare = "boundary-merge-fare-first-" + suffix;
-    String earlier = "2026-10-19T00:00:00.000Z";
+    String shiftId = "native-lifecycle-guard-shift-" + suffix;
+    String secondShiftId = "native-lifecycle-guard-second-shift-" + suffix;
+    String tripId = "native-lifecycle-guard-trip-" + suffix;
+    String cancelledTripId = "native-lifecycle-guard-cancel-trip-" + suffix;
+    String invalidFeeTripId = "native-lifecycle-guard-invalid-fee-trip-" + suffix;
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
-    assertTrue(store.putRecord("boundary-merge-shift-create-" + suffix, "SHIFT",
-        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", earlier)).accepted);
-    assertTrue(store.putRecord("boundary-merge-gps-first-create-" + suffix, "TRIP",
-        new JSONObject().put("id", tripBeforeGps).put("shiftId", shiftId).put("status", "COMPLETED")
-            .put("updatedAt", earlier)).accepted);
+    SQLiteDatabase database = store.getWritableDatabase();
+    String shiftCreate = "native-lifecycle-guard-shift-create-" + suffix;
+    String secondShiftCreate = "native-lifecycle-guard-second-shift-create-" + suffix;
+    String prematureShiftEndOp = "native-lifecycle-guard-premature-shift-end-" + suffix;
+    String pickupOp = "native-lifecycle-guard-pickup-" + suffix;
+    String genericBypassOp = "native-lifecycle-guard-generic-bypass-" + suffix;
+    String cancelPickupOp = "native-lifecycle-guard-cancel-pickup-" + suffix;
+    String cancelOp = "native-lifecycle-guard-cancel-" + suffix;
+    String invalidFeePickupOp = "native-lifecycle-guard-invalid-fee-pickup-" + suffix;
+    String invalidFeeCancelOp = "native-lifecycle-guard-invalid-fee-cancel-" + suffix;
+    String prematureEndOp = "native-lifecycle-guard-premature-end-" + suffix;
+    String startOp = "native-lifecycle-guard-start-" + suffix;
+    String duplicateStartOp = "native-lifecycle-guard-duplicate-start-" + suffix;
+    String endOp = "native-lifecycle-guard-end-" + suffix;
+    String shiftEndOp = "native-lifecycle-guard-shift-end-" + suffix;
+    String afterEndPickupOp = "native-lifecycle-guard-after-end-pickup-" + suffix;
+    try {
+      String t0 = java.time.Instant.now().toString();
+      assertTrue(store.putRecord(shiftCreate, "SHIFT", new JSONObject()
+          .put("id", shiftId).put("status", "ACTIVE").put("startOdometer", 1000)
+          .put("revenue", 0d).put("updatedAt", t0)).accepted);
+      boolean secondActiveShiftRejected = false;
+      try { store.putRecord(secondShiftCreate, "SHIFT", new JSONObject()
+          .put("id", secondShiftId).put("status", "ACTIVE").put("startOdometer", 1200)
+          .put("revenue", 0d).put("updatedAt", t0), null, true); }
+      catch (IllegalArgumentException expected) { secondActiveShiftRejected = true; }
+      assertTrue("Native canonical storage must reject a second active Shift.", secondActiveShiftRejected);
 
-    JSONObject startSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
-        .put("accuracy", 8.0d).put("capturedAt", "2026-10-22T08:00:00.000Z");
-    KfeCanonicalWorkStore.Outcome gpsFirst = store.persistTripBoundarySnapshot(
-        "boundary-merge-gps-first-op-" + suffix, tripBeforeGps, "tripStartLocation", startSnapshot);
-    assertTrue(gpsFirst.accepted);
-    assertEquals("Metadata-only GPS must preserve the trip business version.", earlier,
-        store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").getString("updatedAt"));
-    KfeCanonicalWorkStore.Outcome lifecycleReplayAfterGps = store.putRecord(
-        "boundary-merge-gps-first-create-" + suffix, "TRIP",
-        new JSONObject(store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").toString()));
-    assertTrue("A lifecycle retry must remain accepted after optional GPS metadata is added.", lifecycleReplayAfterGps.accepted);
-    assertTrue("A lifecycle retry must remain idempotent after optional GPS metadata is added.", lifecycleReplayAfterGps.duplicate);
+      JSONObject pickup = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      KfeCanonicalWorkStore.Outcome pickupResult =
+          store.commitTripLifecycle(pickupOp, "GO_TO_PICKUP", pickup, null, true);
+      assertTrue("GO_TO_PICKUP must create one canonical active Trip.", pickupResult.accepted);
+      KfeCanonicalWorkStore.Outcome pickupRetry =
+          store.commitTripLifecycle(pickupOp, "GO_TO_PICKUP", new JSONObject(pickup.toString()), null, true);
+      assertTrue("GO_TO_PICKUP lost-ack retry must be idempotent.", pickupRetry.accepted && pickupRetry.duplicate);
 
-    JSONObject fareAfterGps = new JSONObject(store.getRecord("TRIP", tripBeforeGps).getJSONObject("record").toString())
+      String t1 = java.time.Instant.parse(t0).plusMillis(10).toString();
+      JSONObject genericLifecycleBypass = new JSONObject(pickup.toString())
+          .put("tripStage", "RIDE_STARTED").put("tripStartAt", t1).put("updatedAt", t1);
+      boolean genericLifecycleWriteRejected = false;
+      try { store.putRecord(genericBypassOp, "TRIP", genericLifecycleBypass, t0, false); }
+      catch (IllegalArgumentException expected) { genericLifecycleWriteRejected = true; }
+      assertTrue("Generic native Trip writes must not bypass commitTripLifecycle.", genericLifecycleWriteRejected);
+
+      JSONObject genericTripCreate = new JSONObject().put("id", "generic-trip-create-" + suffix)
+          .put("shiftId", shiftId).put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      boolean genericTripCreateRejected = false;
+      try { store.putRecord("generic-trip-create-op-" + suffix, "TRIP", genericTripCreate, null, true); }
+      catch (IllegalArgumentException expected) { genericTripCreateRejected = true; }
+      assertTrue("Generic native Trip creation must be rejected; only lifecycle commands may create a Trip.", genericTripCreateRejected);
+
+      JSONObject cancelPickup = new JSONObject().put("id", cancelledTripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      assertTrue("A second Trip fixture for cancellation must be created.",
+          store.commitTripLifecycle(cancelPickupOp, "GO_TO_PICKUP", cancelPickup, null, true).accepted);
+      JSONObject cancelled = new JSONObject(cancelPickup.toString())
+          .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+          .put("cancelledRevenue", 25d).put("tripEndAt", t1).put("updatedAt", t1);
+      KfeCanonicalWorkStore.Outcome cancelResult =
+          store.commitTripLifecycle(cancelOp, "CANCEL_RIDE", cancelled, t0, false);
+      assertTrue("CANCEL_RIDE must commit before START_RIDE.", cancelResult.accepted);
+      JSONObject cancelledCanonical = store.getRecord("TRIP", cancelledTripId).getJSONObject("record");
+      assertEquals("Cancellation must preserve the pre-ride stage.", "GOING_TO_PICKUP", cancelledCanonical.getString("tripStage"));
+      assertEquals("Cancellation fee must remain a distinct source fact.", 25d, cancelledCanonical.getDouble("cancelledRevenue"), 0.001d);
+
+      JSONObject invalidFeePickup = new JSONObject().put("id", invalidFeeTripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t0).put("updatedAt", t0);
+      assertTrue("Invalid-fee Trip fixture must be created.",
+          store.commitTripLifecycle(invalidFeePickupOp, "GO_TO_PICKUP", invalidFeePickup, null, true).accepted);
+      JSONObject negativeFee = new JSONObject(invalidFeePickup.toString())
+          .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+          .put("cancelledRevenue", -1d).put("tripEndAt", t1).put("updatedAt", t1);
+      boolean negativeCancellationFeeRejected = false;
+      try { store.commitTripLifecycle(invalidFeeCancelOp, "CANCEL_RIDE", negativeFee, t0, false); }
+      catch (IllegalArgumentException expected) { negativeCancellationFeeRejected = true; }
+      assertTrue("Native lifecycle cancellation must reject a negative fee.", negativeCancellationFeeRejected);
+      assertEquals("Rejected cancellation must leave the canonical Trip active.", "ACTIVE",
+          store.getRecord("TRIP", invalidFeeTripId).getJSONObject("record").getString("status"));
+
+      JSONObject prematureEnd = new JSONObject(pickup.toString())
+          .put("status", "COMPLETED").put("tripStage", "COMPLETED")
+          .put("tripEndAt", t1).put("updatedAt", t1);
+      boolean endBeforeStartRejected = false;
+      try { store.commitTripLifecycle(prematureEndOp, "END_RIDE", prematureEnd, t0, false); }
+      catch (IllegalArgumentException expected) { endBeforeStartRejected = true; }
+      assertTrue("END_RIDE must be rejected until START_RIDE has committed.", endBeforeStartRejected);
+
+      String t2 = java.time.Instant.parse(t0).plusMillis(20).toString();
+      JSONObject started = new JSONObject(pickup.toString())
+          .put("tripStage", "RIDE_STARTED").put("tripStartAt", t2).put("updatedAt", t2);
+      KfeCanonicalWorkStore.Outcome startResult =
+          store.commitTripLifecycle(startOp, "START_RIDE", started, t0, false);
+      assertTrue("START_RIDE must commit from GOING_TO_PICKUP.", startResult.accepted);
+      KfeCanonicalWorkStore.Outcome startRetry =
+          store.commitTripLifecycle(startOp, "START_RIDE", new JSONObject(started.toString()), t0, false);
+      assertTrue("START_RIDE lost-ack retry must be idempotent.", startRetry.accepted && startRetry.duplicate);
+
+      JSONObject cancellationAfterStart = new JSONObject(started.toString())
+          .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
+          .put("cancelledRevenue", 20d).put("tripEndAt", java.time.Instant.parse(t2).plusMillis(5).toString())
+          .put("updatedAt", java.time.Instant.parse(t2).plusMillis(5).toString());
+      boolean cancellationAfterStartRejected = false;
+      try { store.commitTripForm("native-lifecycle-guard-cancel-after-start-" + suffix,
+          "CANCEL", cancellationAfterStart); }
+      catch (IllegalArgumentException expected) { cancellationAfterStartRejected = true; }
+      assertTrue("Native cancellation form must reject a Trip after START_RIDE.", cancellationAfterStartRejected);
+      boolean lifecycleCancellationAfterStartRejected = false;
+      try { store.commitTripLifecycle("native-lifecycle-guard-lifecycle-cancel-after-start-" + suffix,
+          "CANCEL_RIDE", cancellationAfterStart, t2, false); }
+      catch (IllegalArgumentException expected) { lifecycleCancellationAfterStartRejected = true; }
+      assertTrue("The guarded native lifecycle command must also reject cancellation after START_RIDE.",
+          lifecycleCancellationAfterStartRejected);
+
+      JSONObject shiftBeforePrematureEnd = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+      String prematureShiftEndAt = java.time.Instant.parse(t2).plusMillis(6).toString();
+      JSONObject prematureShiftEnd = new JSONObject(shiftBeforePrematureEnd.toString())
+          .put("status", "COMPLETED").put("shiftEndAt", prematureShiftEndAt)
+          .put("endOdometer", 1001).put("updatedAt", prematureShiftEndAt);
+      boolean activeTripBlocksShiftEnd = false;
+      try { store.putRecord(prematureShiftEndOp, "SHIFT", prematureShiftEnd,
+          shiftBeforePrematureEnd.getString("updatedAt"), false); }
+      catch (IllegalArgumentException expected) { activeTripBlocksShiftEnd = true; }
+      assertTrue("Native canonical storage must reject Shift completion while a Trip remains active.", activeTripBlocksShiftEnd);
+      assertEquals("Rejected Shift completion must preserve the active Shift.", "ACTIVE",
+          store.getRecord("SHIFT", shiftId).getJSONObject("record").getString("status"));
+
+      String t3 = java.time.Instant.parse(t2).plusMillis(10).toString();
+      JSONObject duplicateStart = new JSONObject(started.toString()).put("updatedAt", t3)
+          .put("tripStartAt", t3);
+      boolean secondStartRejected = false;
+      try { store.commitTripLifecycle(duplicateStartOp, "START_RIDE", duplicateStart, t2, false); }
+      catch (IllegalArgumentException expected) { secondStartRejected = true; }
+      assertTrue("START_RIDE must not be accepted twice under a new operation ID.", secondStartRejected);
+
+      String t4 = java.time.Instant.parse(t3).plusMillis(10).toString();
+      JSONObject completed = new JSONObject(started.toString()).put("status", "COMPLETED")
+          .put("tripStage", "COMPLETED").put("tripEndAt", t4).put("updatedAt", t4);
+      KfeCanonicalWorkStore.Outcome endResult =
+          store.commitTripLifecycle(endOp, "END_RIDE", completed, t2, false);
+      assertTrue("END_RIDE must commit only after START_RIDE.", endResult.accepted);
+
+      String t5 = java.time.Instant.parse(t4).plusMillis(10).toString();
+      JSONObject tamperedFare = new JSONObject(completed.toString()).put("revenue", 250d)
+          .put("fareDetailsSkipped", false).put("tripStage", "RIDE_STARTED").put("updatedAt", t5);
+      boolean fareStageMutationRejected = false;
+      try { store.commitTripForm("native-lifecycle-guard-fare-stage-" + suffix, "FARE", tamperedFare); }
+      catch (IllegalArgumentException expected) { fareStageMutationRejected = true; }
+      assertTrue("Fare form must not mutate the completed Trip lifecycle stage.", fareStageMutationRejected);
+
+      JSONObject reopened = new JSONObject(completed.toString()).put("status", "ACTIVE")
+          .put("tripStage", "RIDE_STARTED").put("updatedAt", t5);
+      boolean terminalReopenRejected = false;
+      try { store.commitTripLifecycle(duplicateStartOp + "-terminal", "START_RIDE", reopened, t4, false); }
+      catch (IllegalArgumentException expected) { terminalReopenRejected = true; }
+      assertTrue("A completed Trip must never be reopened by a native lifecycle command.", terminalReopenRejected);
+
+      JSONObject currentShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
+      String t6 = java.time.Instant.parse(t5).plusMillis(10).toString();
+      JSONObject endedShift = new JSONObject(currentShift.toString())
+          .put("status", "COMPLETED").put("updatedAt", t6);
+      assertTrue(store.putRecord(shiftEndOp, "SHIFT", endedShift,
+          currentShift.getString("updatedAt"), false).accepted);
+      JSONObject afterShiftEndTrip = new JSONObject().put("id", tripId + "-after-end")
+          .put("shiftId", shiftId).put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", t6).put("updatedAt", t6);
+      boolean inactiveShiftRejected = false;
+      try { store.commitTripLifecycle(afterEndPickupOp, "GO_TO_PICKUP", afterShiftEndTrip, null, true); }
+      catch (IllegalArgumentException expected) { inactiveShiftRejected = true; }
+      assertTrue("GO_TO_PICKUP must be rejected after the PWA-owned Shift has ended.", inactiveShiftRejected);
+    } finally {
+      database.delete("canonical_records", "entity_id IN (?,?,?,?,?)", new String[]{shiftId, secondShiftId, tripId, cancelledTripId, invalidFeeTripId});
+      String[] operations = {shiftCreate, secondShiftCreate, prematureShiftEndOp, pickupOp, genericBypassOp, cancelPickupOp, cancelOp, invalidFeePickupOp, invalidFeeCancelOp, prematureEndOp, startOp, duplicateStartOp,
+          endOp, shiftEndOp, afterEndPickupOp, duplicateStartOp + "-terminal",
+          "native-lifecycle-guard-cancel-after-start-" + suffix,
+          "native-lifecycle-guard-lifecycle-cancel-after-start-" + suffix};
+      String placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
+      database.delete("canonical_operations", "operation_id IN (" + placeholders + ")", operations);
+      database.delete("canonical_audit", "operation_id IN (" + placeholders + ")", operations);
+    }
+  }
+
+  @Test public void nativeGpsCaptureRejectsFixesOutsideOriginalEventWindow() throws Exception {
+    long eventAt = System.currentTimeMillis();
+    String eventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
+    assertFalse("A cached fix from before the swipe must not be attached to the event.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt - 1L));
+    assertTrue("A fix at the event timestamp is valid.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt));
+    assertTrue("A fix just before the 30-second boundary is valid.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt + 29_999L));
+    assertFalse("A fix at or after the event-time window must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow(eventTime, eventAt + 30_000L));
+    assertFalse("An invalid event timestamp must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow("not-an-instant", eventAt + 1L));
+    assertFalse("A provider fix without a timestamp must fail closed.",
+        KfeGpsEventPolicy.isFixWithinEventWindow("", 0L));
+    String snapshotEventTime = java.time.Instant.ofEpochMilli(eventAt).toString();
+    JSONObject staleSnapshot = new JSONObject().put("latitude", 19.0760d).put("longitude", 72.8777d)
+        .put("eventAt", snapshotEventTime).put("capturedAt", java.time.Instant.ofEpochMilli(eventAt - 1L).toString());
+    assertFalse("An already-persisted pre-event snapshot must not be treated as complete.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(staleSnapshot));
+    JSONObject freshSnapshot = new JSONObject(staleSnapshot.toString())
+        .put("capturedAt", java.time.Instant.ofEpochMilli(eventAt + 1L).toString());
+    assertTrue("A persisted subsequent fix inside the event window is valid.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(freshSnapshot));
+    JSONObject staleLaterSnapshot = new JSONObject(freshSnapshot.toString())
+        .put("capturedAt", java.time.Instant.ofEpochMilli(eventAt + 30_000L).toString());
+    assertFalse("A later location must never be treated as the original event location.",
+        KfeOverlayService.isValidPersistedEventGpsSnapshot(staleLaterSnapshot));
+  }
+
+  @Test public void fourEventGpsSnapshotsRemainSeparateFromTripBusinessVersions() throws Exception {
+    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    String suffix = Long.toString(System.currentTimeMillis());
+    String shiftId = "gps-contract-shift-" + suffix;
+    String gpsFirstTrip = "gps-first-trip-" + suffix;
+    String fareFirstTrip = "fare-first-trip-" + suffix;
+    String initialVersion = "2026-10-19T00:00:00.000Z";
+    KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    assertTrue(store.putRecord("gps-contract-shift-create-" + suffix, "SHIFT",
+        new JSONObject().put("id", shiftId).put("status", "ACTIVE").put("revenue", 0).put("updatedAt", initialVersion)).accepted);
+    assertTrue(store.restoreRecord("gps-first-trip-create-" + suffix, "TRIP",
+        new JSONObject().put("id", gpsFirstTrip).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("updatedAt", initialVersion)).accepted);
+
+    String eventAt = java.time.Instant.now().minusSeconds(5).toString();
+    String capturedAt = java.time.Instant.now().toString();
+    JSONObject pickup = new JSONObject().put("id", "gps-first-pickup-" + suffix)
+        .put("entityType", "TRIP").put("entityId", gpsFirstTrip).put("eventType", "PICKUP_START")
+        .put("eventAt", eventAt).put("latitude", 19.0760d).put("longitude", 72.8777d)
+        .put("accuracy", JSONObject.NULL).put("capturedAt", capturedAt)
+        .put("createdAt", capturedAt).put("updatedAt", capturedAt);
+    assertTrue(store.putRecord("gps-first-snapshot-op-" + suffix, "GPS_SNAPSHOT", pickup).accepted);
+    assertEquals("GPS writes must not advance the trip business version", initialVersion,
+        store.getRecord("TRIP", gpsFirstTrip).getJSONObject("record").getString("updatedAt"));
+
+    JSONObject fareAfterGps = new JSONObject(store.getRecord("TRIP", gpsFirstTrip).getJSONObject("record").toString())
         .put("revenue", 250d).put("fareDetailsSkipped", false)
         .put("updatedAt", java.time.Instant.now().plusSeconds(30).toString());
-    assertTrue(store.commitTripForm("boundary-merge-gps-first-fare-" + suffix, "FARE", fareAfterGps).accepted);
-    JSONObject tripWithFareAndStart = store.getRecord("TRIP", tripBeforeGps).getJSONObject("record");
-    assertEquals(250d, tripWithFareAndStart.getDouble("revenue"), 0.001d);
-    assertEquals("CAPTURED", tripWithFareAndStart.getString("tripStartLocationStatus"));
-    assertEquals(19.0760d, tripWithFareAndStart.getJSONObject("tripStartLocation").getDouble("latitude"), 0.000001d);
+    assertTrue(store.commitTripForm("gps-first-fare-op-" + suffix, "FARE", fareAfterGps).accepted);
+    assertEquals(250d, store.getRecord("TRIP", gpsFirstTrip).getJSONObject("record").getDouble("revenue"), 0.001d);
 
-    JSONObject staleMirror = new JSONObject(tripWithFareAndStart.toString());
-    staleMirror.remove("tripStartLocation");
-    staleMirror.remove("tripStartLocationStatus");
-    staleMirror.put("updatedAt", java.time.Instant.now().plusSeconds(40).toString());
-    assertTrue(store.putRecord("boundary-merge-stale-mirror-" + suffix, "TRIP", staleMirror).accepted);
-    JSONObject afterStaleMirror = store.getRecord("TRIP", tripBeforeGps).getJSONObject("record");
-    assertEquals("A newer business mirror must retain the native boundary snapshot.", 19.0760d,
-        afterStaleMirror.getJSONObject("tripStartLocation").getDouble("latitude"), 0.000001d);
-    assertEquals(250d, afterStaleMirror.getDouble("revenue"), 0.001d);
-
-    assertTrue(store.putRecord("boundary-merge-fare-first-create-" + suffix, "TRIP",
-        new JSONObject().put("id", tripAfterFare).put("shiftId", shiftId).put("status", "COMPLETED")
-            .put("updatedAt", earlier)).accepted);
-    JSONObject fareBeforeGps = new JSONObject(store.getRecord("TRIP", tripAfterFare).getJSONObject("record").toString())
+    assertTrue(store.restoreRecord("fare-first-trip-create-" + suffix, "TRIP",
+        new JSONObject().put("id", fareFirstTrip).put("shiftId", shiftId).put("status", "COMPLETED")
+            .put("updatedAt", initialVersion)).accepted);
+    JSONObject fareBeforeGps = new JSONObject(store.getRecord("TRIP", fareFirstTrip).getJSONObject("record").toString())
         .put("revenue", 150d).put("fareDetailsSkipped", false)
         .put("updatedAt", java.time.Instant.now().plusSeconds(60).toString());
-    assertTrue(store.commitTripForm("boundary-merge-fare-first-fare-" + suffix, "FARE", fareBeforeGps).accepted);
-    String fareVersion = store.getRecord("TRIP", tripAfterFare).getJSONObject("record").getString("updatedAt");
+    assertTrue(store.commitTripForm("fare-first-fare-op-" + suffix, "FARE", fareBeforeGps).accepted);
+    String fareVersion = store.getRecord("TRIP", fareFirstTrip).getJSONObject("record").getString("updatedAt");
 
-    JSONObject endSnapshot = new JSONObject().put("latitude", 19.0800d).put("longitude", 72.8800d)
-        .put("accuracy", 6.0d).put("capturedAt", "2026-10-22T08:01:00.000Z");
-    String endOperationId = "boundary-merge-fare-first-op-" + suffix;
-    KfeCanonicalWorkStore.Outcome gpsAfterFare = store.persistTripBoundarySnapshot(
-        endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
-    assertTrue(gpsAfterFare.accepted);
-    JSONObject finalTrip = store.getRecord("TRIP", tripAfterFare).getJSONObject("record");
-    assertEquals("A late GPS callback must preserve the fare form version.", fareVersion, finalTrip.getString("updatedAt"));
-    assertEquals(150d, finalTrip.getDouble("revenue"), 0.001d);
-    assertEquals("CAPTURED", finalTrip.getString("tripEndLocationStatus"));
-    KfeCanonicalWorkStore.Outcome formRetryAfterGps = store.commitTripForm(
-        "boundary-merge-fare-first-fare-" + suffix, "FARE", new JSONObject(finalTrip.toString()));
-    assertTrue("Fare replay after a late GPS snapshot must remain accepted.", formRetryAfterGps.accepted);
-    assertTrue("Fare replay after a late GPS snapshot must remain idempotent.", formRetryAfterGps.duplicate);
-    JSONObject afterFormReplay = store.getRecord("TRIP", tripAfterFare).getJSONObject("record");
-    assertEquals(150d, afterFormReplay.getDouble("revenue"), 0.001d);
-    assertEquals("CAPTURED", afterFormReplay.getString("tripEndLocationStatus"));
-    KfeCanonicalWorkStore.Outcome retry = store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation", endSnapshot);
-    assertTrue("The same boundary operation must be accepted.", retry.accepted);
-    assertTrue("A repeated boundary operation must be identified as a retry.", retry.duplicate);
+    JSONObject drop = new JSONObject().put("id", "fare-first-drop-" + suffix)
+        .put("entityType", "TRIP").put("entityId", fareFirstTrip).put("eventType", "TRIP_END")
+        .put("eventAt", eventAt).put("latitude", 19.0800d).put("longitude", 72.8800d)
+        .put("accuracy", 6.0d).put("capturedAt", capturedAt)
+        .put("createdAt", capturedAt).put("updatedAt", capturedAt);
+    String dropOperation = "fare-first-drop-op-" + suffix;
+    assertTrue(store.putRecord(dropOperation, "GPS_SNAPSHOT", drop).accepted);
+    assertEquals("A GPS snapshot must not alter fare or trip version", fareVersion,
+        store.getRecord("TRIP", fareFirstTrip).getJSONObject("record").getString("updatedAt"));
+    assertEquals(150d, store.getRecord("TRIP", fareFirstTrip).getJSONObject("record").getDouble("revenue"), 0.001d);
+    assertTrue("Repeating a GPS snapshot operation must be idempotent",
+        store.putRecord(dropOperation, "GPS_SNAPSHOT", drop).duplicate);
     boolean changedSnapshotRejected = false;
     try {
-      store.persistTripBoundarySnapshot(endOperationId, tripAfterFare, "tripEndLocation",
-          new JSONObject(endSnapshot.toString()).put("latitude", 19.0810d));
+      store.putRecord(dropOperation, "GPS_SNAPSHOT", new JSONObject(drop.toString()).put("latitude", 19.0810d));
     } catch (IllegalArgumentException expected) {
       changedSnapshotRejected = true;
     }
-    assertTrue("A durable boundary operation ID must not be reusable with a changed snapshot.", changedSnapshotRejected);
+    assertTrue("An operation ID must not be reused for a different GPS snapshot", changedSnapshotRejected);
     assertEquals(400d, store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
   }
 
@@ -268,7 +494,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue(store.putRecord("atomic-form-shift-create-" + suffix, "SHIFT",
         new JSONObject().put("id", shiftId).put("status", "ACTIVE")
             .put("revenue", 0).put("updatedAt", earlier)).accepted);
-    assertTrue(store.putRecord("atomic-form-trip-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-trip-create-" + suffix, "TRIP",
         new JSONObject().put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
 
@@ -291,7 +517,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(450d, savedOperation.getJSONObject("outcome").getDouble("revenue"), 0.001d);
 
     String skippedTripId = "atomic-form-skipped-trip-" + suffix;
-    assertTrue(store.putRecord("atomic-form-skipped-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-skipped-create-" + suffix, "TRIP",
         new JSONObject().put("id", skippedTripId).put("shiftId", shiftId).put("status", "COMPLETED")
             .put("updatedAt", earlier)).accepted);
     JSONObject skippedFareTrip = new JSONObject().put("id", skippedTripId).put("shiftId", shiftId)
@@ -305,17 +531,17 @@ public class KfeNativeFullShiftAcceptanceTest {
 
     // Legacy cancelled trips without a fee field must not fall back to an old trip fare.
     String legacyBlankCancelId = "atomic-form-legacy-blank-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-legacy-blank-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-legacy-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", legacyBlankCancelId).put("shiftId", shiftId).put("status", "CANCELLED")
             .put("revenue", 999d).put("cancelReason", "PASSENGER").put("updatedAt", earlier)).accepted);
 
     String blankCancelId = "atomic-form-blank-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-blank-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", blankCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
-            .put("updatedAt", earlier)).accepted);
+            .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject blankCancellation = new JSONObject().put("id", blankCancelId).put("shiftId", shiftId)
-        .put("status", "CANCELLED").put("cancelReason", "PASSENGER")
-        .put("cancelledRevenue", JSONObject.NULL)
+        .put("status", "CANCELLED").put("tripStage", "GOING_TO_PICKUP").put("tripEndAt", earlier)
+        .put("cancelReason", "PASSENGER").put("cancelledRevenue", JSONObject.NULL)
         .put("updatedAt", java.time.Instant.now().plusMillis(3000).toString());
     KfeCanonicalWorkStore.Outcome blankCancel = store.commitTripForm(
         "atomic-form-blank-cancel-submit-" + suffix, "CANCEL", blankCancellation);
@@ -328,11 +554,12 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals(0d, store.getRecord("TRIP", blankCancelId).getJSONObject("record").getDouble("cancelledRevenue"), 0.001d);
 
     String paidCancelId = "atomic-form-paid-cancel-" + suffix;
-    assertTrue(store.putRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
+    assertTrue(store.restoreRecord("atomic-form-paid-cancel-create-" + suffix, "TRIP",
         new JSONObject().put("id", paidCancelId).put("shiftId", shiftId).put("status", "ACTIVE")
-            .put("updatedAt", earlier)).accepted);
+            .put("tripStage", "GOING_TO_PICKUP").put("updatedAt", earlier)).accepted);
     JSONObject paidCancellation = new JSONObject().put("id", paidCancelId).put("shiftId", shiftId)
-        .put("status", "CANCELLED").put("cancelReason", "PASSENGER").put("cancelledRevenue", 20d)
+        .put("status", "CANCELLED").put("tripStage", "GOING_TO_PICKUP").put("tripEndAt", earlier)
+        .put("cancelReason", "PASSENGER").put("cancelledRevenue", 20d)
         .put("updatedAt", java.time.Instant.now().plusMillis(4000).toString());
     KfeCanonicalWorkStore.Outcome paidCancel = store.commitTripForm(
         "atomic-form-paid-cancel-submit-" + suffix, "CANCEL", paidCancellation);
@@ -340,43 +567,6 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Shift revenue must include the cancellation fee exactly once.", 470d,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getDouble("revenue"), 0.001d);
   }
-
-  @Test public void nativeShiftStartInterpreterMatchesSharedGoldenVectors() throws Exception {
-    Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-    String source;
-    try (java.io.InputStream stream = context.getAssets().open("shift-start-golden-vectors.json");
-         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
-      byte[] buffer = new byte[4096];
-      int count;
-      while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
-      source = bytes.toString("UTF-8");
-    }
-    JSONObject vectorFile = new JSONObject(source);
-    assertEquals("The native test must consume the versioned shared vector source.", 1,
-        vectorFile.getInt("schemaVersion"));
-    KfeShiftStartRuleInterpreter interpreter = new KfeShiftStartRuleInterpreter(context);
-    JSONArray cases = vectorFile.getJSONArray("cases");
-    for (int i = 0; i < cases.length(); i++) {
-      JSONObject vector = cases.getJSONObject(i);
-      JSONObject actual = interpreter.evaluate(vector.getString("rule"), vector.getJSONObject("input"));
-      JSONObject expected = vector.getJSONObject("expected");
-      java.util.Iterator<String> keys = expected.keys();
-      while (keys.hasNext()) {
-        String key = keys.next();
-        Object expectedValue = expected.get(key);
-        Object actualValue = actual.get(key);
-        if (expectedValue instanceof Number && actualValue instanceof Number) {
-          assertEquals(vector.getString("id") + " field " + key,
-              ((Number) expectedValue).doubleValue(), ((Number) actualValue).doubleValue(), 0.000001);
-        } else if (expectedValue == JSONObject.NULL) {
-          assertEquals(vector.getString("id") + " field " + key, JSONObject.NULL, actualValue);
-        } else {
-          assertEquals(vector.getString("id") + " field " + key, expectedValue, actualValue);
-        }
-      }
-    }
-  }
-
 
   @Test public void nativeOverlayPersistsTripFormsWithWebViewUnavailableWithoutEndingShift() throws Exception {
     Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -587,8 +777,6 @@ public class KfeNativeFullShiftAcceptanceTest {
         savedB.getJSONObject("record").getDouble("toll"), 0.001d);
     assertEquals("Second trip parking must persist independently from fare.", 5d,
         savedB.getJSONObject("record").getDouble("parking"), 0.001d);
-    assertEquals("INCLUDED", savedA.getJSONObject("record").getString("tollTreatment"));
-    assertEquals("INCLUDED", savedB.getJSONObject("record").getString("parkingTreatment"));
     assertEquals("COMPLETED", savedA.getJSONObject("record").getString("status"));
     assertEquals("COMPLETED", savedB.getJSONObject("record").getString("status"));
     assertEquals("CANCELLED", savedCancelled.getJSONObject("record").getString("status"));
@@ -621,6 +809,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     String shiftId = "form-outbox-shift-" + suffix;
     String tripId = "form-outbox-trip-" + suffix;
     KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
+    clearPriorActiveTestShiftFixtures(store);
     JSONObject shift = new JSONObject()
         .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
         .put("updatedAt", "2020-01-01T00:00:00.000Z");
@@ -628,9 +817,13 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("id", tripId).put("shiftId", shiftId).put("status", "COMPLETED")
         .put("tripStage", "COMPLETED").put("updatedAt", "2020-01-01T00:00:00.000Z");
     assertTrue("Initial active shift must commit.",
-        store.putRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
+        store.restoreRecord("form-outbox-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
-        store.putRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
+        store.restoreRecord("form-outbox-trip-create-" + suffix, "TRIP", trip).accepted);
+    // Restoring the Trip refreshes the native Shift revenue projection and may
+    // advance the canonical Shift version. Base the simulated concurrent end
+    // on that authoritative post-projection snapshot, not the stale fixture.
+    JSONObject canonicalShift = store.getRecord("SHIFT", shiftId).getJSONObject("record");
 
     AttachedOverlayService service = new AttachedOverlayService();
     service.attach(context);
@@ -646,10 +839,11 @@ public class KfeNativeFullShiftAcceptanceTest {
 
     // Model a concurrent shift-end winning after the outbox append but before
     // the form's canonical write. The native form must fail closed and remain retryable.
-    JSONObject endedShift = new JSONObject(shift.toString())
-        .put("status", "ENDED").put("updatedAt", "2099-01-01T00:00:00.000Z");
-    assertTrue("Concurrent shift end must commit.",
-        store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift).accepted);
+    JSONObject endedShift = new JSONObject(canonicalShift.toString())
+        .put("status", "COMPLETED").put("updatedAt", "2099-01-01T00:00:00.000Z");
+    assertTrue("Concurrent shift end must commit through the guarded versioned transition.",
+        store.putRecord("form-outbox-shift-end-" + suffix, "SHIFT", endedShift,
+            canonicalShift.getString("updatedAt"), false).accepted);
     try {
       invoke(service, "persistCanonicalTripForm",
           new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
@@ -671,8 +865,10 @@ public class KfeNativeFullShiftAcceptanceTest {
     // exact same event ID. A second replay must be idempotent across lost ack.
     JSONObject restoredShift = new JSONObject(endedShift.toString())
         .put("status", "ACTIVE").put("updatedAt", "2100-01-01T00:00:00.000Z");
-    assertTrue("Recovered active shift must commit.",
-        KfeCanonicalWorkStore.get(context).putRecord(
+    SQLiteDatabase recoveryDb = KfeCanonicalWorkStore.get(context).getWritableDatabase();
+    recoveryDb.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+    assertTrue("Recovered active shift must be restored through the recovery path.",
+        KfeCanonicalWorkStore.get(context).restoreRecord(
             "form-outbox-shift-restore-" + suffix, "SHIFT", restoredShift).accepted);
     invoke(service, "persistCanonicalTripForm",
         new Class<?>[]{String.class, String.class, JSONObject.class, String.class},
@@ -689,6 +885,13 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertEquals("Retry must derive revenue from the canonical fare without duplication.", 275d,
         savedShift.getJSONObject("record").getDouble("revenue"), 0.001d);
     assertPendingEvent(KfeNativeEventStore.get(context).pending(500), tripId, "ENTER_FARE");
+    // This is a test-owned fixture. Remove its canonical row directly rather
+    // than issuing a versioned business transition: the fare projection may
+    // legitimately advance the Shift payload during the retry being tested.
+    SQLiteDatabase cleanupDb = store.getWritableDatabase();
+    assertEquals("The test must remove exactly its own Shift fixture.", 1,
+        cleanupDb.delete("canonical_records",
+            "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}));
   }
 
   @Test public void formOutboxSurvivesInjectedCanonicalSqliteWriteFailureAndRetriesIdempotently() throws Exception {
@@ -707,7 +910,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Initial shift must commit.",
         store.putRecord("form-sql-failure-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Initial trip must commit.",
-        store.putRecord("form-sql-failure-trip-create-" + suffix, "TRIP", trip).accepted);
+        store.restoreRecord("form-sql-failure-trip-create-" + suffix, "TRIP", trip).accepted);
 
     JSONObject payload = new JSONObject()
         .put("fare", "275").put("toll", "0").put("parking", "0")
@@ -794,7 +997,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Active shift fixture must commit.",
         store.putRecord("stale-overlay-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Canonical trip fixture must commit.",
-        store.putRecord("stale-overlay-trip-create-" + suffix, "TRIP", canonicalTrip).accepted);
+        store.restoreRecord("stale-overlay-trip-create-" + suffix, "TRIP", canonicalTrip).accepted);
 
     // Deliberately seed an older PWA snapshot with conflicting values. It may
     // fill fields absent from native canonical storage, but cannot roll back
@@ -875,6 +1078,27 @@ public class KfeNativeFullShiftAcceptanceTest {
         .put("revenue", 0).put("updatedAt", java.time.Instant.now().toString());
     assertTrue("Process-death fixture shift must commit.",
         store.putRecord("lifecycle-process-death-shift-create-" + tripId, "SHIFT", shift).accepted);
+    // START_RIDE and END_RIDE are recovery retries of an already-created Trip.
+    // Seed the exact preceding canonical lifecycle stages so this harness models
+    // the real workflow instead of asking the guarded store to start a missing Trip.
+    if (!"GO_TO_PICKUP".equals(stage)) {
+      String priorVersion = java.time.Instant.ofEpochMilli(startAt - 1000L).toString();
+      JSONObject priorTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+          .put("status", "ACTIVE").put("tripStage", "GOING_TO_PICKUP")
+          .put("createdAt", priorVersion).put("updatedAt", priorVersion);
+      assertTrue("Process-death fixture pickup stage must commit.",
+          store.commitTripLifecycle("lifecycle-process-death-pickup-" + tripId,
+              "GO_TO_PICKUP", priorTrip, null, true).accepted);
+      if ("END_RIDE".equals(stage)) {
+        String rideStartAt = java.time.Instant.ofEpochMilli(startAt).toString();
+        JSONObject startedTrip = new JSONObject(priorTrip.toString())
+            .put("tripStage", "RIDE_STARTED").put("tripStartAt", rideStartAt)
+            .put("updatedAt", rideStartAt);
+        assertTrue("Process-death fixture ride-start stage must commit.",
+            store.commitTripLifecycle("lifecycle-process-death-start-" + tripId,
+                "START_RIDE", startedTrip, priorVersion, false).accepted);
+      }
+    }
     prepareSnapshot(prefs, shiftId, tripId);
 
     AttachedOverlayService service = new AttachedOverlayService();
@@ -935,7 +1159,17 @@ public class KfeNativeFullShiftAcceptanceTest {
       assertTrue("Canonical record committed before the kill must survive restart.", beforeRetry.optBoolean("found"));
       assertEquals(canonicalStage, beforeRetry.getJSONObject("record").getString("tripStage"));
     } else {
-      assertTrue("Canonical write must not appear before its boundary.", !beforeRetry.optBoolean("found"));
+      String priorCanonicalStage = stage.equals("START_RIDE") ? "GOING_TO_PICKUP"
+          : stage.equals("END_RIDE") ? "RIDE_STARTED" : "";
+      if (priorCanonicalStage.isEmpty()) {
+        assertTrue("Initial GO_TO_PICKUP must not create a canonical Trip before its commit boundary.",
+            !beforeRetry.optBoolean("found"));
+      } else {
+        assertTrue("The preceding canonical Trip stage must survive before the next write boundary.",
+            beforeRetry.optBoolean("found"));
+        assertEquals("The next lifecycle stage must not commit before its boundary.",
+            priorCanonicalStage, beforeRetry.getJSONObject("record").getString("tripStage"));
+      }
     }
 
     AttachedOverlayService recovered = new AttachedOverlayService();
@@ -995,13 +1229,23 @@ public class KfeNativeFullShiftAcceptanceTest {
         String tripId = "lifecycle-fault-trip-" + suffix + "-" + caseId;
         String eventStage = stages[stageIndex];
         long startAt = System.currentTimeMillis() - 5000L;
+        String initialVersion = java.time.Instant.ofEpochMilli(startAt - 1000L).toString();
         SharedPreferences prefs = context.getSharedPreferences("kfe_overlay", Context.MODE_PRIVATE);
         KfeCanonicalWorkStore store = KfeCanonicalWorkStore.get(context);
         JSONObject shift = new JSONObject()
             .put("id", shiftId).put("status", "ACTIVE").put("revenue", 0)
-            .put("updatedAt", java.time.Instant.now().toString());
+            .put("updatedAt", initialVersion);
         assertTrue("Fault fixture shift must commit.",
             store.putRecord("lifecycle-fault-shift-create-" + tripId, "SHIFT", shift).accepted);
+        if (stageIndex > 0) {
+          JSONObject priorTrip = new JSONObject().put("id", tripId).put("shiftId", shiftId)
+              .put("status", "ACTIVE")
+              .put("tripStage", stageIndex == 1 ? "GOING_TO_PICKUP" : "RIDE_STARTED")
+              .put("createdAt", initialVersion).put("updatedAt", initialVersion);
+          if (stageIndex == 2) priorTrip.put("tripStartAt", new java.util.Date(startAt).toInstant().toString());
+          assertTrue("Fault fixture must seed the canonical prior Trip stage.",
+              store.restoreRecord("lifecycle-fault-trip-create-" + tripId, "TRIP", priorTrip).accepted);
+        }
 
         prepareSnapshot(prefs, shiftId, tripId);
         AttachedOverlayService firstAttempt = new AttachedOverlayService();
@@ -1464,7 +1708,7 @@ public class KfeNativeFullShiftAcceptanceTest {
     assertTrue("Active shift must be durable before the fare workflow.", 
         store.putRecord("interrupted-fare-shift-create-" + suffix, "SHIFT", shift).accepted);
     assertTrue("Trip completion must survive independently of the fare save.",
-        store.putRecord("interrupted-fare-trip-complete-" + suffix, "TRIP", completedTrip).accepted);
+        store.restoreRecord("interrupted-fare-trip-complete-" + suffix, "TRIP", completedTrip).accepted);
 
     JSONObject payload = new JSONObject().put("fare", "275").put("toll", "0").put("parking", "0")
         .put("tollTreatment", "INCLUDED").put("parkingTreatment", "INCLUDED");
@@ -1556,7 +1800,7 @@ public class KfeNativeFullShiftAcceptanceTest {
             new JSONObject().put("id", shiftId).put("status", "ACTIVE")
                 .put("revenue", 0d).put("updatedAt", now)).accepted);
     assertTrue("Completed trip must be durable before fare submission.",
-        store.putRecord("fare-process-death-trip-complete-" + suffix, "TRIP",
+        store.restoreRecord("fare-process-death-trip-complete-" + suffix, "TRIP",
             new JSONObject().put("id", tripId).put("shiftId", shiftId)
                 .put("status", "COMPLETED").put("tripStage", "COMPLETED")
                 .put("fareDetailsSkipped", false).put("updatedAt", now)).accepted);
@@ -1758,6 +2002,67 @@ public class KfeNativeFullShiftAcceptanceTest {
       SystemClock.sleep(250L);
       KfeOverlayService.instance = null;
       KfeOverlayService.clearPersistedOverlayState(context);
+      android.database.sqlite.SQLiteDatabase db = store.getWritableDatabase();
+      db.delete("canonical_records", "entity_id=?", new String[]{shiftId});
+      String shiftOperationId = "active-overlay-resume-create-" + suffix;
+      db.delete("canonical_operations", "operation_id=?", new String[]{shiftOperationId});
+      db.delete("canonical_audit", "operation_id=?", new String[]{shiftOperationId});
     }
   }
+  /**
+   * Instrumentation tests share the app SQLite database. Remove only active Shift
+   * fixtures created by this test class before exercising the single-active-Shift
+   * invariant; never touch user/business records or weaken production validation.
+   */
+  private static void clearPriorActiveTestShiftFixtures(KfeCanonicalWorkStore store) throws Exception {
+    String[] fixturePrefixes = new String[]{
+        "create-retry-shift-record-", "active-projection-collision-shift-",
+        "native-lifecycle-guard-shift-", "native-lifecycle-guard-second-shift-",
+        "gps-contract-shift-", "atomic-form-shift-", "webview-off-shift-",
+        "native-full-shift-", "form-outbox-shift-", "form-sql-failure-shift-",
+        "stale-overlay-shift-", "lifecycle-process-death-shift-",
+        "lifecycle-fault-shift-", "interrupted-fare-shift-",
+        "fare-process-death-shift-", "stale-overlay-resume-shift-",
+        "active-overlay-resume-shift-"
+    };
+    SQLiteDatabase db = store.getWritableDatabase();
+    java.util.ArrayList<String> staleShiftIds = new java.util.ArrayList<>();
+    try (android.database.Cursor cursor = db.query("canonical_records",
+        new String[]{"entity_id", "payload"}, "entity_type='SHIFT'",
+        null, null, null, null)) {
+      while (cursor.moveToNext()) {
+        JSONObject record = new JSONObject(cursor.getString(1));
+        String id = cursor.getString(0);
+        if (!"ACTIVE".equals(record.optString("status", ""))) continue;
+        for (String prefix : fixturePrefixes) {
+          if (id.startsWith(prefix)) {
+            staleShiftIds.add(id);
+            break;
+          }
+        }
+      }
+    }
+    db.beginTransaction();
+    try {
+      for (String shiftId : staleShiftIds) {
+        java.util.ArrayList<String> tripIds = new java.util.ArrayList<>();
+        try (android.database.Cursor trips = db.query("canonical_records",
+            new String[]{"entity_id", "payload"}, "entity_type='TRIP'",
+            null, null, null, null)) {
+          while (trips.moveToNext()) {
+            JSONObject trip = new JSONObject(trips.getString(1));
+            if (shiftId.equals(trip.optString("shiftId", ""))) tripIds.add(trips.getString(0));
+          }
+        }
+        for (String tripId : tripIds) {
+          db.delete("canonical_records", "entity_type='TRIP' AND entity_id=?", new String[]{tripId});
+        }
+        db.delete("canonical_records", "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId});
+      }
+      db.setTransactionSuccessful();
+    } finally {
+      db.endTransaction();
+    }
+  }
+
 }

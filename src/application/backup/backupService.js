@@ -1,28 +1,56 @@
 import { createBackupRepository, mergeCanonicalBackupSnapshot } from '../../repositories/backupRepository.js'
-import { NativeCanonicalWorkService } from '../../infrastructure/android/nativeCanonicalWork.js'
-import { CANONICAL_DB_VERSION } from '../../constants/canonicalDatabase.js'
+import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
+import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
+import { CANONICAL_DB_VERSION, RETIRED_CANONICAL_STORES } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
-export const BACKUP_FORMAT_VERSION = 4
-export const CANONICAL_BACKUP_STORES = Object.freeze(['financial_period_snapshots','settlements','shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
-const V3_BACKUP_STORES = Object.freeze([...CANONICAL_BACKUP_STORES.filter(name => name !== 'settlements')])
-const PRE_FA4_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history'])
+export const BACKUP_FORMAT_VERSION = 6
+
+// Current backup contains only live canonical business facts and the recovery
+// records required by the current product. Retired workflow stores are excluded.
+export const CANONICAL_BACKUP_STORES = Object.freeze([
+  'shifts', 'fuel_logs', 'pending_mutations', 'trips', 'gps_snapshots',
+  'vehicles', 'drivers', 'compliance_records', 'maintenance_records',
+  'loans', 'settings', 'audit_history', 'locality_labels',
+])
+
+// Format 5 and earlier remain readable as migration inputs. Retired day,
+// movement and finance stores are validated as part of the old format, then
+// intentionally discarded before any current restore is applied.
+const V4_BACKUP_STORES = Object.freeze([
+  'financial_period_snapshots','settlements','shifts','fuel_logs','odoGaps',
+  'pending_mutations','days','trips','gps_snapshots','movement_artifacts',
+  'vehicles','drivers','compliance_records','maintenance_records','loans',
+  'loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history',
+])
+const V5_BACKUP_STORES = Object.freeze([...V4_BACKUP_STORES, 'locality_labels'])
+const V3_BACKUP_STORES = Object.freeze(V4_BACKUP_STORES.filter(name => name !== 'settlements'))
+const PRE_FA4_BACKUP_STORES = Object.freeze([
+  'shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots',
+  'movement_artifacts','vehicles','drivers','compliance_records','maintenance_records',
+  'loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history',
+])
 const LEGACY_BACKUP_STORES_V1 = Object.freeze([...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.filter(name => name !== 'audit_history').slice(11)])
 const LEGACY_BACKUP_STORES_V2 = Object.freeze([...PRE_FA4_BACKUP_STORES.slice(0, 11), 'driver_collected_data', ...PRE_FA4_BACKUP_STORES.slice(11)])
 const backupRepository = createBackupRepository(CANONICAL_BACKUP_STORES)
+
 export const validateBackup = input => {
   let backup = input
   if (typeof input === 'string') { try { backup = JSON.parse(input) } catch (_) { throw new Error('Backup file is not valid JSON.') } }
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Backup must be a JSON object.')
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
-  if (![1, 2, 3, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
+  if (![1, 2, 3, 4, 5, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  const supportedSourceVersions = backup.formatVersion === BACKUP_FORMAT_VERSION ? [12, 13, 15, CANONICAL_DB_VERSION] : backup.formatVersion === 3 ? [11, 12] : [8, 9]
+  const supportedSourceVersions = backup.formatVersion === 6 ? [CANONICAL_DB_VERSION]
+    : backup.formatVersion === 5 ? [13, 15, 16, 17]
+    : backup.formatVersion === 4 ? [12, 13, 15, 16]
+    : backup.formatVersion === 3 ? [11, 12] : [8, 9]
   if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
-  const expectedStores = backup.formatVersion === BACKUP_FORMAT_VERSION && sourceVersion === 12
-    ? V3_BACKUP_STORES
-    : backup.formatVersion === BACKUP_FORMAT_VERSION ? CANONICAL_BACKUP_STORES
+  const expectedStores = backup.formatVersion === 6 ? CANONICAL_BACKUP_STORES
+    : backup.formatVersion === 5 ? V5_BACKUP_STORES
+    : backup.formatVersion === 4 && sourceVersion === 12 ? V3_BACKUP_STORES
+    : backup.formatVersion === 4 ? V4_BACKUP_STORES
     : backup.formatVersion === 3 ? V3_BACKUP_STORES
     : backup.formatVersion === 1 ? LEGACY_BACKUP_STORES_V1 : LEGACY_BACKUP_STORES_V2
   const expected = new Set(expectedStores)
@@ -32,71 +60,65 @@ export const validateBackup = input => {
     const records = backup.stores[storeName]
     if (!Array.isArray(records)) throw new Error(`Backup store ${storeName} must be an array.`)
     const ids = new Set()
-    for (const record of records) { const validKey = storeName === 'financial_period_snapshots' ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey) : typeof record?.id === 'string' && record.id.trim(); if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`); const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id; if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate id/key ${key}.`); ids.add(key) }
+    for (const record of records) {
+      const validKey = storeName === 'financial_period_snapshots'
+        ? typeof record?.periodKey === 'string' && /^\d{4}-\d{2}$/.test(record.periodKey)
+        : typeof record?.id === 'string' && record.id.trim()
+      if (!record || typeof record !== 'object' || Array.isArray(record) || !validKey) throw new Error(`Backup store ${storeName} contains an invalid record.`)
+      const key = storeName === 'financial_period_snapshots' ? record.periodKey : record.id
+      if (ids.has(key)) throw new Error(`Backup store ${storeName} contains duplicate id/key ${key}.`)
+      ids.add(key)
+    }
   }
-  if (backup.formatVersion === 1 || backup.formatVersion === 2 || backup.formatVersion === 3 || (backup.formatVersion === BACKUP_FORMAT_VERSION && sourceVersion === 12)) {
-    const { driver_collected_data: _removed, ...storesWithoutRemovedStore } = backup.stores
-    if (backup.formatVersion === 1) storesWithoutRemovedStore.audit_history = []
-    if (!storesWithoutRemovedStore.financial_period_snapshots) storesWithoutRemovedStore.financial_period_snapshots = []
-    if (!storesWithoutRemovedStore.settlements) storesWithoutRemovedStore.settlements = []
-    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: storesWithoutRemovedStore }
+  if (backup.formatVersion < BACKUP_FORMAT_VERSION) {
+    const retiredStores = new Set(RETIRED_CANONICAL_STORES)
+    const activeStores = Object.fromEntries(
+      Object.entries(backup.stores).filter(([storeName]) => !retiredStores.has(storeName)),
+    )
+    if (backup.formatVersion === 1) activeStores.audit_history = []
+    if (!activeStores.locality_labels) activeStores.locality_labels = []
+    backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: activeStores }
   }
   return backup
 }
-const readAllNativeWorkRecords = async entityType => {
-  const pageSize = 1000
-  const records = []
-  let offset = 0
-  let expectedTotal = null
-  do {
-    const page = await NativeCanonicalWorkService.listRecords({ entityType, limit: pageSize, offset })
-    if (!Number.isInteger(page.totalCount) || page.totalCount < 0 || page.offset !== offset) {
-      throw new Error(`Native ${entityType} backup pagination returned invalid count/offset metadata.`)
-    }
-    if (expectedTotal === null) expectedTotal = page.totalCount
-    else if (page.totalCount !== expectedTotal) {
-      throw new Error(`Native ${entityType} records changed during backup; retry after the current operation finishes.`)
-    }
-    if (page.records.length === 0 && offset < expectedTotal) {
-      throw new Error(`Native ${entityType} backup stopped at ${offset} of ${expectedTotal} records; no partial backup was accepted.`)
-    }
-    records.push(...page.records)
-    offset += page.records.length
-    if (records.length > expectedTotal) throw new Error(`Native ${entityType} backup pagination returned duplicate/extra records.`)
-  } while (offset < expectedTotal)
-  if (records.length !== expectedTotal) {
-    throw new Error(`Native ${entityType} backup is incomplete: expected ${expectedTotal}, read ${records.length}.`)
-  }
-  return records
-}
+const readAllNativeWorkRecords = entityType => CanonicalWorkBoundary.listAllRecords(entityType)
 
 const readNativeWorkSnapshot = async () => {
-  if (!NativeCanonicalWorkService.isAvailable()) return null
-  const [shifts, trips] = await Promise.all([
+  const platform = WorkRuntimePorts.platform.getPlatform()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
+  if (platform === 'web') {
+    if (nativeAvailable) throw new Error('Browser backup must not depend on a native canonical store.')
+    return null
+  }
+  if (platform !== 'android' || !nativeAvailable) {
+    throw new Error('Android canonical SQLite is unavailable; backup or restore cannot safely omit native Work and GPS records.')
+  }
+  const [shifts, trips, gps_snapshots] = await Promise.all([
     readAllNativeWorkRecords('SHIFT'),
     readAllNativeWorkRecords('TRIP'),
+    readAllNativeWorkRecords('GPS_SNAPSHOT'),
   ])
-  return { shifts, trips }
+  return { shifts, trips, gps_snapshots }
 }
 
 const mergeBackupWorkIntoNative = async (backup, nativeSnapshot) => {
   if (!nativeSnapshot) return { added: 0, duplicates: 0, conflicts: 0 }
-  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [] }
-  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [] }
+  const current = { shifts: nativeSnapshot.shifts || [], trips: nativeSnapshot.trips || [], gps_snapshots: nativeSnapshot.gps_snapshots || [] }
+  const incoming = { shifts: backup.stores.shifts || [], trips: backup.stores.trips || [], gps_snapshots: backup.stores.gps_snapshots || [] }
   const merged = mergeCanonicalBackupSnapshot(current, incoming, { sourceExportedAt: backup.exportedAt })
   let added = 0
-  for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP']]) {
+  for (const [storeName, entityType] of [['shifts', 'SHIFT'], ['trips', 'TRIP'], ['gps_snapshots', 'GPS_SNAPSHOT']]) {
     for (const record of merged.addedRecordsByStore[storeName] || []) {
       const operationId = `backup-restore:${backup.exportedAt}:${entityType}:${record.id}`
       try {
-        await NativeCanonicalWorkService.putRecord({ operationId, entityType, record, expectAbsent: true })
+        await CanonicalWorkBoundary.restoreRecord({ operationId, entityType, record })
         added++
       } catch (error) {
         // A process death/lost acknowledgement may occur after SQLite commits.
         // Verify the same record identity before deciding whether retry is safe.
         const [verified, operation] = await Promise.all([
-          NativeCanonicalWorkService.getRecord({ entityType, entityId: record.id }),
-          NativeCanonicalWorkService.getOperation(operationId),
+          WorkRuntimePorts.canonicalWork.getRecord({ entityType, entityId: record.id }),
+          WorkRuntimePorts.canonicalWork.getOperation(operationId),
         ])
         const sameCommittedOperation = operation?.found === true
           && operation.command === 'PUT_RECORD'
@@ -121,7 +143,7 @@ export const createBackup = async () => {
   if (nativeSnapshot) {
     // Native SQLite records are authoritative on Android. Preserve browser-only
     // history while making sure native-only work records are included in export.
-    const current = { ...browserSnapshot, shifts: nativeSnapshot.shifts, trips: nativeSnapshot.trips }
+    const current = { ...browserSnapshot, shifts: nativeSnapshot.shifts, trips: nativeSnapshot.trips, gps_snapshots: nativeSnapshot.gps_snapshots }
     stores = mergeCanonicalBackupSnapshot(current, browserSnapshot, { sourceExportedAt: exportedAt }).snapshot
   }
   return validateBackup({ format: BACKUP_FORMAT, formatVersion: BACKUP_FORMAT_VERSION, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: CANONICAL_DB_VERSION }, exportedAt, stores })
@@ -204,16 +226,16 @@ const continueReset = async resetId => {
     if (journal.state === 'COMPLETE') backupRepository.clearCanonicalResetBarrier(resetId)
     return { ok: journal.state === 'COMPLETE', resetId, state: journal.state }
   }
-  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
   if (journal.nativeRequired && !nativeAvailable) {
     throw new Error('Reset recovery is blocked because the native canonical store is unavailable.')
   }
 
   try {
     if (nativeAvailable) {
-      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
       if (!nativeState?.found || nativeState.resetId !== resetId) {
-        await NativeCanonicalWorkService.beginCanonicalReset(resetId)
+        await WorkRuntimePorts.canonicalWork.beginCanonicalReset(resetId)
       }
     }
 
@@ -224,7 +246,7 @@ const continueReset = async resetId => {
     await backupRepository.saveResetJournal(journal)
 
     if (nativeAvailable) {
-      await NativeCanonicalWorkService.clearCanonicalReset(resetId)
+      await WorkRuntimePorts.canonicalWork.clearCanonicalReset(resetId)
       journal = { ...journal, state: 'NATIVE_CLEARED' }
       await backupRepository.saveResetJournal(journal)
     }
@@ -240,8 +262,8 @@ const continueReset = async resetId => {
 
     // Keep native writes blocked until the browser store has also been verified.
     if (nativeAvailable) {
-      await NativeCanonicalWorkService.completeCanonicalReset(resetId)
-      const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+      await WorkRuntimePorts.canonicalWork.completeCanonicalReset(resetId)
+      const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
       if (nativeState?.found !== true || nativeState.resetId !== resetId || nativeState.state !== 'COMPLETE') {
         throw new Error('Native canonical reset could not be verified.')
       }
@@ -253,7 +275,7 @@ const continueReset = async resetId => {
     backupRepository.clearCanonicalResetBarrier(resetId)
     if (nativeAvailable) {
       try {
-        await NativeCanonicalWorkService.releaseCanonicalReset(resetId)
+        await WorkRuntimePorts.canonicalWork.releaseCanonicalReset(resetId)
       } catch (error) {
         // If native release acknowledgement is uncertain, restore the browser
         // barrier so neither interface can mutate while reset completion is unclear.
@@ -274,7 +296,7 @@ const runResetData = async () => {
   await recoverPendingReset()
   await recoverPendingRestore()
   const resetId = globalThis.crypto?.randomUUID?.() || `reset-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const nativeRequired = NativeCanonicalWorkService.isAvailable()
+  const nativeRequired = WorkRuntimePorts.canonicalWork.isAvailable()
   backupRepository.setCanonicalResetBarrier(resetId)
   await backupRepository.saveResetJournal({
     id: 'current',
@@ -330,11 +352,11 @@ export const resetData = () => {
 export const recoverPendingReset = async () => {
   let journal = await backupRepository.getResetJournal()
   const barrierId = backupRepository.getCanonicalResetBarrier()
-  const nativeAvailable = NativeCanonicalWorkService.isAvailable()
+  const nativeAvailable = WorkRuntimePorts.canonicalWork.isAvailable()
   // Recover even if the browser marker/journal was interrupted but SQLite has
   // a durable pending reset. Never resume destructive work without its checkpoint.
   if (!journal && !barrierId && nativeAvailable) {
-    const nativeState = await NativeCanonicalWorkService.getCanonicalResetState()
+    const nativeState = await WorkRuntimePorts.canonicalWork.getCanonicalResetState()
     if (nativeState?.found && nativeState.state !== 'COMPLETE') {
       const checkpoint = await backupRepository.getResetCheckpoint(nativeState.resetId)
       if (!checkpoint?.backup) throw new Error('Native reset is pending but its browser recovery checkpoint is missing; startup is blocked.')
@@ -352,7 +374,7 @@ export const recoverPendingReset = async () => {
   if (!journal && barrierId) {
     const checkpoint = await backupRepository.getResetCheckpoint(barrierId)
     if (!checkpoint?.backup) {
-      const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+      const nativeState = nativeAvailable ? await WorkRuntimePorts.canonicalWork.getCanonicalResetState() : null
       if (nativeState?.found && nativeState.resetId === barrierId && nativeState.state !== 'COMPLETE') {
         throw new Error('Reset barrier and native reset are pending but the verified recovery checkpoint is missing; startup is blocked.')
       }
@@ -373,7 +395,7 @@ export const recoverPendingReset = async () => {
     await backupRepository.saveResetJournal(journal)
   }
   if (journal?.state === 'CHECKPOINTING') {
-    const nativeState = nativeAvailable ? await NativeCanonicalWorkService.getCanonicalResetState() : null
+    const nativeState = nativeAvailable ? await WorkRuntimePorts.canonicalWork.getCanonicalResetState() : null
     if (nativeState?.found && nativeState.resetId === journal.resetId && nativeState.state !== 'COMPLETE') {
       throw new Error('Native reset began before the checkpointing phase completed; startup is blocked for manual recovery.')
     }
@@ -388,7 +410,7 @@ export const recoverPendingReset = async () => {
     if (journal?.state === 'COMPLETE' && journal.nativeRequired && nativeAvailable) {
       if (barrierId === journal.resetId) backupRepository.clearCanonicalResetBarrier(journal.resetId)
       try {
-        await NativeCanonicalWorkService.releaseCanonicalReset(journal.resetId)
+        await WorkRuntimePorts.canonicalWork.releaseCanonicalReset(journal.resetId)
       } catch (error) {
         backupRepository.setCanonicalResetBarrier(journal.resetId)
         throw error
@@ -412,9 +434,4 @@ export const maybeDailyLocalBackup = async () => { const current = await getLoca
 let checkpointTimer = null
 let checkpointRunning = false
 let checkpointRequested = false
-let cloudProvider = null
-export const registerCloudBackupProvider = provider => { if (!provider || typeof provider.upload !== 'function' || typeof provider.download !== 'function') throw new Error('Cloud backup provider must expose upload() and download().'); cloudProvider = provider; return provider.name || 'Cloud' }
-export const getCloudBackupProviderName = () => cloudProvider?.name || null
-export const backupToCloud = async backup => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); return cloudProvider.upload(validateBackup(backup)) }
-export const restoreFromCloud = async () => { if (!cloudProvider) throw new Error('No cloud backup provider is configured.'); const backup = validateBackup(await cloudProvider.download()); return restoreBackup(backup) }
-export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup, registerCloudBackupProvider, getCloudBackupProviderName, backupToCloud, restoreFromCloud })
+export const BackupService = Object.freeze({ createBackup, validateBackup, serializeBackup, getBackupSummary, saveLocalBackup, getLocalBackup, restoreBackup, recoverPendingRestore, resetData, recoverPendingReset, readBackupText, requestLocalBackupCheckpoint, maybeDailyLocalBackup })

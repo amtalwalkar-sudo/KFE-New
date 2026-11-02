@@ -241,6 +241,43 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
 
   synchronized Outcome putRecord(String operationId, String entityType, JSONObject record,
       String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if ("TRIP".equals(entityType)) {
+      throw new IllegalArgumentException("Generic native Trip writes are prohibited; use a lifecycle, form, or restore command.");
+    }
+    return putRecordInternal(operationId, entityType, record, expectedUpdatedAt, expectAbsent, null);
+  }
+
+  /** Backup restore is the only non-lifecycle command allowed to insert canonical Trip records. */
+  synchronized Outcome restoreRecord(String operationId, String entityType, JSONObject record) throws Exception {
+    if (!"SHIFT".equals(entityType) && !"TRIP".equals(entityType) && !"GPS_SNAPSHOT".equals(entityType)) {
+      throw new IllegalArgumentException("Unsupported canonical restore entity type.");
+    }
+    if (record == null || empty(record.optString("id", ""))) {
+      throw new IllegalArgumentException("Restored canonical record requires an id.");
+    }
+    return putRecordInternal(operationId, entityType, record, null, true, null, true);
+  }
+
+  /**
+   * Native overlay lifecycle commands use this guarded path rather than a generic
+   * record replacement. The state transition and active-Shift check are validated
+   * inside the same SQLite transaction as the canonical write.
+   */
+  synchronized Outcome commitTripLifecycle(String operationId, String action, JSONObject trip,
+      String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if (!"GO_TO_PICKUP".equals(action) && !"START_RIDE".equals(action) && !"END_RIDE".equals(action) && !"CANCEL_RIDE".equals(action)) {
+      throw new IllegalArgumentException("Unsupported native Trip lifecycle action.");
+    }
+    return putRecordInternal(operationId, "TRIP", trip, expectedUpdatedAt, expectAbsent, action);
+  }
+
+  private Outcome putRecordInternal(String operationId, String entityType, JSONObject record,
+      String expectedUpdatedAt, boolean expectAbsent, String lifecycleAction) throws Exception {
+    return putRecordInternal(operationId, entityType, record, expectedUpdatedAt, expectAbsent, lifecycleAction, false);
+  }
+
+  private Outcome putRecordInternal(String operationId, String entityType, JSONObject record,
+      String expectedUpdatedAt, boolean expectAbsent, String lifecycleAction, boolean restoreCommand) throws Exception {
     assertNoPendingReset();
     if (empty(operationId)) throw new IllegalArgumentException("operationId is required.");
     if (empty(entityType)) throw new IllegalArgumentException("entityType is required.");
@@ -249,6 +286,10 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     if (empty(entityId)) throw new IllegalArgumentException("record.id is required.");
     // Keep the caller's exact operation payload for durable idempotent retries.
     // The canonical SHIFT payload may be reconciled with a native-derived projection below.
+    if ("TRIP".equals(entityType)) {
+      record.remove("revenueAuthority");
+      record.remove("revenueProvenance");
+    }
     JSONObject operationRecord = new JSONObject(record.toString());
     String now = timestampNow();
     SQLiteDatabase db = getWritableDatabase();
@@ -267,11 +308,14 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
           }
           JSONObject prior = new JSONObject(cursor.getString(4));
           JSONObject priorRecord = prior.optJSONObject("record");
-          boolean sameRecord = priorRecord != null && ("TRIP".equals(entityType)
-              ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
-              : jsonEquivalent(priorRecord, operationRecord));
+          String priorLifecycleAction = prior.optString("lifecycleAction", "");
+          String expectedLifecycleAction = lifecycleAction == null ? "" : lifecycleAction;
+          boolean sameRecord = priorRecord != null && expectedLifecycleAction.equals(priorLifecycleAction)
+              && ("TRIP".equals(entityType)
+                  ? jsonEquivalent(withoutTripBoundarySnapshots(priorRecord), withoutTripBoundarySnapshots(operationRecord))
+                  : jsonEquivalent(priorRecord, operationRecord));
           if (!sameRecord) {
-            throw new IllegalArgumentException("operationId was already used with a different payload.");
+            throw new IllegalArgumentException("operationId was already used with a different payload or lifecycle action.");
           }
           db.setTransactionSuccessful();
           return new Outcome("ACCEPTED".equals(cursor.getString(3)), true, prior);
@@ -283,7 +327,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if ("TRIP".equals(entityType)) {
         try (Cursor current = db.query("canonical_records", new String[]{"payload"},
             "entity_type='TRIP' AND entity_id=?", new String[]{entityId}, null, null, null, "1")) {
-          if (current.moveToFirst()) preserveTripBoundaryMetadata(new JSONObject(current.getString(0)), record);
         }
       }
       String payload = record.toString();
@@ -292,11 +335,12 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       // delayed mirror replace a newer canonical payload. ISO-8601 updatedAt
       // values sort chronologically; missing/equal-but-different versions fail
       // closed rather than guessing which snapshot is newer.
+      JSONObject existingRecord = null;
       try (Cursor existing = db.query("canonical_records", new String[]{"payload"},
           "entity_type=? AND entity_id=?", new String[]{entityType, entityId}, null, null, null, "1")) {
         if (existing.moveToFirst()) {
           String existingPayload = existing.getString(0);
-          JSONObject existingRecord = new JSONObject(existingPayload);
+          existingRecord = new JSONObject(existingPayload);
           if (expectAbsent) {
             throw new IllegalArgumentException("Canonical create conflict: record already exists for " + entityType + "/" + entityId + ".");
           }
@@ -360,6 +404,22 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
         }
       }
 
+      if (restoreCommand && "TRIP".equals(entityType)) {
+        validateRestoredTripParentShift(db, record);
+      }
+
+      if ("TRIP".equals(entityType) && lifecycleAction == null && existingRecord != null
+          && !jsonEquivalent(tripLifecycleFacts(existingRecord), tripLifecycleFacts(record))) {
+        throw new IllegalArgumentException("Trip lifecycle fields must be changed through commitTripLifecycle.");
+      }
+      if ("SHIFT".equals(entityType)) {
+        validateNativeShiftLifecycleWrite(db, record, existingRecord, expectedUpdatedAt);
+      }
+      if (lifecycleAction != null) {
+        validateNativeTripLifecycleTransition(db, lifecycleAction, record, existingRecord,
+            expectedUpdatedAt, expectAbsent);
+      }
+
       ContentValues recordValues = new ContentValues();
       recordValues.put("entity_type", entityType);
       recordValues.put("entity_id", entityId);
@@ -379,6 +439,7 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       result.put("entityId", entityId);
       result.put("committedAt", now);
       result.put("record", "SHIFT".equals(entityType) ? operationRecord : record);
+      if (lifecycleAction != null) result.put("lifecycleAction", lifecycleAction);
 
       ContentValues operationValues = new ContentValues();
       operationValues.put("operation_id", operationId);
@@ -406,6 +467,170 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     }
   }
 
+
+  private void validateRestoredTripParentShift(SQLiteDatabase db, JSONObject trip) throws Exception {
+    String shiftId = trip.optString("shiftId", "");
+    if (empty(shiftId)) throw new IllegalArgumentException("Restored Trip requires its canonical Shift identity.");
+    try (Cursor shiftCursor = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+      if (!shiftCursor.moveToFirst()) throw new IllegalArgumentException("Restored Trip requires its canonical Shift to be restored first.");
+      JSONObject shift = new JSONObject(shiftCursor.getString(0));
+      if ("ACTIVE".equals(trip.optString("status", "")) && !"ACTIVE".equals(shift.optString("status", ""))) {
+        throw new IllegalArgumentException("Restored ACTIVE Trip requires an ACTIVE canonical Shift.");
+      }
+    }
+  }
+
+  private void assertTripFormMutationScope(JSONObject existingTrip, JSONObject incomingTrip, String mode) throws Exception {
+    JSONObject existing = new JSONObject(existingTrip.toString());
+    JSONObject incoming = new JSONObject(incomingTrip.toString());
+    // Retire the legacy marker on the next form write; it is not canonical Trip data.
+    existing.remove("revenueAuthority");
+    incoming.remove("revenueAuthority");
+    existing.remove("revenueProvenance");
+    incoming.remove("revenueProvenance");
+    String[] allowed = "FARE".equals(mode)
+        ? new String[]{"revenue", "toll", "parking", "fareDetailsSkipped", "updatedAt"}
+        : new String[]{"status", "cancelReason", "cancelledRevenue", "tripEndAt", "updatedAt"};
+    for (String field : allowed) {
+      existing.remove(field);
+      incoming.remove(field);
+    }
+    if (!jsonEquivalent(existing, incoming)) {
+      throw new IllegalArgumentException("Trip form attempted to mutate fields outside its canonical form ownership.");
+    }
+  }
+
+  private void validateNativeShiftLifecycleWrite(SQLiteDatabase db, JSONObject incoming,
+      JSONObject existing, String expectedUpdatedAt) throws Exception {
+    String incomingStatus = incoming.optString("status", "");
+    if (existing == null) {
+      if (!"ACTIVE".equals(incomingStatus)) return;
+      try (Cursor shifts = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT'", null, null, null, null)) {
+        while (shifts.moveToNext()) {
+          JSONObject current = new JSONObject(shifts.getString(0));
+          if ("ACTIVE".equals(current.optString("status", ""))
+              && (!current.has("deletedAt") || current.isNull("deletedAt")) && !current.optBoolean("deleted", false)) {
+            throw new IllegalArgumentException("Only one canonical Shift may be active at a time.");
+          }
+        }
+      }
+      return;
+    }
+
+    String existingStatus = existing.optString("status", "");
+    if (existingStatus.equals(incomingStatus)) return;
+    if (!"ACTIVE".equals(existingStatus) || !"COMPLETED".equals(incomingStatus)) {
+      throw new IllegalArgumentException("A canonical Shift may only transition from ACTIVE to COMPLETED.");
+    }
+    if (empty(expectedUpdatedAt) || !expectedUpdatedAt.equals(existing.optString("updatedAt", ""))) {
+      throw new IllegalArgumentException("Native Shift completion requires the expected active Shift version.");
+    }
+    try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='TRIP'", null, null, null, null)) {
+      while (trips.moveToNext()) {
+        JSONObject trip = new JSONObject(trips.getString(0));
+        if (incoming.optString("id", "").equals(trip.optString("shiftId", ""))
+            && "ACTIVE".equals(trip.optString("status", ""))
+            && (!trip.has("deletedAt") || trip.isNull("deletedAt")) && !trip.optBoolean("deleted", false)) {
+          throw new IllegalArgumentException("A Shift cannot be completed while one of its Trips is active.");
+        }
+      }
+    }
+  }
+
+  private JSONObject tripLifecycleFacts(JSONObject trip) throws Exception {
+    JSONObject facts = new JSONObject();
+    for (String field : new String[]{"status", "tripStage", "tripStartAt", "tripEndAt", "cancelledAt"}) {
+      if (trip.has(field)) facts.put(field, trip.get(field));
+    }
+    return facts;
+  }
+
+  private void validateNativeTripLifecycleTransition(SQLiteDatabase db, String action,
+      JSONObject incoming, JSONObject existing, String expectedUpdatedAt, boolean expectAbsent) throws Exception {
+    if (incoming == null || empty(incoming.optString("id", "")) || empty(incoming.optString("shiftId", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle requires canonical Trip and Shift identity.");
+    }
+    String shiftId = incoming.optString("shiftId", "");
+    if (existing != null && !shiftId.equals(existing.optString("shiftId", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle cannot change Shift identity.");
+    }
+    JSONObject shift;
+    try (Cursor cursor = db.query("canonical_records", new String[]{"payload"},
+        "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+      if (!cursor.moveToFirst()) throw new IllegalArgumentException("Native Trip lifecycle requires an existing canonical Shift.");
+      shift = new JSONObject(cursor.getString(0));
+    }
+    if (!"ACTIVE".equals(shift.optString("status", ""))) {
+      throw new IllegalArgumentException("Native Trip lifecycle requires an active canonical Shift.");
+    }
+
+    String incomingStatus = incoming.optString("status", "");
+    String incomingStage = incoming.optString("tripStage", "");
+    if ("GO_TO_PICKUP".equals(action)) {
+      if (!expectAbsent || existing != null
+          || !"ACTIVE".equals(incomingStatus)
+          || !"GOING_TO_PICKUP".equals(incomingStage)) {
+        throw new IllegalArgumentException("GO_TO_PICKUP must create one new ACTIVE Trip at GOING_TO_PICKUP.");
+      }
+      try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='TRIP'", null, null, null, null)) {
+        while (trips.moveToNext()) {
+          JSONObject current = new JSONObject(trips.getString(0));
+          if (shiftId.equals(current.optString("shiftId", ""))
+              && "ACTIVE".equals(current.optString("status", ""))
+              && (!current.has("deletedAt") || current.isNull("deletedAt"))
+              && !current.optBoolean("deleted", false)) {
+            throw new IllegalArgumentException("A Shift may have only one active Trip at a time.");
+          }
+        }
+      }
+      return;
+    }
+
+    if (expectAbsent || existing == null) {
+      throw new IllegalArgumentException(action + " requires an existing canonical Trip.");
+    }
+    if (!"ACTIVE".equals(existing.optString("status", ""))) {
+      throw new IllegalArgumentException(action + " requires an ACTIVE Trip; terminal Trips cannot be reopened.");
+    }
+    String currentStage = existing.optString("tripStage", "");
+    String currentVersion = existing.optString("updatedAt", "");
+    if (empty(expectedUpdatedAt) || !expectedUpdatedAt.equals(currentVersion)) {
+      throw new IllegalArgumentException("Native Trip lifecycle version changed before commit.");
+    }
+    if ("CANCEL_RIDE".equals(action)) {
+      Object fee = incoming.opt("cancelledRevenue");
+      if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
+          || !"CANCELLED".equals(incomingStatus)
+          || !currentStage.equals(incomingStage)
+          || empty(incoming.optString("tripEndAt", ""))
+          || empty(incoming.optString("cancelReason", ""))
+          || !(fee instanceof Number)
+          || !Double.isFinite(((Number) fee).doubleValue())
+          || ((Number) fee).doubleValue() < 0d) {
+        throw new IllegalArgumentException("CANCEL_RIDE requires a pre-ride Trip, unchanged pickup stage, event time, reason and non-negative cancellation fee.");
+      }
+      return;
+    }
+    if ("START_RIDE".equals(action)) {
+      if (!("GOING_TO_PICKUP".equals(currentStage) || "PICKUP".equals(currentStage))
+          || !"ACTIVE".equals(incomingStatus)
+          || !"RIDE_STARTED".equals(incomingStage)
+          || empty(incoming.optString("tripStartAt", ""))) {
+        throw new IllegalArgumentException("START_RIDE is allowed only from GOING_TO_PICKUP and requires a ride-start timestamp.");
+      }
+      return;
+    }
+    if (!"RIDE_STARTED".equals(currentStage)
+        || !"COMPLETED".equals(incomingStatus)
+        || !"COMPLETED".equals(incomingStage)
+        || empty(incoming.optString("tripEndAt", ""))) {
+      throw new IllegalArgumentException("END_RIDE is allowed only after START_RIDE and requires a trip-end timestamp.");
+    }
+  }
 
   /**
    * Atomically merges optional boundary metadata into the latest canonical trip.
@@ -479,186 +704,6 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     values.put("payload", shift.toString());
     values.put("updated_at", now);
     db.insertWithOnConflict("canonical_records", null, values, SQLiteDatabase.CONFLICT_REPLACE);
-  }
-
-  synchronized Outcome persistTripBoundarySnapshot(String operationId, String tripId,
-      String field, JSONObject snapshot) throws Exception {
-    assertNoPendingReset();
-    if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");
-    if (!"tripStartLocation".equals(field) && !"tripEndLocation".equals(field)) {
-      throw new IllegalArgumentException("Unsupported trip-boundary snapshot field.");
-    }
-    if (snapshot == null) throw new IllegalArgumentException("snapshot is required.");
-    Object latitude = snapshot.opt("latitude"), longitude = snapshot.opt("longitude");
-    if (!(latitude instanceof Number) || !Double.isFinite(((Number) latitude).doubleValue())
-        || ((Number) latitude).doubleValue() < -90d || ((Number) latitude).doubleValue() > 90d
-        || !(longitude instanceof Number) || !Double.isFinite(((Number) longitude).doubleValue())
-        || ((Number) longitude).doubleValue() < -180d || ((Number) longitude).doubleValue() > 180d) {
-      throw new IllegalArgumentException("Snapshot must contain valid latitude and longitude.");
-    }
-    Object accuracy = snapshot.opt("accuracy");
-    if (accuracy != null && accuracy != JSONObject.NULL
-        && (!(accuracy instanceof Number) || !Double.isFinite(((Number) accuracy).doubleValue())
-            || ((Number) accuracy).doubleValue() < 0d)) {
-      throw new IllegalArgumentException("Snapshot accuracy must be blank or a non-negative number.");
-    }
-    String capturedAt = snapshot.optString("capturedAt", "");
-    try {
-      if (empty(capturedAt)) throw new IllegalArgumentException("Snapshot provider timestamp is required.");
-      java.time.Instant.parse(capturedAt);
-    } catch (java.time.format.DateTimeParseException invalidTimestamp) {
-      throw new IllegalArgumentException("Snapshot provider timestamp must be a valid ISO-8601 instant.", invalidTimestamp);
-    }
-
-    String now = timestampNow();
-    SQLiteDatabase db = getWritableDatabase();
-    db.beginTransaction();
-    try {
-      assertOperationNotInvalidated(db, operationId);
-      try (Cursor prior = db.query("canonical_operations",
-          new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
-          "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
-        if (prior.moveToFirst()) {
-          JSONObject previous = new JSONObject(prior.getString(4));
-          if (!"SAVE_TRIP_BOUNDARY_SNAPSHOT".equals(prior.getString(0))
-              || !"TRIP".equals(prior.getString(1)) || !tripId.equals(prior.getString(2))
-              || !field.equals(previous.optString("field", ""))
-              || !jsonEquivalent(previous.optJSONObject("snapshot"), snapshot)) {
-            throw new IllegalArgumentException("operationId was already used for a different trip-boundary snapshot.");
-          }
-          db.setTransactionSuccessful();
-          return new Outcome("ACCEPTED".equals(prior.getString(3)), true, previous);
-        }
-      }
-
-      JSONObject trip;
-      try (Cursor current = db.query("canonical_records", new String[]{"payload"},
-          "entity_type='TRIP' AND entity_id=?", new String[]{tripId}, null, null, null, "1")) {
-        if (!current.moveToFirst()) throw new IllegalArgumentException("Canonical trip does not exist for boundary snapshot.");
-        trip = new JSONObject(current.getString(0));
-      }
-
-      boolean applied = !trip.has(field) || trip.isNull(field);
-      if (applied) {
-        trip.put(field, snapshot);
-        trip.put("tripStartLocation".equals(field) ? "tripStartLocationStatus" : "tripEndLocationStatus", "CAPTURED");
-        ContentValues recordValues = new ContentValues();
-        recordValues.put("entity_type", "TRIP");
-        recordValues.put("entity_id", tripId);
-        recordValues.put("payload", trip.toString());
-        recordValues.put("updated_at", now);
-        db.insertWithOnConflict("canonical_records", null, recordValues, SQLiteDatabase.CONFLICT_REPLACE);
-      }
-
-      JSONObject result = new JSONObject().put("operationId", operationId)
-          .put("entityType", "TRIP").put("entityId", tripId).put("field", field)
-          .put("snapshot", snapshot).put("applied", applied).put("record", trip).put("committedAt", now);
-      ContentValues operation = new ContentValues();
-      operation.put("operation_id", operationId);
-      operation.put("command", "SAVE_TRIP_BOUNDARY_SNAPSHOT");
-      operation.put("entity_type", "TRIP");
-      operation.put("entity_id", tripId);
-      operation.put("status", "ACCEPTED");
-      operation.put("result_json", result.toString());
-      operation.put("created_at", now);
-      db.insertOrThrow("canonical_operations", null, operation);
-
-      ContentValues audit = new ContentValues();
-      audit.put("operation_id", operationId);
-      audit.put("entity_type", "TRIP");
-      audit.put("entity_id", tripId);
-      audit.put("action", "SAVE_TRIP_BOUNDARY_SNAPSHOT");
-      audit.put("payload", new JSONObject().put("field", field).put("snapshot", snapshot).put("applied", applied).toString());
-      audit.put("created_at", now);
-      db.insertOrThrow("canonical_audit", null, audit);
-
-      db.setTransactionSuccessful();
-      return new Outcome(true, false, result);
-    } finally {
-      db.endTransaction();
-    }
-  }
-
-  /**
-   * Persists a locality label onto an already captured trip boundary. This is
-   * metadata-only: it never changes business updatedAt, GPS coordinates, or
-   * fare/cancellation fields. The operation and audit row commit atomically.
-   */
-  synchronized Outcome updateTripBoundaryPlaceName(String operationId, String tripId,
-      String field, String placeName) throws Exception {
-    assertNoPendingReset();
-    if (empty(operationId) || empty(tripId)) throw new IllegalArgumentException("operationId and tripId are required.");
-    if (!"tripStartLocation".equals(field) && !"tripEndLocation".equals(field)) {
-      throw new IllegalArgumentException("Unsupported trip-boundary place-name field.");
-    }
-    if (empty(placeName) || !placeName.equals(placeName.trim())) {
-      throw new IllegalArgumentException("placeName must be a non-empty trimmed locality label.");
-    }
-    String now = timestampNow();
-    SQLiteDatabase db = getWritableDatabase();
-    db.beginTransaction();
-    try {
-      assertOperationNotInvalidated(db, operationId);
-      try (Cursor prior = db.query("canonical_operations",
-          new String[]{"command", "entity_type", "entity_id", "status", "result_json"},
-          "operation_id=?", new String[]{operationId}, null, null, null, "1")) {
-        if (prior.moveToFirst()) {
-          JSONObject previous = new JSONObject(prior.getString(4));
-          if (!"UPDATE_TRIP_BOUNDARY_PLACE_NAME".equals(prior.getString(0))
-              || !"TRIP".equals(prior.getString(1)) || !tripId.equals(prior.getString(2))
-              || !field.equals(previous.optString("field", ""))
-              || !placeName.equals(previous.optString("placeName", ""))) {
-            throw new IllegalArgumentException("operationId was already used for a different trip-boundary label.");
-          }
-          db.setTransactionSuccessful();
-          return new Outcome("ACCEPTED".equals(prior.getString(3)), true, previous);
-        }
-      }
-      JSONObject trip;
-      try (Cursor current = db.query("canonical_records", new String[]{"payload"},
-          "entity_type='TRIP' AND entity_id=?", new String[]{tripId}, null, null, null, "1")) {
-        if (!current.moveToFirst()) throw new IllegalArgumentException("Canonical trip does not exist for boundary label.");
-        trip = new JSONObject(current.getString(0));
-      }
-      JSONObject snapshot = trip.optJSONObject(field);
-      if (snapshot == null || !snapshot.has("latitude") || !snapshot.has("longitude")
-          || !snapshot.has("capturedAt")) {
-        throw new IllegalArgumentException("A durable GPS boundary snapshot is required before adding its locality label.");
-      }
-      snapshot.put("placeName", placeName);
-      // Intentionally leave the canonical business updatedAt unchanged.
-      ContentValues recordValues = new ContentValues();
-      recordValues.put("entity_type", "TRIP");
-      recordValues.put("entity_id", tripId);
-      recordValues.put("payload", trip.toString());
-      recordValues.put("updated_at", now);
-      db.insertWithOnConflict("canonical_records", null, recordValues, SQLiteDatabase.CONFLICT_REPLACE);
-
-      JSONObject result = new JSONObject().put("operationId", operationId)
-          .put("entityType", "TRIP").put("entityId", tripId).put("field", field)
-          .put("placeName", placeName).put("record", trip).put("committedAt", now);
-      ContentValues operation = new ContentValues();
-      operation.put("operation_id", operationId);
-      operation.put("command", "UPDATE_TRIP_BOUNDARY_PLACE_NAME");
-      operation.put("entity_type", "TRIP");
-      operation.put("entity_id", tripId);
-      operation.put("status", "ACCEPTED");
-      operation.put("result_json", result.toString());
-      operation.put("created_at", now);
-      db.insertOrThrow("canonical_operations", null, operation);
-      ContentValues audit = new ContentValues();
-      audit.put("operation_id", operationId);
-      audit.put("entity_type", "TRIP");
-      audit.put("entity_id", tripId);
-      audit.put("action", "UPDATE_TRIP_BOUNDARY_PLACE_NAME");
-      audit.put("payload", new JSONObject().put("field", field).put("placeName", placeName).toString());
-      audit.put("created_at", now);
-      db.insertOrThrow("canonical_audit", null, audit);
-      db.setTransactionSuccessful();
-      return new Outcome(true, false, result);
-    } finally {
-      db.endTransaction();
-    }
   }
 
   /**
@@ -736,14 +781,17 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       if (!shiftId.equals(existingTrip.optString("shiftId", ""))) {
         throw new IllegalArgumentException("Trip shift identity cannot change during form submission.");
       }
-      preserveTripBoundaryMetadata(existingTrip, trip);
       String existingStatus = existingTrip.optString("status", "");
       if ("FARE".equals(mode) && !"COMPLETED".equals(existingStatus)) {
         throw new IllegalArgumentException("Fare submission requires the canonical trip to be completed.");
       }
-      if ("CANCEL".equals(mode) && !"ACTIVE".equals(existingStatus)) {
-        throw new IllegalArgumentException("Cancellation requires a non-terminal active trip.");
+      if ("CANCEL".equals(mode)) {
+        validateNativeTripLifecycleTransition(db, "CANCEL_RIDE", trip, existingTrip,
+            existingTrip.optString("updatedAt", ""), false);
       }
+      trip.remove("revenueAuthority");
+      trip.remove("revenueProvenance");
+      assertTripFormMutationScope(existingTrip, trip, mode);
       String oldTripVersion = existingTrip.optString("updatedAt", "");
       String newTripVersion = trip.optString("updatedAt", "");
       if (empty(oldTripVersion) || empty(newTripVersion)) {
@@ -773,53 +821,18 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
       tripValues.put("updated_at", now);
       db.insertWithOnConflict("canonical_records", null, tripValues, SQLiteDatabase.CONFLICT_REPLACE);
 
-      double revenue = 0d;
-      java.time.Instant latest = java.time.Instant.parse(newTripVersion);
-      String oldShiftVersion = shift.optString("updatedAt", "");
-      if (!empty(oldShiftVersion)) {
-        java.time.Instant shiftInstant = java.time.Instant.parse(oldShiftVersion);
-        if (shiftInstant.isAfter(latest)) latest = shiftInstant;
+      // Keep one native persistence-projection implementation for both
+      // ordinary Trip writes and native overlay form commits.
+      refreshShiftRevenueProjection(db, shiftId, now);
+      try (Cursor refreshedShift = db.query("canonical_records", new String[]{"payload"},
+          "entity_type='SHIFT' AND entity_id=?", new String[]{shiftId}, null, null, null, "1")) {
+        if (!refreshedShift.moveToFirst()) throw new IllegalArgumentException("Canonical shift disappeared during form commit.");
+        shift = new JSONObject(refreshedShift.getString(0));
       }
-      try (Cursor trips = db.query("canonical_records", new String[]{"payload"},
-          "entity_type='TRIP'", null, null, null, null)) {
-        while (trips.moveToNext()) {
-          JSONObject item = new JSONObject(trips.getString(0));
-          if (!shiftId.equals(item.optString("shiftId", ""))
-              || item.has("deletedAt") && !item.isNull("deletedAt")
-              || item.optBoolean("deleted", false)) continue;
-          String status = item.optString("status", "");
-          if ("COMPLETED".equals(status) && !item.optBoolean("fareDetailsSkipped", false)) {
-            Object amount = item.opt("revenue");
-            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
-                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
-          } else if ("CANCELLED".equals(status)) {
-            Object amount = item.has("cancelledRevenue") ? item.opt("cancelledRevenue") : JSONObject.NULL;
-            if (amount instanceof Number && Double.isFinite(((Number) amount).doubleValue())
-                && ((Number) amount).doubleValue() >= 0d) revenue += ((Number) amount).doubleValue();
-          }
-          String itemVersion = item.optString("updatedAt", "");
-          if (!empty(itemVersion)) {
-            java.time.Instant itemInstant = java.time.Instant.parse(itemVersion);
-            if (itemInstant.isAfter(latest)) latest = itemInstant;
-          }
-        }
-      }
-      java.time.Instant nowInstant = java.time.Instant.parse(now);
-      if (!nowInstant.isAfter(latest)) latest = latest.plusMillis(1);
-      String shiftUpdatedAt = latest.toString();
-      shift.put("revenue", revenue);
-      shift.put("liveFareRevenue", revenue);
-      shift.put("revenueSource", "TRIP_FARES");
-      shift.put("updatedAt", shiftUpdatedAt);
-      ContentValues shiftValues = new ContentValues();
-      shiftValues.put("entity_type", "SHIFT");
-      shiftValues.put("entity_id", shiftId);
-      shiftValues.put("payload", shift.toString());
-      shiftValues.put("updated_at", now);
-      db.insertWithOnConflict("canonical_records", null, shiftValues, SQLiteDatabase.CONFLICT_REPLACE);
+      double revenue = shift.optDouble("revenue", 0d);
 
       JSONObject result = new JSONObject().put("operationId", operationId).put("mode", mode)
-          .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip)
+          .put("tripId", tripId).put("shiftId", shiftId).put("trip", trip).put("record", trip)
           .put("shift", shift).put("revenue", revenue).put("committedAt", now);
       ContentValues operation = new ContentValues();
       operation.put("operation_id", operationId);
@@ -1031,17 +1044,11 @@ final class KfeCanonicalWorkStore extends SQLiteOpenHelper {
     }
   }
 
-  private static void preserveTripBoundaryMetadata(JSONObject existing, JSONObject incoming) throws JSONException {
-    if (existing == null || incoming == null) return;
-    for (String field : new String[]{"tripStartLocation", "tripEndLocation"}) {
-      if (existing.has(field) && !existing.isNull(field)) {
-        incoming.put(field, existing.get(field));
-        String statusField = "tripStartLocation".equals(field) ? "tripStartLocationStatus" : "tripEndLocationStatus";
-        if (existing.has(statusField) && !existing.isNull(statusField)) incoming.put(statusField, existing.get(statusField));
-      }
-    }
-  }
-
+  /**
+   * Ignore retired embedded GPS fields only when comparing a replay against an
+   * operation ledger written by an older app version. New canonical Trip writes
+   * never create or preserve these fields.
+   */
   private static JSONObject withoutTripBoundarySnapshots(JSONObject trip) throws JSONException {
     JSONObject copy = new JSONObject(trip.toString());
     copy.remove("tripStartLocation");

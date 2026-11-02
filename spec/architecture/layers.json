@@ -2,43 +2,123 @@
   "schemaVersion": 2,
   "principle": "ONE RESPONSIBILITY → ONE OWNER → ONE AUTHORITATIVE SOURCE → ONE IMPLEMENTATION PATH",
   "layers": {
-    "presentation": ["src/views/", "src/components/", "src/stores/", "src/layouts/", "src/presentation/"],
-    "application": ["src/application/"],
-    "domain": ["src/domain/"],
-    "repositories": ["src/repositories/"],
-    "infrastructure": ["src/infrastructure/"],
-    "legacyServices": ["src/services/"],
-    "localDatabase": ["src/utils/indexedDB.js"],
+    "presentation": [
+      "src/views/",
+      "src/components/",
+      "src/stores/",
+      "src/layouts/",
+      "src/presentation/"
+    ],
+    "application": [
+      "src/application/"
+    ],
+    "domain": [
+      "src/domain/"
+    ],
+    "repositories": [
+      "src/repositories/"
+    ],
+    "infrastructure": [
+      "src/infrastructure/"
+    ],
+    "localDatabase": [
+      "src/utils/indexedDB.js"
+    ],
     "futureIntegrations": []
   },
-  "canonicalRuntimeFlow": ["presentation", "application", "domain", "repositories", "localDatabase"],
+  "canonicalRuntimeFlow": [
+    "presentation",
+    "application",
+    "domain",
+    "repositories",
+    "localDatabase"
+  ],
   "allowedImports": {
-    "presentation": ["application", "domain", "infrastructure"],
-    "application": ["domain", "repositories", "infrastructure"],
+    "presentation": [
+      "application"
+    ],
+    "application": [
+      "domain",
+      "repositories"
+    ],
     "domain": [],
-    "repositories": ["localDatabase"],
-    "infrastructure": ["repositories", "localDatabase", "futureIntegrations"],
-    "legacyServices": [],
+    "repositories": [
+      "localDatabase",
+      "domain"
+    ],
+    "infrastructure": [
+      "repositories",
+      "localDatabase",
+      "futureIntegrations",
+      "application",
+      "domain"
+    ],
     "localDatabase": [],
     "futureIntegrations": []
   },
   "forbiddenDependencies": [
-    ["domain", "presentation"],
-    ["domain", "application"],
-    ["domain", "repositories"],
-    ["domain", "infrastructure"],
-    ["domain", "localDatabase"],
-    ["application", "presentation"],
-    ["application", "localDatabase"],
-    ["presentation", "repositories"],
-    ["presentation", "localDatabase"],
-    ["legacyServices", "canonicalRuntime"]
+    [
+      "domain",
+      "presentation"
+    ],
+    [
+      "domain",
+      "application"
+    ],
+    [
+      "domain",
+      "repositories"
+    ],
+    [
+      "domain",
+      "infrastructure"
+    ],
+    [
+      "domain",
+      "localDatabase"
+    ],
+    [
+      "application",
+      "presentation"
+    ],
+    [
+      "application",
+      "localDatabase"
+    ],
+    [
+      "presentation",
+      "repositories"
+    ],
+    [
+      "presentation",
+      "localDatabase"
+    ],
+    [
+      "presentation",
+      "infrastructure"
+    ]
   ],
-  "directPersistenceForbiddenIn": ["src/views/", "src/components/", "src/stores/", "src/layouts/", "src/presentation/", "src/application/", "src/domain/"],
-  "directBusinessCalculationForbiddenIn": ["src/views/", "src/components/", "src/stores/", "src/layouts/", "src/presentation/"],
+  "directPersistenceForbiddenIn": [
+    "src/views/",
+    "src/components/",
+    "src/stores/",
+    "src/layouts/",
+    "src/presentation/",
+    "src/application/",
+    "src/domain/"
+  ],
+  "directBusinessCalculationForbiddenIn": [
+    "src/views/",
+    "src/components/",
+    "src/stores/",
+    "src/layouts/",
+    "src/presentation/"
+  ],
   "notes": [
-    "src/services/ is retained only where a verified future migration has not yet occurred; canonical KFE runtime must not depend on it.",
     "UI/UX and shell remain decoupled from infrastructure providers.",
-    "External providers must be reached through replaceable infrastructure adapters."
+    "External providers must be reached through replaceable infrastructure adapters.",
+    "Application may depend on application-owned runtime port contracts; only the infrastructure composition root may bind those ports to platform adapters.",
+    "src/main.js is the composition root and installs infrastructure adapters before mounting the Vue application.",
+    "Repositories and infrastructure adapters may depend inward on domain primitives; infrastructure may additionally bind application-owned ports. Neither may import presentation."
   ]
 }

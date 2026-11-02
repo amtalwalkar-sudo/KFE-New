@@ -61,16 +61,17 @@ public class KfeRecoveryHardeningTest {
     String t2 = "2026-10-16T01:01:00.000Z";
 
     JSONObject fareA = new JSONObject().put("id", tripA).put("shiftId", shiftId)
-        .put("status", "COMPLETED").put("fare", 250).put("updatedAt", t1);
+        .put("status", "COMPLETED").put("revenue", 250).put("updatedAt", t1);
     JSONObject fareB = new JSONObject().put("id", tripB).put("shiftId", shiftId)
-        .put("status", "COMPLETED").put("fare", 150).put("updatedAt", t2);
-    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "ACTIVE")
+        .put("status", "COMPLETED").put("revenue", 150).put("updatedAt", t2);
+    JSONObject shift = new JSONObject().put("id", shiftId).put("status", "COMPLETED")
         .put("revenue", 400).put("updatedAt", t2);
 
+    assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
     assertLostAckRetryIsIdempotent(store, fareAOperation, "TRIP", fareA);
-    JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("fare", 999);
+    JSONObject reusedOperationWithDifferentPayload = new JSONObject(fareA.toString()).put("revenue", 999);
     try {
-      store.putRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
+      store.restoreRecord(fareAOperation, "TRIP", reusedOperationWithDifferentPayload);
       fail("Expected operation-ID reuse with a changed payload to be rejected.");
     } catch (IllegalArgumentException expected) {
       assertTrue("Unexpected rejection: " + expected.getMessage(),
@@ -79,12 +80,11 @@ public class KfeRecoveryHardeningTest {
     assertTrue("Rejecting changed-payload replay must preserve the original operation outcome.",
         store.getOperation(fareAOperation).getBoolean("found"));
     assertEquals("Rejected operation-ID reuse must not change the committed fare.", 250,
-        store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
+        store.getRecord("TRIP", tripA).getJSONObject("record").getInt("revenue"));
     assertLostAckRetryIsIdempotent(store, fareBOperation, "TRIP", fareB);
-    assertLostAckRetryIsIdempotent(store, shiftOperation, "SHIFT", shift);
 
-    assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("fare"));
-    assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("fare"));
+    assertEquals(250, store.getRecord("TRIP", tripA).getJSONObject("record").getInt("revenue"));
+    assertEquals(150, store.getRecord("TRIP", tripB).getJSONObject("record").getInt("revenue"));
     assertEquals(400, store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
     assertEquals("A repeated read after an acknowledgement retry must not increment revenue again.", 400,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
@@ -93,7 +93,7 @@ public class KfeRecoveryHardeningTest {
     assertRejectedWrite(store, "recovery-stale-op-" + suffix, "SHIFT", stale, "Stale canonical write rejected");
     JSONObject equalVersionConflict = new JSONObject(shift.toString()).put("revenue", 999);
     assertRejectedWrite(store, "recovery-equal-op-" + suffix, "SHIFT", equalVersionConflict,
-        "different payloads share updatedAt");
+        "Stale canonical write rejected");
     assertEquals("Rejected stale/conflicting snapshots must not roll back the acknowledged projection.", 400,
         store.getRecord("SHIFT", shiftId).getJSONObject("record").getInt("revenue"));
 
@@ -104,11 +104,15 @@ public class KfeRecoveryHardeningTest {
 
   private static void assertLostAckRetryIsIdempotent(KfeCanonicalWorkStore store, String operationId,
       String entityType, JSONObject record) throws Exception {
-    KfeCanonicalWorkStore.Outcome committed = store.putRecord(operationId, entityType, record);
+    KfeCanonicalWorkStore.Outcome committed = "TRIP".equals(entityType)
+        ? store.restoreRecord(operationId, entityType, record)
+        : store.putRecord(operationId, entityType, record);
     assertTrue("First write must commit before the simulated acknowledgement is lost.", committed.accepted);
     // The process/bridge loses the response after SQLite commits. Retrying the
     // same operation ID must return the persisted outcome instead of applying it twice.
-    KfeCanonicalWorkStore.Outcome retry = store.putRecord(operationId, entityType, record);
+    KfeCanonicalWorkStore.Outcome retry = "TRIP".equals(entityType)
+        ? store.restoreRecord(operationId, entityType, record)
+        : store.putRecord(operationId, entityType, record);
     assertTrue("Retry must report the already committed operation as accepted.", retry.accepted);
     assertTrue("Retry must be identified as a duplicate operation.", retry.duplicate);
     assertTrue(store.getOperation(operationId).getBoolean("found"));

@@ -1,19 +1,25 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { deriveLiveRevenue } from '../domain/work/liveRevenue.js'
-import { SWIPE_CONFIG } from '../domain/work/swipeConfig.js'
+import { SWIPE_CONFIG } from '../presentation/work/swipeConfiguration.js'
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150}]),400)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'CANCELLED',revenue:40,cancelledRevenue:40},{status:'ACTIVE',revenue:900},{status:'COMPLETED',revenue:null,fareDetailsSkipped:true}]),290)
 assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:-1},{status:'COMPLETED',revenue:'invalid'}]),0)
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300}]),0, 'A legacy cancelled trip with no cancellation fee must not reuse its old fare.')
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300,cancelledRevenue:null}]),0, 'An explicit blank cancellation fee contributes ₹0.')
 assert.equal(deriveLiveRevenue([{status:'CANCELLED',revenue:300,cancelledRevenue:''}]),0, 'A blank cancellation fee contributes ₹0.')
+assert.equal(deriveLiveRevenue([{status:'COMPLETED',revenue:250},{status:'COMPLETED',revenue:150},{status:'CANCELLED',cancelledRevenue:20},{status:'CANCELLED',cancelledRevenue:0},{status:'COMPLETED',revenue:999,fareDetailsSkipped:true}]),420, 'Shared domain vector must match native SQLite full-shift acceptance: two fares plus one cancellation fee; blank/zero/skipped values add zero.')
 assert.equal(SWIPE_CONFIG.commitThresholdPercent,70)
 assert.equal(SWIPE_CONFIG.returnDurationMs,220)
 const view=fs.readFileSync(new URL('../views/WorkModuleView.vue',import.meta.url),'utf8')
+const readModel=fs.readFileSync(new URL('../application/work/liveRevenueReadModel.js',import.meta.url),'utf8')
 const overlay=fs.readFileSync(new URL('../../android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java',import.meta.url),'utf8')
 const service=fs.readFileSync(new URL('../application/work/workService.js',import.meta.url),'utf8')
-assert.match(view,/deriveLiveRevenue\(store\.registeredTrips\.filter/)
+assert.match(view,/LiveRevenueReadModel\.forShift\(store\.registeredTrips/)
+assert.match(view,/LiveRevenueReadModel\.forTrips\(trips\)/)
+assert.doesNotMatch(view,/deriveLiveRevenue/)
+assert.match(readModel,/deriveLiveRevenue/)
+assert.match(readModel,/forShift\(trips = \[\], shiftId = ''\)/)
 assert.match(view,/phaseStartAt: stateTimerStartAt\.value/)
 assert.match(view,/swipeConfig: SWIPE_CONFIG/)
 assert.doesNotMatch(overlay,/liveKm|resolveMovementValue|DEAD KM|BUSINESS KM/)

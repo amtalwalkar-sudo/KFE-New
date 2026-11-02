@@ -10,22 +10,28 @@ export const canTransitionTrip = (from, to) => {
 export const transitionTrip = (trip, to, data = {}) => {
   if (!trip || !trip.id) throw new Error('Trip is required.')
   if (!canTransitionTrip(trip.status, to)) throw new Error(`Trip cannot transition from ${trip.status} to ${to}.`)
+  if (to === TRIP_STATES.COMPLETED && trip.tripStage !== 'RIDE_STARTED') {
+    throw new Error('A Trip can be completed only after START RIDE has committed.')
+  }
   const next = { ...trip, status: to }
+  delete next.revenueAuthority
+  delete next.revenueProvenance
   if (data.tripEndAt) next.tripEndAt = data.tripEndAt
   if (data.tripEndLocation) next.tripEndLocation = data.tripEndLocation
-  if (to === TRIP_STATES.COMPLETED && data.tripKm !== undefined && Number.isFinite(Number(data.tripKm)) && Number(data.tripKm) >= 0) {
-    next.tripKm = Number(data.tripKm)
-    next.tripKmAuthority = data.tripKmAuthority || 'GPS_ESTIMATE'
-    next.tripKmProvenance = data.tripKmProvenance || null
-  }
   if (to === TRIP_STATES.CANCELLED) {
-    const revenue = data.revenue === undefined || data.revenue === '' || data.revenue === null ? 0 : Number(data.revenue)
-    if (revenue !== null && (!Number.isFinite(revenue) || revenue < 0)) throw new Error('Cancelled trip revenue must be a non-negative number.')
-    next.cancelledRevenue = revenue
-    next.cancelReason = data.reason || 'DRIVER_MISTAKE'
-    next.revenue = revenue
-    next.revenueAuthority = 'SUPPORTING_ONLY'
-    if (data.revenueProvenance !== undefined) next.revenueProvenance = data.revenueProvenance
+    if (!['GOING_TO_PICKUP', 'PICKUP'].includes(trip.tripStage)) {
+      throw new Error('A Trip can only be cancelled before the ride starts.')
+    }
+    const hasFee = Object.prototype.hasOwnProperty.call(data, 'cancelledRevenue')
+    if (trip.status !== TRIP_STATES.CANCELLED || hasFee) {
+      const rawFee = data.cancelledRevenue
+      const fee = rawFee == null || String(rawFee).trim() === '' ? 0 : Number(rawFee)
+      if (!Number.isFinite(fee) || fee < 0) throw new Error('Cancellation fee must be a finite non-negative amount.')
+      next.cancelledRevenue = fee
+      // Cancellation fee is a distinct source fact, never a Trip fare.
+      // Preserve any existing fare field without using it in cancelled revenue.
+    }
+    if (data.reason !== undefined || data.cancelReason !== undefined) next.cancelReason = data.cancelReason ?? data.reason
   }
   return next
 }

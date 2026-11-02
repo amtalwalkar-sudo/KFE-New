@@ -1,39 +1,25 @@
-import { evaluateShiftStartRule } from './shiftStartRuleInterpreter.js'
-
 const LARGE_DISTANCE_WARNING_KM = 500
-
-function preservePwaResult(result) {
-  if (!result.reasonCode) return result
-  const { reasonCode, ...fields } = result
-  if (reasonCode === 'CLOSING_ODOMETER_REQUIRED') {
-    return { ...fields, reason: 'CLOSING_ODOMETER_REQUIRED' }
-  }
-  if (reasonCode === 'CLOSING_ODOMETER_BELOW_START') {
-    return { ...fields, reason: 'Closing odometer cannot be lower than the shift opening odometer.' }
-  }
-  if (reasonCode === 'LARGE_DISTANCE_CONFIRMATION_REQUIRED') {
-    return {
-      ...fields,
-      reason: `Closing odometer is ${fields.distanceKm} km above shift opening. Confirm this unusually high daily distance before ending the Shift.`
-    }
-  }
-  return { ...fields, reason: reasonCode }
-}
+const blank = value => value == null || (typeof value === 'string' && value.trim() === '')
 
 export function validateEndShiftEntry({ closingOdometer, startOdometer, confirmLargeDistance = false }) {
-  // Preserve the legacy Number(null)/Number('') baseline semantics while keeping
-  // an absent baseline (undefined) distinct from an explicit zero baseline.
-  const normalizedStart = startOdometer === null || (typeof startOdometer === 'string' && startOdometer.trim() === '')
-    ? 0
-    : startOdometer
-  const normalizedClosing = closingOdometer == null || (typeof closingOdometer === 'string' && closingOdometer.trim() === '')
-    ? null
-    : closingOdometer
-  return preservePwaResult(evaluateShiftStartRule('validateEndShiftEntry', {
-    closingOdometer: normalizedClosing,
-    startOdometer: normalizedStart,
-    confirmLargeDistance
-  }))
+  const start = blank(startOdometer) ? 0 : Number(startOdometer)
+  const closing = blank(closingOdometer) ? Number.NaN : Number(closingOdometer)
+  if (!Number.isFinite(closing) || closing < 0) {
+    return { valid: false, reason: 'CLOSING_ODOMETER_REQUIRED' }
+  }
+  if (!Number.isFinite(start) || closing < start) {
+    return { valid: false, reason: 'Closing odometer cannot be lower than the shift opening odometer.' }
+  }
+  const distanceKm = closing - start
+  if (distanceKm > LARGE_DISTANCE_WARNING_KM && confirmLargeDistance !== true) {
+    return {
+      valid: false,
+      reason: `Closing odometer is ${distanceKm} km above shift opening. Confirm this unusually high daily distance before ending the Shift.`,
+      distanceKm,
+      requiresConfirmation: true,
+    }
+  }
+  return { valid: true, closingOdometer: closing, distanceKm }
 }
 
 export { LARGE_DISTANCE_WARNING_KM }

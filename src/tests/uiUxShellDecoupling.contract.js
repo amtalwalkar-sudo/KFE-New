@@ -55,6 +55,11 @@ assert.equal(packageJson.scripts['ui:impact'], 'node tools/presentation-impact.m
 assert.match(impactTool, /PROTECTED_PREFIXES/)
 assert.match(impactTool, /CHANGE IMPACT WARNING/)
 assert.match(contract, /impact tool checks local import dependencies and reports shared class\/ID hooks/)
+assert.match(contract, /Dark Only/, 'The authoritative shell contract must preserve the dark-only product setting.')
+assert.doesNotMatch(contract, /Auto \/ Light \/ Dark|odometer gap gate|shift review|movement reconciliation|target\/progress/i, 'The shell contract must not restore retired themes, Work stages or targets.')
+assert.match(contract, /native command\/persistence adapter/, 'The native overlay must be documented as a platform-specific durable command adapter.')
+assert.doesNotMatch(contract, /Both surfaces .*same authoritative command path/, 'PWA and native overlay command adapters are distinct while sharing domain rules and canonical records.')
+
 
 // Shell may own routing and platform-level GPS status, but not business state,
 // business calculations, direct persistence or screen-store orchestration.
@@ -63,4 +68,21 @@ assert.match(shell, /<router-link/)
 assert.doesNotMatch(shell, /indexedDB|localStorage|useShiftTripStore|WorkService|PerformanceService|LoanService|calculateProfit|calculateEmi/i)
 assert.doesNotMatch(shell, /from ['"][^'"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/)
 
-console.log('UI/UX shell decoupling contract: PASS — one authority, obsolete rules removed, shell boundary checked, impact-warning workflow retained.')
+
+const adminView = await readFile(new URL('../views/AdminView.vue', import.meta.url), 'utf8')
+assert.doesNotMatch(adminView, /AdminReadModelService|PerformanceService|driverTarget|maintenanceRate|prepayment|amortization|break.?even|provision/i)
+assert.doesNotMatch(adminView, /CalculationsView|CalculationsService/, 'Retired calculations screen must not be wired into Admin')
+assert.match(adminView, /kfe:shell-scroll-top/, 'Admin screen must request viewport reset through a shell event')
+assert.doesNotMatch(adminView, /querySelector\(\s*['"]\.content-scroll-area/, 'Admin screen must not query shell-owned DOM')
+const workView = await readFile(new URL('../views/WorkModuleView.vue', import.meta.url), 'utf8')
+assert.doesNotMatch(workView, /from ['\"][^'\"]*(?:\/domain\/|\/repositories\/|\/infrastructure\/)/, 'Work view must not bypass application boundaries into domain, repositories, or infrastructure')
+assert.doesNotMatch(workView, /indexedDB|localStorage|\.transaction\(\s*\[/, 'Work view must not own direct durable persistence')
+assert.match(workView, /store\.beginPickup\(/, 'Pickup creation must route through the application-backed Work store')
+assert.match(workView, /store\.startRide\(/, 'Trip start must route through the application-backed Work store')
+assert.match(workView, /store\.endTrip\(/, 'Trip completion must route through the application-backed Work store')
+assert.match(workView, /createWorkDraftController\(/, 'Durable draft persistence must remain in its application controller')
+assert.match(workView, /createNativeWorkActionController\(/, 'Native action replay and acknowledgement must remain in its application controller')
+assert.doesNotMatch(workView, /WorkDraftService/, 'Work view must not import or call the draft service directly; the application controller owns the service dependency')
+assert.doesNotMatch(workView, /draftWriteQueue/, 'Work view must not reference the controller private write queue')
+
+console.log('UI/UX shell decoupling contract: PASS — one authority, shell boundary checked, Work commands routed through application-backed store/controllers, impact-warning workflow retained.')

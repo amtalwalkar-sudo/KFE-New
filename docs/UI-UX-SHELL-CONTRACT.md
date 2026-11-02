@@ -36,16 +36,17 @@ Dependencies flow from presentation toward application contracts; business/domai
 | Screen/view model | Screen-specific display projection, transient selection/focus/expanded state, dispatching intents | Independent calculations, direct DB writes, second state authority |
 | Reusable UI component | Its own rendering, local interaction mechanics, semantic events and accessibility | Business rules, route ownership, persistence, unrelated screen state |
 | Shell | Shared frame, navigation, safe areas, viewport/keyboard coordination, theme provider, global feedback/overlay hosting | Trip, fare, KM, EMI, profit, loan or target calculations; operational lifecycle authority |
-| Native adapter/overlay | Platform-specific presentation of authoritative app state and commands | A separate operational workflow or second source of truth |
+| Native adapter/overlay | Android-only UI, ride command adapter, durable native persistence and platform capabilities | Separate business rules, a competing lifecycle authority, or a second business history |
 
 Data flow:
 
 ```text
-User interaction → UI intent → application command → domain validation/rules
-→ authoritative persistence → read model → screen rendering
+PWA interaction → Work application command → domain rules → browser/Android repository adapter
+Android overlay interaction → native command adapter → same domain invariants → native SQLite transaction
+Both paths → one canonical record model → synchronization/read models → PWA and overlay rendering
 ```
 
-Rendering and animation never prove that an operation committed. A UI reports success only after the authoritative command returns confirmed success.
+Rendering and animation never prove that an operation committed. The PWA reports success only after its application/repository command confirms commit; the Android overlay reports success only after its native SQLite transaction confirms durable commit.
 
 ## 2. Shell ownership rules
 
@@ -158,20 +159,18 @@ Dialogs, sheets, toasts, diagnostic surfaces, native notifications and the Andro
 - Closing an overlay must preserve committed work and follow the owner's unsaved-input rule.
 - Background/telemetry status must not block a valid user action unless the authoritative business contract explicitly requires it.
 - PWA swipe bar and Android overlay are independent movable/minimizable surfaces; moving or minimizing one must not move/minimize the other.
-- Both surfaces reflect the same persisted operational state and invoke the same authoritative command path. Neither becomes a second workflow or state authority.
+- Both surfaces reflect the same canonical operational state and lifecycle/business rules. PWA commands use the Work application path; Android overlay commands use the native command/persistence adapter and durable SQLite transaction. The native event journal synchronizes committed records to the PWA read projection; it does not create a second business history or authority.
 - Theme/layout changes in the PWA must not silently change native Android layout. Native changes are a separately named impact surface and require native/overlay tests.
 
 ## 9. Theme
 
-KFE has one shared theme authority with **Auto / Light / Dark** modes. Components consume semantic tokens; they do not maintain independent theme palettes.
-
-Auto uses the configured day/night schedule (default 06:00–19:00 day and 19:00–06:00 night, subject to user-editable schedule). Theme changes affect presentation only and must never change calculations, records, timestamps, targets, shift timing or workflow state.
+KFE has one shared theme authority with **Dark Only** presentation. Components consume the shared dark semantic tokens; they do not maintain independent theme palettes or expose Auto/Light theme selection. Theme styling affects presentation only and must never change calculations, records, timestamps, shift timing or workflow state.
 
 Semantic tokens cover background, surfaces, primary/secondary/muted text, borders, accent, success, warning, error, information, focus, touch target, spacing and radii. Use the existing canonical CSS variables in `src/styles/kfe-ui.css`; do not create a parallel token palette or hard-code one-off colors where a semantic token exists.
 
 Visual language:
 - Clean, calm, professional and highly readable; avoid decoration that does not improve comprehension.
-- Information hierarchy: current state → important target/metric → primary action → critical status → supporting detail.
+- Information hierarchy: current state → important metric → primary action → critical status → supporting detail.
 - Reuse typography hierarchy, spacing scale, radii, icon treatment, focus states and semantic colors.
 - Light mode uses readable near-white surfaces; dark mode uses dark charcoal/navy and readable off-white text rather than pure-black glare.
 - Semantic color is never the only indicator; pair it with text, icon or structure.
@@ -244,11 +243,11 @@ General rules:
 
 Work is a driver cockpit, not a generic ERP dashboard. It prioritizes **current state → relevant context → one obvious next action** and uses one canonical state-driven composition.
 
-The established operational sequence remains owned by the Work/business contracts, including shift start and odometer gap gate, ready/online state, pickup, trip start/cancellation, active trip, trip completion/fare entry, next pickup, end shift, reconciliation, shift review and shift ended. This document does not redefine business eligibility or calculation rules.
+The current operational sequence is owned by the Work/business contracts: PWA shift start, ready state, pickup, trip start or cancellation, active trip, trip completion and fare entry/skip, next pickup, and PWA shift end.
 
 Presentation invariants:
 - One Work composition; do not restore a historical Work screen or introduce a parallel/hidden fallback implementation.
-- The top shift-state control, target/progress/timer context, current state/context, and primary action remain semantically identifiable. Their exact visual placement may be changed as a presentation-only request when the owner and impact checks show isolation.
+- The shift-state control, current state/time context, and primary action remain semantically identifiable. No retired target/provision/forecast metrics may be restored. Their exact visual placement may be changed as a presentation-only request when the owner and impact checks show isolation.
 - Work normal states should fit the viewport without page scroll; only genuinely long dynamic content may use its declared scroll region.
 - Fixed bottom navigation and the primary swipe surface must never overlap or hide required content.
 - The authoritative swipe actions remain exactly **GO TO PICKUP**, **START TRIP**, and **END TRIP** in the applicable workflow state. All use rightward handle drag, deliberate threshold, release-to-commit, safe early release, duplicate protection and the same authoritative command path.
@@ -258,7 +257,7 @@ Presentation invariants:
 - After trip completion, required fare entry appears immediately and remains until the authoritative fare operation succeeds. Required forms preserve input on validation/persistence failure.
 - Fuel/refuelling remains a compact secondary action, not a permanently expanded block. Short driver forms use the approved KFE input surface and remain viewport-fit/non-scrolling.
 - Driver UI does not calculate fare, trip distance, dead KM, target, fuel quantity, profit, EMI or other business figures independently.
-- The overlay/notification is a projection of persisted Work state; it must not become a separate operational state machine.
+- The Android overlay is a native ride-command surface backed by durable canonical records; it must not become a separate business history or competing operational state machine. Android notifications remain lifecycle notices only, not ride controls.
 - A visual relocation of the swipe bar is allowed; changing its command, commit threshold semantics, gesture ownership, fixed-position/safe-area contract, overlay parity or state transition is not a layout-only change and triggers a warning.
 
 ## 15. Forbidden coupling
@@ -271,7 +270,7 @@ The following are contract violations:
 - Domain/application modules import Vue, CSS, DOM or shell components.
 - Shared/global CSS changes are described as screen-local without checking every selector consumer.
 - One screen mutates another screen's transient state or reads its DOM to coordinate behavior.
-- Overlay/notification maintains a second trip state or independent command path.
+- Overlay/notification maintains a second trip history, competing business rules or an independent lifecycle authority.
 - A component replacement leaves a hidden legacy implementation or parallel interaction path.
 - UI reports success from an animation, optimistic local visual state or unconfirmed remote result.
 - A design/layout request silently changes route behavior, form requirements, persisted fields, calculations, business command payloads or native behavior.
@@ -307,9 +306,9 @@ Every changed surface must record evidence for each applicable row. A non-applic
 | Shell | Header, primary nav, content host, fixed regions | One shell; no duplicated nav/header; no overlap |
 | Work | All applicable operational states | State/context/action remain correct; no workflow change from layout |
 | Timeline | Day/week/month and empty/no-result states | Correct route, period controls and reporting semantics |
-| Performance | Metrics, period controls, details and provision/loan views | Canonical values/units/rounding unchanged |
-| Admin | Home, forms, finance and management areas | Fields/actions remain reachable; validation authority unchanged |
-| Theme | Auto, Light, Dark | No unreadable text, missing state or hard-coded conflicting surface |
+| Performance | Basic recorded-data metrics and period controls | Only recorded revenue, completed rides, cancellation fees, fuel spending, fuel cost/km and income after fuel are shown |
+| Admin | Four navigation categories, six source forms and essential settings/recovery | Fields/actions remain reachable; validation authority unchanged |
+| Theme | Dark Only | No light/auto theme controls or conflicting alternate surfaces |
 | Viewport | Narrow/wide and short/tall viewport | No clipping, unintended page scroll or unreachable control |
 | Keyboard | Native numeric/text keyboard open/closed | Focused field and completion action visible; short forms do not scroll |
 | Scrolling | Screen and local regions | Exactly intended region scrolls; fixed controls remain visible |
@@ -348,7 +347,7 @@ A green build or import-impact check alone is not UI or E2E sign-off.
 
 A request may be expressed as one concise change instruction, for example:
 
-> “Move the Work swipe bar below the target card. Keep its size, rightward gesture, threshold, command, state transitions, fixed navigation and Android overlay behavior unchanged.”
+> “Move the Work swipe bar below the current shift context. Keep its size, rightward gesture, threshold, command, state transitions, fixed navigation and Android overlay behavior unchanged.”
 
 Implementation must then:
 1. Identify the semantic component/region and its owning screen.

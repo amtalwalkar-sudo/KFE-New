@@ -38,14 +38,25 @@ assert.doesNotMatch(workUnmountCleanup, /androidOverlay\.hide\(/,
 const syncStart = workView.indexOf('async function syncOverlay()')
 const syncEnd = workView.indexOf('async function openStart()', syncStart)
 const sync = workView.slice(syncStart, syncEnd)
-assert.match(sync, /if \(!store\.isOnline \|\| document\.visibilityState === 'visible'\)/)
-assert.match(sync, /androidOverlay\.hide\(\)/,
-  'PWA shift end must cause overlay hide through the online-state reconciliation.')
+assert.match(sync, /if \(document\.visibilityState === 'visible'\) return/,
+  'Foreground minimization belongs to the shared Android lifecycle controller.')
+assert.match(sync, /if \(!store\.isOnline\) \{[\s\S]*?androidOverlay\.hide\(\)/,
+  'A hidden Work view must hide the overlay when its canonical shift has ended.')
+assert.doesNotMatch(workView, /addEventListener\('visibilitychange', syncOverlay\)/,
+  'The shared lifecycle controller must be the single visibility-change owner.')
 
 assert.match(overlayLifecycle, /if \(!active\?\.shift\?\.id\) return null/)
 assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.show\(state\)\s*else await AndroidOverlay\.hide\(\)/)
-assert.match(overlayLifecycle, /if \(state\) await AndroidOverlay\.update\(state\)\s*else await AndroidOverlay\.hide\(\)/,
-  'Background overlay restoration must hide rather than revive an overlay when no active shift exists.')
+assert.match(overlayLifecycle, /hiddenHandler = \(\) => \{[\s\S]*?showOverlayIfNeeded\(\)/,
+  'Background overlay restoration must load canonical state once when the app becomes hidden.')
+assert.doesNotMatch(overlayLifecycle, /setInterval|setTimeout|updateOverlayIfNeeded/,
+  'The overlay lifecycle must not poll canonical storage on a recurring timer.')
+assert.match(overlayLifecycle, /const collapseOverlayToBubble = async \(\) => \{[\s\S]*?activeOverlayState\(\)[\s\S]*?AndroidOverlay\.update\(state\)[\s\S]*?AndroidOverlay\.minimize\(\)/,
+  'Foreground resume must refresh the bubble once from canonical records before minimizing.')
+assert.match(nativeOverlayService, /refreshRideCountForShift\(store,shift\.optString\("id",""\)\)/,
+  'Native ride count refresh must follow canonical lifecycle commits.')
+assert.match(nativeOverlayService, /refreshRideCountForShift\(canonical,trip\.optString\("shiftId",""\)\)/,
+  'Native ride count refresh must follow canonical fare/cancellation commits.')
 
 assert.match(nativeOverlayService, /isCanonicalActiveShiftState\(context,\s*saved\)/,
   'Persisted overlay resume must consult canonical SQLite shift status, not trust a stale snapshot ID.')
@@ -69,4 +80,4 @@ assert.match(appEntry, /app\.config\.errorHandler\s*=\s*\(err,\s*instance,\s*inf
 assert.match(appEntry, /err\?\.stack/)
 assert.match(appEntry, /info/)
 
-console.log('PASS: PWA owns shift lifecycle; overlay visibility reconciles against active canonical shift; runtime screen exposes actionable diagnostics.')
+console.log('PASS: PWA owns shift lifecycle; overlay visibility reconciles against canonical shift; no recurring overlay poll remains.')

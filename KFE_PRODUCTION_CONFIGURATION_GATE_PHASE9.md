@@ -1,31 +1,15 @@
-# KFE Production Configuration Gate — Phase 9
+# KFE Production Configuration Gate
 
-**Date:** 2026-09-26  
-**Status:** COMPLETE / CLOSED — NON-DEVICE PASS
+**Status:** Automated configuration checks only. Physical-device acceptance is reported separately.
 
-## Evidence
+## Configuration checks
 
-The production configuration gate verifies the release-facing configuration without performing the deferred physical-device audit:
-
-- package version and Capacitor app ID are fixed;
-- Capacitor web output is dist;
-- PWA manifest has standalone display, scoped relative start URL, and required 192/512 icons;
-- production PWA assets and service worker exist after build;
-- service worker contains the current cache boundary and retry/backup message hooks;
-- service worker has no localhost/emulator development endpoint;
-- Android manifest does not request background location or enable debug mode;
-- Android backup remains disabled;
-- selected production source paths contain no obvious hard-coded password/API-key literals;
-- the authoritative roadmap remains aligned with the Phase 9 gate.
-
-Automated result: **PASS** on the release-gated main CI.
+- Package version, Capacitor application ID, web output directory, PWA manifest, and required icons match the production build.
+- The service worker provides the offline shell and mutation-outbox retry notification. It does not schedule periodic internet work.
+- Android foreground-location permissions support the native event GPS workflow; debug mode is disabled and Android backup is disabled.
+- Phone backup exports validated JSON. In-app recovery checkpoints protect restore/reset. No cloud credential, cloud upload scheduler, or automatic connectivity polling is required.
+- Production source paths contain no hard-coded password or API-key literals.
 
 ## Device boundary
 
-Physical Android testing remains deferred until after Phase 13 and is not represented as PASS by this gate.
-
-## Exit decision
-
-**Phase 9 COMPLETE / CLOSED — NON-DEVICE PASS.**
-
-**Phase 10 — Release Candidate Freeze ACTIVE.**
+CI configuration contracts and generated artifacts do not prove physical-device behavior. Report Android build/smoke results and phone verification separately.

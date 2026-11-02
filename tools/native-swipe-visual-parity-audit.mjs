@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { SWIPE_CONFIG } from '../src/domain/work/swipeConfig.js'
+import { SWIPE_CONFIG } from '../src/presentation/work/swipeConfiguration.js'
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..')
 const css=fs.readFileSync(path.join(root,'src/styles/kfe-ui.css'),'utf8')
 const java=fs.readFileSync(path.join(root,'android/app/src/main/java/com/kanishka/pwa/KfeOverlayService.java'),'utf8')

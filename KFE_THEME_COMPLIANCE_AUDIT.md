@@ -1,42 +1,14 @@
-# KFE PWA Theme Compliance Audit
+# KFE Theme Compliance — Current Scope
 
-**Status:** Enforced in CI  
-**Scope:** PWA presentation/theme layer only
+**Status:** Dark-only theme is the product requirement.
 
-## Audit result
+## Required behavior
 
-The PWA now has one canonical visual theme source: `src/styles/kfe-ui.css`.
+- Work, Timeline, Performance, Admin, and native overlay use the same dark visual language.
+- Application Settings may expose notification preferences, but must not offer Light or Auto theme modes.
+- Shared components use common design tokens; route-specific cosmetic overrides must not create separate theme authorities.
+- Mobile layouts must fit the viewport without horizontal overflow or overlapping form actions.
 
-The audit found and removed three competing/obsolete palette sources:
-- `src/styles/glassmorphic-polish.css`
-- `src/styles/theme-adaptation.css`
-- `src/assets/styles/tokens.css`
+## Boundaries
 
-The active shell no longer imports the glassmorphic layer. Form, finance, Work, and baseline shell presentation styles were also changed to consume canonical KFE theme tokens rather than fixed palette fallbacks.
-
-## Theme rule
-
-KFE supports **Dark theme only**. `src/presentation/theme/kfeThemeController.js` forces and persists `dark` in `kfe.visual.theme.mode`, migrating any legacy `light` or `auto` preference to `dark`. Device `prefers-color-scheme` must not affect the app palette. Shared presentation styles consume the canonical `--kfe-ui-*`, semantic status, spacing, radius, and sizing tokens; the canonical stylesheet owns the dark palette and individual screens must not define their own theme.
-
-**Shared-surface impact review (2026-10-27):** app bootstrap starts the controller once for the shared document root. Work, Timeline, Performance, and Admin consume the same canonical stylesheet; no route-local palette or native Android implementation was changed. Runtime smoke and UI/contract gates cover dark state, legacy preference migration, settings visibility, and route behavior.
-
-Business rules, calculations, persistence, repositories, Work state transitions, form submission semantics, frozen swipe mechanics, and native Android behavior are outside this audit and were not changed.
-
-## Permanent guard
-
-`npm run ui:theme-audit` now checks:
-1. canonical theme stylesheet imports;
-2. absence of competing palette imports/files;
-3. canonical light/dark token definitions and supported mode resolution;
-4. fixed non-semantic colour literals in CSS;
-5. fixed RGB/RGBA palettes outside the canonical theme;
-6. component-local `<style>` blocks;
-7. local redefinition of canonical theme tokens.
-
-The same audit is included in `npm test` through `themeCompliance.contract.js`.
-
-## Runtime coverage
-
-The existing Phase 4 runtime visual verification checks theme changes through the canonical `kfe.visual.theme.mode` setting and verifies that the shared `--kfe-ui-bg` token changes between resolved modes. Application Settings also exposes a persisted Notifications preference through `ApplicationSettingsService`. This preference is kept separate from the native Work action bridge; it does not reintroduce the retired ride-notification feature.
-
-**Conclusion:** future theme changes are now governed as a PWA-wide presentation concern rather than as independent screen palettes.
+This document covers visual consistency only. It does not define ride lifecycle, GPS capture, data persistence, or Performance calculations; those remain governed by their own current contracts.

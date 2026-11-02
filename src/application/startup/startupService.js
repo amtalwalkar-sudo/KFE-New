@@ -1,10 +1,15 @@
-import { reactive } from 'vue'
-
-const startupState = reactive({
-  status: 'starting',
-  error: null,
-  elapsedMs: 0,
-})
+const startupState = { status: 'starting', error: null, elapsedMs: 0 }
+const startupStateListeners = new Set()
+const updateStartupState = patch => {
+  Object.assign(startupState, patch)
+  for (const listener of startupStateListeners) listener({ ...startupState })
+}
+export const subscribeStartupState = listener => {
+  if (typeof listener !== 'function') throw new TypeError('Startup state listener must be a function.')
+  startupStateListeners.add(listener)
+  listener({ ...startupState })
+  return () => startupStateListeners.delete(listener)
+}
 
 let platform = null
 let activeAttempt = null
@@ -30,70 +35,31 @@ export const initializeApplication = async () => {
   const [
     { MutationRepository },
     { BackupService },
-    { CloudBackupLifecycle },
-    { DiagnosticService },
   ] = await Promise.all([
     import('../../repositories/mutationRepository.js'),
     import('../backup/backupService.js'),
-    import('../backup/cloudBackupLifecycle.js'),
-    import('../../infrastructure/diagnostics/diagnosticService.js'),
   ])
 
-  DiagnosticService.start('KFE startup')
   void platform.registerServiceWorker()
-    .then(() => DiagnosticService.checkpoint('Service worker lifecycle scheduled'))
     .catch(error => {
-      DiagnosticService.error('Service worker lifecycle failed', error)
       console.warn('KFE service worker registration unavailable:', error)
     })
 
-  DiagnosticService.waiting('Storage initialization', 'Opening the active KFE IndexedDB database.')
-  try {
-    await platform.initializeStorage()
-    DiagnosticService.checkpoint('Storage initialized')
-    // A pending reset must finish before stale outbox/create-intent work can replay.
-    DiagnosticService.waiting('Reset recovery', 'Checking for an interrupted cross-store reset.')
-    await BackupService.recoverPendingReset()
-    DiagnosticService.checkpoint('Reset recovery complete')
-    // A restore journal may represent a process death between SQLite and
-    // IndexedDB. Finish the same idempotent restore before replaying mutations.
-    DiagnosticService.waiting('Backup restore recovery', 'Resuming an interrupted offline backup restore if needed.')
-    await BackupService.recoverPendingRestore()
-    DiagnosticService.checkpoint('Backup restore recovery complete')
-    DiagnosticService.waiting('Mutation recovery', 'Recovering stale canonical SYNCING mutations.')
-    await MutationRepository.recoverStaleSyncing()
-    DiagnosticService.checkpoint('Mutation recovery complete')
-  } catch (error) {
-    DiagnosticService.error('Critical startup recovery failed', error)
-    throw error
-  }
+  await platform.initializeStorage()
+  // A pending reset must finish before stale outbox/create-intent work can replay.
+  await BackupService.recoverPendingReset()
+  // A restore journal may represent a process death between SQLite and
+  // IndexedDB. Finish the same idempotent restore before replaying mutations.
+  await BackupService.recoverPendingRestore()
+  await MutationRepository.recoverStaleSyncing()
 
-  DiagnosticService.checkpoint('First-render infrastructure ready')
   void (async () => {
     try {
       // Trip lifecycle and canonical work records are persisted by the work
       // lifecycle; startup does not collect or recover continuous movement traces.
       await BackupService.maybeDailyLocalBackup()
-      DiagnosticService.checkpoint('Local backup lifecycle scheduled')
     } catch (error) {
-      DiagnosticService.error('Local backup deferred', error)
       console.warn('KFE local backup deferred:', error)
-    }
-  })()
-  void (async () => {
-    try {
-      const backgroundBackupRegistered = await CloudBackupLifecycle.registerDailyCloudBackupSchedule()
-      DiagnosticService.checkpoint(backgroundBackupRegistered ? 'Cloud backup background schedule registered' : 'Cloud backup is foreground-only; retries on startup, app visibility and connectivity')
-    } catch (error) {
-      DiagnosticService.error('Cloud backup schedule failed', error)
-      console.warn('KFE cloud backup schedule registration failed:', error)
-    }
-    try {
-      await CloudBackupLifecycle.maybeDailyCloudBackup()
-      DiagnosticService.checkpoint('Cloud backup lifecycle checked')
-    } catch (error) {
-      DiagnosticService.error('KFE cloud backup lifecycle failed', error)
-      console.warn('KFE cloud backup lifecycle failed:', error)
     }
   })()
   return { ready: true }
@@ -102,21 +68,17 @@ export const initializeApplication = async () => {
 export const startApplication = () => {
   if (activeAttempt) return activeAttempt
   const startedAt = Date.now()
-  startupState.status = 'starting'
-  startupState.error = null
-  startupState.elapsedMs = 0
-  timer = setInterval(() => { startupState.elapsedMs = Date.now() - startedAt }, 250)
+  updateStartupState({ status: 'starting', error: null, elapsedMs: 0 })
+  timer = setInterval(() => updateStartupState({ elapsedMs: Date.now() - startedAt }), 250)
   activeAttempt = initializeApplication()
     .then(result => {
       clearTimer()
-      startupState.elapsedMs = Date.now() - startedAt
-      startupState.status = 'ready'
+      updateStartupState({ elapsedMs: Date.now() - startedAt, status: 'ready' })
       return result
     })
     .catch(error => {
       clearTimer()
-      startupState.error = error?.message || 'Application initialization failed.'
-      startupState.status = 'error'
+      updateStartupState({ error: error?.message || 'Application initialization failed.', status: 'error' })
       throw error
     })
   return activeAttempt
@@ -125,9 +87,7 @@ export const startApplication = () => {
 export const resetStartupAttempt = () => {
   activeAttempt = null
   clearTimer()
-  startupState.status = 'starting'
-  startupState.error = null
-  startupState.elapsedMs = 0
+  updateStartupState({ status: 'starting', error: null, elapsedMs: 0 })
   return startApplication()
 }
 

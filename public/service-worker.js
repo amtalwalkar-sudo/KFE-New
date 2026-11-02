@@ -26,10 +26,6 @@ self.addEventListener('sync', event => {
   if (event.tag === 'kfe-outbox-retry') event.waitUntil(notifyClients('kfe:outbox-retry'))
 })
 
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'kfe-daily-cloud-backup') event.waitUntil(notifyClients('kfe:daily-cloud-backup'))
-})
-
 async function notifyClients(type) {
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
   clients.forEach(client => client.postMessage({ type }))

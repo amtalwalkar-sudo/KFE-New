@@ -1,3 +1,5 @@
+import { normalizeTripInput } from '../canonicalNormalization.js'
+
 export const WORK_TRIP_OPERATORS = Object.freeze(['Uber', 'One way', 'Rapido', 'Ola', 'Savaari'])
 
 export function validateTripOperator(operator) {
@@ -7,47 +9,18 @@ export function validateTripOperator(operator) {
   return { valid: true, operator }
 }
 
-export function validateTripCorrection(data = {}) {
+export function validateTripDetails(data = {}) {
   const result = {}
-  if (data.operator !== undefined) {
-    const operator = validateTripOperator(data.operator)
-    if (!operator.valid) return operator
-    result.operator = operator.operator
-  }
-  if (data.tripKm !== undefined && data.tripKm !== '') {
-    const tripKm = Number(data.tripKm)
-    if (!Number.isFinite(tripKm) || tripKm < 0) return { valid: false, reason: 'Trip KM must be a non-negative number.' }
-    result.tripKm = tripKm
-    result.tripKmAuthority = 'MANUAL'
-    result.tripKmProvenance = { method: 'MANUAL_CORRECTION', source: 'WORK_TRIP_CORRECTION' }
-  }
   if (data.revenue !== undefined) {
-    if (data.revenue === '' || data.revenue === null) {
-      // Explicitly clearing a previously saved fare is different from omitting
-      // the field: persist null so reconciliation reports it as unpriced.
-      result.revenue = null
-    } else {
-      const revenue = Number(data.revenue)
-      if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip revenue must be a non-negative number.' }
-      result.revenue = revenue
-    }
+    const revenue = Number(data.revenue)
+    if (!Number.isFinite(revenue) || revenue < 0) return { valid: false, reason: 'Trip fare must be a non-negative number.' }
+    result.revenue = revenue
   }
   for (const field of ['toll', 'parking']) {
     if (data[field] === undefined || data[field] === '') continue
     const amount = Number(data[field])
     if (!Number.isFinite(amount) || amount < 0) return { valid: false, reason: `Trip ${field} must be a non-negative number.` }
     result[field] = amount
-  }
-  for (const field of ['tollTreatment', 'parkingTreatment']) {
-    if (data[field] === undefined) continue
-    const treatment = String(data[field] || '').toUpperCase()
-    if (!['INCLUDED', 'EXCLUDED'].includes(treatment)) return { valid: false, reason: `Trip ${field} must be INCLUDED or EXCLUDED.` }
-    result[field] = treatment
-  }
-  if (data.cancelReason !== undefined) {
-    const cancelReason = String(data.cancelReason || '').trim()
-    if (!cancelReason) return { valid: false, reason: 'Cancellation reason is required.' }
-    result.cancelReason = cancelReason
   }
   if (data.fareDetailsSkipped !== undefined) {
     if (typeof data.fareDetailsSkipped !== 'boolean') return { valid: false, reason: 'Fare detail skip state must be boolean.' }
@@ -56,12 +29,23 @@ export function validateTripCorrection(data = {}) {
   return { valid: true, ...result }
 }
 
-export function calculateTripRevenueDetail(trips = []) {
-  // Supporting ride-detail total only. ERP revenue authority remains Shift.revenue.
-  return trips
-    .filter(trip => trip?.status === 'COMPLETED')
-    .reduce((total, trip) => {
-      const revenue = Number(trip?.revenue)
-      return total + (Number.isFinite(revenue) && revenue >= 0 ? revenue : 0)
-    }, 0)
+/**
+ * Apply validated fare/detail facts to an existing completed Trip.
+ * Shared by browser repository writes and the native-first Work application path.
+ * Shift revenue is projected separately from canonical Trip facts.
+ */
+export function applyTripDetails(trip, data, now) {
+  if (!trip?.id || trip.status !== 'COMPLETED') throw new Error('Trip details can only be saved after a completed ride.')
+  const normalized = normalizeTripInput(data)
+  const next = { ...trip }
+  if (normalized.revenue !== undefined) next.revenue = normalized.revenue
+  for (const field of ['toll', 'parking', 'fareDetailsSkipped']) {
+    if (normalized[field] !== undefined) next[field] = normalized[field]
+  }
+  // Retire the old per-Trip revenue authority marker. Shift.revenue is the
+  // sole shift-level projection; Trip fare is a supporting source fact.
+  delete next.revenueAuthority
+  delete next.revenueProvenance
+  next.updatedAt = now
+  return next
 }

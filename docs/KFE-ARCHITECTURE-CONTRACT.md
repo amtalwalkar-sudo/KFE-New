@@ -3,11 +3,11 @@
 **Status:** AUTHORITATIVE
 **Purpose:** Single human-readable authority for KFE ownership, boundaries, data authority, replaceability and implementation constraints.
 
-This document consolidates the accepted architectural principles from the Master Blueprint and architecture/data/ownership/field-level boundary work. It does not define business meaning or formulas. Business meaning belongs to `KFE_BUSINESS_RULES_REGISTER.md`; arithmetic/formula mechanics belong to `docs/KFE-CALCULATION-SPECIFICATION.md`.
+This document defines architecture and ownership boundaries. Product scope and business meaning, including the supported basic Performance calculations, belong to `KFE_BUSINESS_RULES_REGISTER.md`.
 
 ## 1. Governing architecture rule
 
-> **ONE RESPONSIBILITY → ONE OWNER → ONE AUTHORITATIVE SOURCE → ONE IMPLEMENTATION PATH**
+> **ONE BUSINESS RESPONSIBILITY → ONE SEMANTIC OWNER → ONE CANONICAL AUTHORITY → ONLY NECESSARY PLATFORM ADAPTERS**
 
 KFE must not accumulate parallel implementations merely because historical versions contained them.
 
@@ -30,18 +30,21 @@ This is a permanent KFE implementation rule.
 ```text
 Presentation
     ↓
-Application
-    ↓
-Domain
-    ↓
-Repository Contracts
-    ↓
-Persistence / Infrastructure
-    ↓
-ONE AUTHORITATIVE LOCAL DATABASE
+Application use cases / orchestration
+    ├── Domain rules and calculations
+    └── Repository boundary
+             ↓
+       Persistence adapters
+          ├─ Browser PWA: IndexedDB
+          └─ Android Work/GPS: SQLite
+
+Infrastructure platform adapters implement application-owned runtime ports.
+The composition root selects those adapters; the application never imports them.
+
+ONE LOGICAL CANONICAL STATE — DURABLE PLATFORM STORES MUST CONVERGE
 ```
 
-External providers sit behind infrastructure adapters.
+Any external provider used by an explicitly approved current capability sits behind an infrastructure adapter.
 
 ## 3. Ownership
 
@@ -63,19 +66,18 @@ External providers sit behind infrastructure adapters.
 | Backup/restore | Persistence + infrastructure boundary |
 | Sync | Persistence + infrastructure boundary |
 | Android/native capability | Capacitor/native boundary |
-| OCR/AI provider | Infrastructure |
 | Cloud/backup provider | Infrastructure |
 | Notifications | Infrastructure/native boundary |
 
 No layer may silently assume ownership already assigned to another layer.
 
-## 4. Calculation authority
+## 4. Basic Performance calculation boundary
 
-- Business calculations exist in one authoritative domain calculation path.
-- Presentation must consume calculated/read-model values rather than reproduce formulas.
-- Application coordinates calculations but does not redefine business arithmetic.
+- Only the recorded-data calculations explicitly defined in `KFE_BUSINESS_RULES_REGISTER.md` are in scope.
+- Presentation consumes the basic Performance read model rather than reproducing formulas.
+- Application coordinates the read model and does not introduce additional financial models.
 - Provider adapters never calculate KFE business meaning.
-- Machine-readable calculation metadata may exist for tooling, but it must agree with the human-readable calculation specification.
+- Historical calculation registries/specifications do not authorize additional product behavior.
 
 ## 5. Data authority
 
@@ -98,16 +100,20 @@ Derived values must be reconstructable from authoritative persisted records wher
 ## 6. Persistence boundary
 
 - Local KFE data is authoritative and local-first.
+- KFE has one **logical canonical state and business/data contract**, not one physical database shared across browser and Android runtimes.
+- In browser-only operation, IndexedDB is the local durable commit store. On Android, Work and overlay commands use native SQLite as the durable commit authority; IndexedDB is synchronized as the PWA projection/read model.
+- Native collection reads for Work reconciliation, GPS history and backup share `CanonicalWorkBoundary.listAllRecords`. It validates page offsets, stable total counts, unique record IDs and complete row counts; incomplete or changing snapshots fail closed. No consumer may silently treat a fixed first page as the complete canonical history.
+- A command is not committed merely because a UI or queue accepted it: the runtime's authoritative durable commit must be acknowledged before success is surfaced.
+- Cross-runtime replay uses stable record/event/operation identity, idempotency checks, stale-write protection, and explicit convergence. Neither store may independently redefine business meaning or calculate a competing result.
 - Business/domain/application layers must not depend directly on a particular cloud/backup provider.
-- Persistence is accessed through repository contracts.
-- Backup/restore and sync operate against the authoritative persisted model rather than becoming alternate business-data authorities.
+- Persistence is accessed through repository/canonical-command contracts.
+- Backup/restore and sync operate against the logical canonical model rather than becoming alternate business-data authorities.
 - Raw authoritative records remain recoverable.
 
 ## 7. Provider independence
 
 The following are replaceable infrastructure concerns:
 
-- OCR/AI provider
 - cloud backup provider
 - sync provider
 - native storage capability
@@ -128,23 +134,80 @@ provider
 
 Business logic must never become provider-specific.
 
-## 8. Ride capture boundary
+### 6.1 Runtime ports and composition root
 
-Ride capture is an input pipeline, not a new business-data authority.
+The application owns the runtime-port contracts; infrastructure supplies their implementations.
 
 ```text
-Screenshot
-   ↓
-Multimodal extraction provider
-   ↓
-KFE validation
-   ↓
-Review/confirmation
-   ↓
-Authoritative ride record
+src/main.js (single composition root)
+        ↓ installs once, before Vue mount
+src/infrastructure/work/workRuntimeAdapter.js
+        ↓ implements
+src/application/work/workRuntimePorts.js (application-owned port contracts)
+        ↓ consumed by
+application use cases
 ```
 
-The extraction provider may change without changing KFE business rules or the authoritative ride record contract.
+- Application modules may import application-owned port contracts, but must not import concrete infrastructure adapters, Capacitor packages, browser APIs for platform capabilities, or native plugin instances.
+- The composition root is the only place that chooses and installs runtime implementations. It must install them before router construction or screen setup can call a port.
+- Browser and Android implementations are adapters behind the same application contract; a port must not contain platform branching or business rules.
+- The machine-readable layer registry allows Infrastructure to import the application-owned port contract for binding; it does not allow Application to import Infrastructure. This is dependency inversion, not a circular runtime dependency.
+
+## 7.1 Capacitor plugin registration
+
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the only JavaScript module allowed to import `@capacitor/core` or call `registerPlugin()`.
+- Android capability adapters consume the registered plugin instances and translate them into narrow KFE infrastructure services.
+- Presentation, application and domain layers must never import Capacitor plugins or register native plugins.
+- Adding or replacing a native plugin requires updating the registry and the architecture contract test; it must not create a parallel registration path.
+
+## 7.2 PWA and Android runtime ownership
+
+- `src/main.js` is the single JavaScript composition root. It installs runtime ports, mounts the Vue application, and starts the post-mount bootstrap once.
+- `src/infrastructure/capacitor/nativePluginRegistry.js` is the sole JavaScript plugin-registration point. `MainActivity` registers the matching native plugin classes once. The architecture contract test compares both registration lists and fails on missing, duplicate, or extra plugin registrations.
+- `PlatformStartup` owns browser service-worker registration; no view, store or other startup module registers another service worker.
+- `StartupService` owns canonical IndexedDB initialization and recovery ordering. Startup and permission-gate application services publish plain state snapshots; `src/presentation/startup/useStartupUiState.js` owns Vue reactivity and subscribes to those snapshots. Application services must not import Vue/Pinia or expose framework-reactive state.
+- On browser PWA, IndexedDB is the durable canonical store. On Android, SQLite is the durable Work/GPS event store; IndexedDB is the synchronized PWA read model. Stable IDs, idempotent operations and explicit acknowledgements preserve one logical record history.
+- Native overlay commands are Android capability commands. Shift start/end remain PWA-owned. Both PWA-originated Android ride transitions and overlay ride transitions use the same native SQLite lifecycle command boundary; overlay commands additionally replay/acknowledge through the durable native event journal. The transaction enforces the expected prior Trip stage, active Shift status and compare-and-set Trip version before accepting GO_TO_PICKUP, START_RIDE, END_RIDE or pre-ride CANCEL_RIDE. Native SQLite also enforces at most one active Shift and rejects Shift completion while any non-deleted Trip remains active. The PWA must complete FIFO replay of the native event journal before enabling Work mutations; a failed SQLite queue read or unconfirmed event is a recovery-blocked state, never an empty queue. Generic native `putRecord` cannot create or replace Trip records. Trip changes use guarded lifecycle/form commands; backup restore uses a separate insert-only restore command that verifies the parent Shift.
+- Domain code owns the semantic definition of recorded Shift revenue. Android SQLite may mirror that exact deterministic rule inside its native transaction because overlay fare/cancellation submissions must remain durable while the WebView is closed. This is a persistence projection only: it may not introduce a second inclusion rule, metric, or financial authority. The native store must use one projection helper for every Trip write/form commit, and parity tests must compare it with the domain rule.
+- Native GPS collection owns only the four event-time coordinate snapshots. It does not own ride timestamps, locality labels, ride distance or Timeline presentation.
+- Dropbox backup runs in the live app/WebView context only; no service-worker or native background polling is used. Android backup and restore must include authoritative native SQLite Shift, Trip and GPS snapshot records; if SQLite is unavailable or pagination is incomplete, the operation fails closed rather than exporting/restoring a partial browser projection.
+- `App.vue` owns permission-gate and runtime-error presentation. Its reactive state comes from the presentation startup composable. `main.js` configures the Vue error handler and dispatches a runtime-error event; it does not construct fallback presentation DOM.
+- App presentation uses the shared presentation stylesheets. Do not add inline `style` attributes or component-local `<style>` blocks to App, views or app components.
+
+### 7.3 GPS and locality retry ownership
+
+- Native Android owns event-time coordinate capture at exactly `PICKUP_START`, `TRIP_START`, `TRIP_END` and `TRIP_CANCELLED`; no continuous tracking or GPS-derived ride distance is permitted.
+- The native journal is committed before location acquisition. A fix is eligible only when its provider timestamp is at or after the original event timestamp and less than 30 seconds after it. The active request stops at that event-time boundary, not 30 seconds after a later retry starts. A valid fix at 75 metres or better is accepted; a valid fix without accuracy metadata may be stored but is not eligible for locality lookup.
+- If capture is interrupted, retain the pending event only until its original 30-second event-time window expires. Resume only on a later ride event, app open, or explicit GPS-status refresh while that window remains open. Once expired, discard the pending request and show no location; never attach a later fix or schedule a timed/idle GPS retry.
+- GPS capture never initiates locality resolution or polls for a newly captured snapshot. PWA locality resolution is initiated only by the explicit Timeline pull-to-refresh action, for eligible unresolved snapshots. No connectivity polling, automatic locality attempt, locality retry timer, or background geocoding queue is allowed.
+- Timeline pull-to-refresh is the single manual entry point for unresolved eligible snapshots across all four event types. Display semantics remain separate: pickup uses `PICKUP_START`, completed drop uses `TRIP_END`, and cancellation is never presented as a passenger drop-off.
+
+## 8. Work and event capture boundary
+
+Work capture is an operational workflow, not a new business-data authority.
+
+```text
+PWA Work screen
+        ↓
+WorkService + Domain rules
+        ↓
+Browser IndexedDB / Android SQLite adapter
+
+Android ride overlay (WebView may be closed)
+        ↓
+Native overlay command service + bounded native invariants
+        ↓
+Android SQLite canonical records + durable native event journal
+        ↓
+PWA event replay / acknowledgement → IndexedDB projection
+
+Timeline / basic Performance read the canonical PWA application model
+```
+
+- Shift start/end are PWA-owned. PWA Work actions use WorkService; Android overlay ride actions use the native command adapter because the WebView may be unavailable. Both mutate the same canonical Shift/Trip model and must preserve the same lifecycle invariants; there is one record history, not two.
+- PWA fare/cancellation/fuel forms use the Work application-service/repository path. Android overlay fare/cancellation forms use the single native SQLite transaction boundary documented in `docs/NATIVE-TRIP-FORM-TRANSACTION.md`; the PWA replays the durable event to synchronize and acknowledge, not to create a second commit. Native input and persistence guards are bounded to the same canonical validation rules.
+- UI forms do not write canonical records directly; the native overlay calls the native command/persistence adapter, not the database from a view/widget.
+- Timeline is read-only. It does not capture GPS or mutate Work records.
 
 ## 9. Change isolation / bounded impact
 
@@ -170,13 +233,35 @@ Presentation contracts define presentation behavior; historical UI documents are
 
 ## 11. Repository and service rules
 
-- No duplicate repository for the same authoritative record type.
+- No competing repository authority for the same canonical record type. Browser IndexedDB and Android SQLite adapters may both exist only to implement the same canonical model and must preserve identical business meaning.
 - No direct infrastructure access from domain calculations.
 - No browser/native/provider lifecycle code inside domain logic.
 - No UI-owned persistence authority.
 - No duplicate calculation service that can produce a competing answer.
 - If a service is replaced, references to the obsolete implementation are removed in the same run.
 - The consolidation / keep-one rule in §1.1 applies to every implementation path, not only repositories and services.
+
+### 11.1 Admin form and data path
+
+The one active Admin source-record path is:
+
+```text
+AdminView / AdminSourceForm (presentation)
+        ↓
+AdminService + form definitions + validation (application)
+        ↓
+AdminRepository (canonical persistence boundary)
+        ↓
+IndexedDB canonical stores + mutation/audit records
+```
+
+- AdminView owns navigation, transient selection, loading/error state and form orchestration only.
+- AdminSourceForm owns input rendering and non-authoritative draft recovery through FormDraftService; it does not write canonical business records.
+- AdminService is the single owner of Admin form normalization/validation and use-case orchestration.
+- AdminRepository must not import application form definitions or validation. It owns canonical transactions, relationship integrity, soft deletion, mutation records and audit history.
+- Parent/child relationship checks and record deletion must occur in the same repository transaction.
+- Admin forms store source facts. Loan records may display one read-only monthly EMI estimate derived by the domain calculation from principal, tenure and annual rate. EMI is not persisted. No amortization, repayment schedule/history, remaining-balance tracking, prepayment, payment allocation or loan ledger is active.
+- Backup/restore remains a separate persistence workflow and must preserve legacy stores without exposing retired workflows in Admin.
 
 ## 12. Replace-and-delete rule
 
@@ -240,6 +325,8 @@ Presentation may:
 - maintain transient UI state;
 - communicate validation/recovery status.
 
+The Work-only timer identity and interrupted-form session marker live in `src/presentation/workflowUiState.js`. They are non-authoritative UI restoration hints only; field drafts use the form-draft application/repository path, and canonical Shift/Trip state is always reconstructed from authoritative records.
+
 Presentation must not:
 
 - become the source of truth;
@@ -295,14 +382,12 @@ A calculation regression must be caught by deterministic calculation vectors rat
 
 The authoritative human-readable contracts have distinct scopes:
 
-1. `KFE_BUSINESS_RULES_REGISTER.md` — what KFE means; sole business-rule authority.
-2. `docs/KFE-CALCULATION-SPECIFICATION.md` — how KFE calculates.
-3. `docs/KFE-ARCHITECTURE-CONTRACT.md` — architecture, layer ownership, data authority and implementation boundaries.
-4. `docs/UI-UX-SHELL-CONTRACT.md` — presentation, shell, screen/component ownership, visual/interaction rules and UI/E2E verification.
+1. `KFE_BUSINESS_RULES_REGISTER.md` — product scope and business meaning; sole business-rule authority.
+2. `docs/KFE-ARCHITECTURE-CONTRACT.md` — architecture, layer ownership, data authority and implementation boundaries.
+3. `docs/UI-UX-SHELL-CONTRACT.md` — presentation, shell, screen/component ownership, visual/interaction rules and UI/E2E verification.
 
 When a concern crosses scopes, each contract governs its own responsibility: this architecture contract governs layer boundaries; the UI/UX & Shell Contract specializes presentation behavior and cannot override business/domain authority.
 
-`spec/calculations/index.json` is a machine-readable calculation registry, not a competing human-readable specification.
 
 Historical audit/consolidation documents must not become current authority.
 

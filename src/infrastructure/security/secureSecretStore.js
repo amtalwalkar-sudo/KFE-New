@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, NativePlugins } from '../capacitor/nativePluginRegistry.js'
 
-const NativeSecureStorage = registerPlugin('KfeSecureStorage')
+const NativeSecureStorage = NativePlugins.secureStorage
 const WEB_DB_NAME = 'kfe_secure_secret_store'
 const WEB_DB_VERSION = 1
 const WEB_STORE = 'secrets'

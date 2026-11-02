@@ -10,7 +10,6 @@ const admin = read('repositories/adminRepository.js')
 const shiftTrip = read('repositories/shiftTripRepository.js')
 const canonicalWorkRecords = read('domain/work/canonicalWorkRecords.js')
 const fuel = read('repositories/fuelRepository.js')
-const odo = read('repositories/odoGapRepository.js')
 const mutation = read('repositories/mutationRepository.js')
 const contract = fs.readFileSync(path.join(root, '..', 'docs', 'KFE-PHASE-2-PERSISTENCE-CONTRACT.md'), 'utf8')
 
@@ -18,20 +17,19 @@ console.log('--- Running KFE Phase 2 Local-First Persistence Contract Tests ---'
 
 assert(db.includes("const CANONICAL_DB_NAME = 'kanishka_kfe_canonical_db'"), 'Canonical local DB missing')
 assert(/CANONICAL_DB_VERSION\s*=\s*\d+/.test(db), 'Versioned schema missing')
-assert(db.includes('indexedDB.open(name, dbVersionFor(name))'), 'Versioned IndexedDB open missing')
+assert(db.includes('indexedDB.open(name, CANONICAL_DB_VERSION)'), 'Versioned canonical IndexedDB open missing')
 assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
 const version = Number(db.match(/CANONICAL_DB_VERSION\s*=\s*(\d+)/)?.[1])
-assert(version === 16, 'Canonical DB must be version 16 after canonical operation outcome migration')
+assert(version === 18, 'Canonical DB must be version 18 after retired-store removal.')
 assert(contract.includes('cloud service must not be required'), 'Local-first boundary missing')
 
-const stores = ['financial_period_snapshots','canonical_operations','shifts','trips','fuel_logs','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','pending_mutations','audit_history']
+const stores = ['canonical_operations','shifts','trips','fuel_logs','gps_snapshots','locality_labels','vehicles','drivers','compliance_records','maintenance_records','loans','settings','pending_mutations','audit_history','form_drafts']
 for (const store of stores) assert(db.includes(`'${store}'`), `Canonical store missing: ${store}`)
 assert(!db.includes("createSimpleStore(db, 'driver_collected_data'"), 'Removed driver-collected store must not be recreated')
-assert(db.includes("deleteObjectStore('driver_collected_data')"), 'Removed driver-collected store migration missing')
-assert(db.includes("deleteObjectStore('admin_records')"), 'Retired admin store migration missing')
-assert(db.includes("deleteObjectStore('financial_inputs')"), 'Retired financial store migration missing')
+assert(db.includes('db.deleteObjectStore(retiredStore)'), 'Retired object stores must be dropped by the schema migration.')
+for (const retired of ['driver_collected_data','admin_records','financial_inputs','odoGaps','days','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots']) assert(db.includes(`'${retired}'`), `Retired store migration missing: ${retired}`)
 assert(!db.includes("deleteObjectStore('trips')"), 'Trip history must survive migration')
 assert(!db.includes("deleteObjectStore('shifts')"), 'Shift history must survive migration')
 assert(db.includes("const createSimpleStore = (db, name, indexes = [])"), 'Shared canonical store creation helper missing')
@@ -44,11 +42,12 @@ assert(fuel.includes('normalized.id || generateUUID()'), 'Fuel UUID contract mis
 assert(mutation.includes('id: generateUUID()'), 'Mutation UUID contract missing')
 
 for (const index of ["createIndex('shiftEndAt'", "createIndex('createdAt'", "createIndex('status'", "createIndex('shiftId'", "createIndex('tripStartAt'"]) assert(db.includes(index), `Required persistence index missing: ${index}`)
-for (const indexedStore of ['vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history','canonical_operations']) assert(db.includes(`createSimpleStore(db, '${indexedStore}'`), `Shared indexed store definition missing: ${indexedStore}`)
-assert(db.includes("createObjectStore('financial_period_snapshots', { keyPath: 'periodKey' })"), 'Historical period snapshot store must use periodKey key paths')
-for (const explicitStore of ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots']) assert(db.includes(`!db.objectStoreNames.contains('${explicitStore}')`), `Upgrade path missing for explicit store: ${explicitStore}`)
+for (const indexedStore of ['vehicles','drivers','compliance_records','maintenance_records','loans','settings','audit_history','canonical_operations','form_drafts']) assert(db.includes(`createSimpleStore(db, '${indexedStore}'`), `Shared indexed store definition missing: ${indexedStore}`)
+assert(!db.includes("createObjectStore('financial_period_snapshots'"), 'Retired financial period snapshot store must not be recreated.')
+assert(db.includes("trips.deleteIndex('dayId')"), 'Retired Trip day index must be removed during migration.')
+for (const explicitStore of ['shifts','fuel_logs','pending_mutations','trips','gps_snapshots','locality_labels']) assert(db.includes(`!db.objectStoreNames.contains('${explicitStore}')`), `Upgrade path missing for explicit store: ${explicitStore}`)
 
-for (const source of [admin, shiftTrip, fuel, odo]) {
+for (const source of [admin, shiftTrip, fuel]) {
   assert(source.includes('pending_mutations'), 'Canonical write missing mutation coupling')
   assert(source.includes('audit_history'), 'Canonical write missing audit coupling')
   assert(source.includes("'readwrite'"), 'Canonical write missing readwrite transaction')
@@ -57,11 +56,11 @@ for (const source of [admin, shiftTrip, fuel, odo]) {
   assert(source.includes('tx.onabort'), 'Transaction abort handling missing')
 }
 
-const saveSettingBody = admin.slice(admin.indexOf('async saveSetting('), admin.indexOf('async list('))
-assert(saveSettingBody.includes('tx.oncomplete'), 'Settings save acknowledgement must wait for the read-write transaction commit')
-assert(saveSettingBody.includes('tx.onerror'), 'Settings save must reject transaction errors')
-assert(saveSettingBody.includes('tx.onabort'), 'Settings save must reject aborted transactions')
-assert(!/request\.onsuccess\s*=\s*\(\)\s*=>\s*resolve\(\)/.test(saveSettingBody), 'Settings save must not acknowledge durability on request success before transaction completion')
+const adminSaveBody = admin.slice(admin.indexOf('async save(formKey'), admin.indexOf('async remove('))
+assert(adminSaveBody.includes('tx.oncomplete'), 'Admin source-form save acknowledgement must wait for the read-write transaction commit')
+assert(adminSaveBody.includes('tx.onerror'), 'Admin source-form save must reject transaction errors')
+assert(adminSaveBody.includes('tx.onabort'), 'Admin source-form save must reject aborted transactions')
+assert(!/request\.onsuccess\s*=\s*\(\)\s*=>\s*resolve\(\)/.test(adminSaveBody), 'Admin source-form save must not acknowledge durability on request success before transaction completion')
 
 assert(admin.includes('record.deletedAt = now'), 'Soft deletion timestamp missing')
 assert(admin.includes('record.deleted = true'), 'Soft deletion marker missing')
@@ -77,6 +76,7 @@ assert(mutation.includes('structuredClone(payload)'), 'Mutation payload cloning 
 assert(mutation.includes('buildAuditRecord'), 'Audit coupling missing')
 
 for (const forbidden of ['supabase','firebase','@google/genai','google drive']) assert(!db.toLowerCase().includes(forbidden), `Local DB provider coupling found: ${forbidden}`)
-assert(contract.includes('Cloud backup and multi-device synchronization are later phases'), 'Cloud/sync must remain later-phase work')
+assert(contract.includes('Remote synchronization and multi-device live data sync are not part of the current product scope'), 'Remote synchronization must remain out of scope')
+assert(contract.includes('Dropbox is retained only as an optional backup provider while KFE is open and online'), 'Dropbox must remain an optional foreground backup provider without becoming a canonical data dependency.')
 
 console.log('✅ Phase 2 Local-First Persistence Contract Tests Passed Successfully!')

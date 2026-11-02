@@ -1,22 +1,21 @@
-# Performance Screen Foundation
+# Performance Foundation
 
-The primary Status destination has been replaced by Performance while retaining the existing KFE shell.
+**Status:** SUPPORTING — subordinate to `KFE_BUSINESS_RULES_REGISTER.md`.
 
-## Foundation boundaries
-- Performance is the active driver-centric Performance + Financial interpretation surface.
-- Presentation reads authoritative repository facts through the application read-model boundary.
-- Missing or incomplete inputs remain unavailable; they are not converted to zero or invented values.
-- Personal-use data remains separated from business performance.
-- Today’s Target remains separate from ERP accounting.
-- The old Status component and Status application wiring are removed.
-- Work presentation wiring is intentionally absent while the Work domain/application capability remains available for a future clean rebuild.
+## Scope
 
-## Current foundation
-- Today’s Position brief
-- Revenue / Running Cost / Balance core strip
-- Performance, Cost, Time and Intelligence containers
-- Inline expansion for detail
-- Contextual Why
-- Expandable history/context
-- Offline and unavailable-data states
-- Authoritative freshness marker
+This document describes the supporting read architecture and presentation boundary for the basic read-only Performance screen. It is not a business-rule or calculation authority.
+
+## Ownership
+
+- Read saved canonical records through `PerformanceRepository`.
+- `PhaseOnePerformanceService` coordinates the reporting range, canonical snapshot, and fuel summary. Before reading the IndexedDB snapshot, it asks `WorkService` to reconcile native Android SQLite records so a direct Performance launch cannot calculate from stale pre-overlay data.
+- Domain projection logic derives the view model; the Vue view only presents it.
+- Performance subscribes to canonical changes affecting shifts, trips, fuel logs, and business settings. Notifications received during a read are coalesced into one follow-up snapshot.
+- Keep Performance read-only. It must not mutate rides, shifts, fuel records, or Admin forms.
+- Timeline and Performance may share saved source facts but do not own a second persistence authority.
+- The sole business authority for supported metrics, formulas, and reporting-period attribution is `KFE_BUSINESS_RULES_REGISTER.md`.
+
+## Exclusions
+
+No targets, forecasts, break-even models, provisions, profitability projections, loan amortization, maintenance projections, or other derived financial models belong in the current Performance screen.
