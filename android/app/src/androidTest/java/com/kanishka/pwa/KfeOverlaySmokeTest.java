@@ -193,13 +193,13 @@ public class KfeOverlaySmokeTest {
     java.lang.reflect.Method persist = KfeOverlayService.class.getDeclaredMethod(
       "persistLifecycleAction", String.class, String.class, boolean.class);
     persist.setAccessible(true);
+    String shiftId = "fault-shift-" + java.util.UUID.randomUUID();
+    seedCanonicalShift(shiftId);
     for (String boundary : new String[]{"AFTER_CHECKPOINT", "AFTER_OUTBOX", "AFTER_CANONICAL"}) {
       String suffix = boundary.toLowerCase(java.util.Locale.US) + "-" + java.util.UUID.randomUUID();
-      String shiftId = "fault-shift-" + suffix;
       String tripId = "fault-trip-" + suffix;
       context.getSharedPreferences("kfe_native_work_actions", 0).edit()
         .remove("pendingEventId").remove("pending").commit();
-      seedCanonicalShift(shiftId);
       JSONObject state = new JSONObject()
         .put("shift", new JSONObject().put("id", shiftId).put("status", "ACTIVE"))
         .put("trip", JSONObject.NULL)
@@ -941,7 +941,7 @@ public class KfeOverlaySmokeTest {
     assertEquals("12.5",fareCommand.getString("toll"));
     assertEquals("",fareCommand.getString("parking"));
     JSONObject cancellationCommand=KfeNativeTripFormRules.buildCancellationPayload(" 0 ","PASSENGER");
-    assertEquals("0",cancellationCommand.getString("revenue"));
+    assertEquals("0",cancellationCommand.getString("cancelledRevenue"));
     assertEquals("PASSENGER",cancellationCommand.getString("reason"));
 
     android.content.SharedPreferences draftPrefs=context.getSharedPreferences("native-form-draft-boundary-test",Context.MODE_PRIVATE);
