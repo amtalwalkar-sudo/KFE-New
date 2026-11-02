@@ -1,10 +1,14 @@
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { PhaseOnePerformanceService } from '../application/performance/phaseOnePerformanceService.js'
 import { createCoalescedRefresh } from '../application/performance/performanceRefreshCoordinator.js'
 import '../styles/performance.css'
 
-const period = ref('DAY')
+const today = istDateKey(getKfeReferenceNow())
+const startDate = ref(today)
+const endDate = ref(today)
+const invalidDateRange = computed(() => !startDate.value || !endDate.value || endDate.value < startDate.value)
 const overview = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -17,7 +21,7 @@ const refresh = createCoalescedRefresh(async () => {
   loading.value = true
   error.value = ''
   try {
-    const result = await PhaseOnePerformanceService.getOverview(period.value)
+    const result = await PhaseOnePerformanceService.getOverview({ startDate: startDate.value, endDate: endDate.value })
     if (version === requestVersion) overview.value = result
   } catch (cause) {
     if (version === requestVersion) error.value = cause?.message || 'Performance could not be loaded.'
@@ -34,7 +38,17 @@ const costPerKm = value => value == null || !Number.isFinite(Number(value))
   ? 'Unavailable'
   : `${money(value)}/km`
 
-watch(period, () => { void load() })
+watch([startDate, endDate], () => {
+  if (invalidDateRange.value) {
+    requestVersion += 1
+    overview.value = null
+    loading.value = false
+    error.value = 'Choose a valid date range: the end date must be on or after the start date.'
+    return
+  }
+  error.value = ''
+  void load()
+})
 onMounted(() => {
   unsubscribeCanonicalChanges = PhaseOnePerformanceService.subscribeDataChanges(({ stores = [] } = {}) => {
     if (!stores.length || stores.some(store => relevantStores.has(store))) void load()
@@ -56,21 +70,23 @@ onUnmounted(() => {
         <h1 id="performance-title">Performance</h1>
         <p class="performance-description">Your recorded rides, revenue and fuel performance.</p>
       </div>
-      <label class="performance-period">
-        <span>Period</span>
-        <select v-model="period" aria-label="Performance period">
-          <option value="DAY">Today</option>
-          <option value="WEEK">This week</option>
-          <option value="MONTH">This month</option>
-        </select>
-      </label>
+      <div class="performance-period performance-date-range" aria-label="Choose Performance date range">
+        <label>
+          <span>From</span>
+          <input v-model="startDate" type="date" aria-label="Performance start date" :aria-invalid="invalidDateRange">
+        </label>
+        <label>
+          <span>To</span>
+          <input v-model="endDate" type="date" aria-label="Performance end date" :aria-invalid="invalidDateRange">
+        </label>
+      </div>
     </header>
 
     <p v-if="error" class="performance-message performance-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !overview" class="performance-message" role="status">Loading performance…</p>
 
     <template v-if="overview && !error">
-      <p class="performance-period-note">Reporting dates use IST (Asia/Kolkata). Figures come from saved records only.</p>
+      <p class="performance-period-note">Showing {{ startDate }} to {{ endDate }} (IST). Figures come from saved records only.</p>
       <section class="performance-metric-grid" aria-label="Performance metrics">
         <article class="performance-metric">
           <span>Fare income</span>
