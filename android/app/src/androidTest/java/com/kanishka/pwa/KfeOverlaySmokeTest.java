@@ -241,8 +241,7 @@ public class KfeOverlaySmokeTest {
         KfeOverlayService.lifecycleFaultInjectorForTests = null;
       }
 
-      String originalEventId = context.getSharedPreferences("kfe_native_work_actions", 0)
-        .getString("pendingEventId", "");
+      String originalEventId = findPendingEventId("GO_TO_PICKUP", tripId);
       boolean eventAfterFault = KfeNativeEventStore.get(context).contains(originalEventId);
       boolean canonicalAfterFault = KfeCanonicalWorkStore.get(context)
         .getRecord("TRIP", tripId).optBoolean("found", false);
@@ -261,9 +260,9 @@ public class KfeOverlaySmokeTest {
         throw new AssertionError("Lifecycle retry failed at boundary " + boundary
           + " for trip " + tripId + ": " + retryFailure.getCause(), retryFailure.getCause());
       }
-      String eventIdAfterRetry = context.getSharedPreferences("kfe_native_work_actions", 0)
-        .getString("pendingEventId", "");
-      assertTrue("Retry must converge to a durable event", KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
+      String eventIdAfterRetry = findPendingEventId("GO_TO_PICKUP", tripId);
+      assertTrue("Retry must converge to a durable event", !eventIdAfterRetry.isEmpty()
+        && KfeNativeEventStore.get(context).contains(eventIdAfterRetry));
       if (!originalEventId.isEmpty()) {
         assertEquals("Retry must reuse the original event ID", originalEventId, eventIdAfterRetry);
       }
@@ -539,9 +538,24 @@ public class KfeOverlaySmokeTest {
     }
   }
 
+  private String findPendingEventId(String stage, String tripId) {
+    try {
+      org.json.JSONArray events = KfeNativeEventStore.get(context).pending(500);
+      for (int i = events.length() - 1; i >= 0; i--) {
+        JSONObject event = events.optJSONObject(i);
+        if (event != null && stage.equals(event.optString("stage", ""))
+            && tripId.equals(event.optString("tripId", ""))) {
+          return event.optString("eventId", "");
+        }
+      }
+      return "";
+    } catch (Exception error) {
+      throw new AssertionError("Could not locate durable native event.", error);
+    }
+  }
+
   private void acknowledgePending(String stage, String tripId) {
-    String eventId = context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE)
-      .getString("pendingEventId", "");
+    String eventId = findPendingEventId(stage, tripId);
     assertTrue("Durable native event id must exist", !eventId.isEmpty());
     assertTrue("Durable native event must acknowledge", KfeNativeEventStore.get(context).acknowledge(eventId));
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
@@ -663,7 +677,7 @@ public class KfeOverlaySmokeTest {
     });
     assertTrue(pendingValue().startsWith("CANCEL_RIDE|cancel-trip|"));
     JSONObject payload = new JSONObject(pendingValue().substring("CANCEL_RIDE|cancel-trip|".length()));
-    assertEquals("", payload.getString("revenue"));
+    assertEquals("", payload.getString("cancelledRevenue"));
     assertEquals("PASSENGER", payload.getString("reason"));
     JSONObject storedOutcome = KfeCanonicalWorkStore.get(context).getRecord("TRIP", "cancel-trip");
     assertTrue("Cancellation must commit to native canonical storage", storedOutcome.optBoolean("found", false));
