@@ -2,7 +2,7 @@ import { PerformanceRepository } from '../../repositories/performanceRepository.
 import { WorkService } from '../work/workService.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
-import { getKfeReferenceNow, istDayRange, reportingRangeFor } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, istDateKey, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
 import { derivePhaseOnePerformanceOverview } from '../../domain/performance/phaseOneOverview.js'
 
 const PERIODS = Object.freeze({ DAY: 'DAY', WEEK: 'WEEK', MONTH: 'MONTH' })
@@ -10,27 +10,26 @@ const live = records => (Array.isArray(records) ? records : []).filter(row => !r
 
 /** Read-only summary of saved ride revenue and fuel observations. */
 export const PhaseOnePerformanceService = Object.freeze({
+  getTodayDateKey() {
+    return istDateKey(getKfeReferenceNow())
+  },
   subscribeDataChanges(callback) {
     return subscribeCanonicalDataChanges(callback)
   },
   async getOverview(period = 'DAY', now = getKfeReferenceNow()) {
-    const selectedPeriod = PERIODS[period] || PERIODS.DAY
-    const range = reportingRangeFor(selectedPeriod, now)
+    const isCustomRange = period && typeof period === 'object'
+    const range = isCustomRange
+      ? istDateRange(period.startDate, period.endDate)
+      : reportingRangeFor(PERIODS[period] || PERIODS.DAY, now)
     if (!range?.from || !range?.to || range.to < range.from) throw new Error('Performance reporting period could not be resolved.')
     // Android native SQLite may contain overlay commits newer than IndexedDB.
     // Reconcile the canonical Work projection before reading the Performance snapshot.
     await WorkService.ensureCanonicalReadModel()
     const snapshot = await PerformanceRepository.getSnapshot()
-    const businessStartRange = snapshot.businessSetup?.businessStartDate ? istDayRange(snapshot.businessSetup.businessStartDate) : null
-    const beforeBusinessStart = Boolean(businessStartRange && businessStartRange.from > range.to)
-    const effectiveRange = businessStartRange && businessStartRange.from > range.from && !beforeBusinessStart
-      ? { ...range, from: businessStartRange.from }
-      : range
-    const fuelSummary = beforeBusinessStart
-      ? { totalFuelAmount: 0, averageCostPerKm: null, intervalCount: 0 }
-      : calculateFuelPeriodSummary(live(snapshot.fuelLogs), effectiveRange)
-    const source = beforeBusinessStart ? { ...snapshot, shifts: [], trips: [] } : snapshot
-    return derivePhaseOnePerformanceOverview(source, effectiveRange, {
+    // Performance is a historical read view: the selected dates are not clipped
+    // to the configured business start date. Saved records remain authoritative.
+    const fuelSummary = calculateFuelPeriodSummary(live(snapshot.fuelLogs), range)
+    return derivePhaseOnePerformanceOverview(snapshot, range, {
       fuelCost: fuelSummary.totalFuelAmount,
       fuelCostPerKm: fuelSummary.averageCostPerKm,
       fuelCostPerKmSource: fuelSummary.intervalCount ? 'FULL_TANK_INTERVAL' : null,
