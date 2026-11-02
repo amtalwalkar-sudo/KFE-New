@@ -1,12 +1,10 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
-import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
+import { ActivityTimelineReadService, timelineTodayDateKey } from '../application/timeline/activityTimelineReadService.js'
 import { EventLocationService } from '../application/location/eventLocationService.js'
 import { EventLocalityService } from '../application/location/eventLocalityService.js'
-import { istDateKey } from '../domain/time/ist.js'
-
-const today = istDateKey(new Date())
+const today = timelineTodayDateKey()
 const startDate = ref(today)
 const endDate = ref(today)
 const invalidDateRange = computed(() => !startDate.value || !endDate.value || endDate.value < startDate.value)
