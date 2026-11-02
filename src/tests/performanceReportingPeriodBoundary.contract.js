@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { reportingRangeFor } from '../domain/time/ist.js'
+import { istDateRange, reportingRangeFor } from '../domain/time/ist.js'
 import { derivePhaseOnePerformanceOverview } from '../domain/performance/phaseOneOverview.js'
 
 const metrics = { fuelCost: 0, fuelCostPerKm: null, fuelCostPerKmSource: null }
@@ -42,5 +42,16 @@ assert.ok(shift.shiftEndAt >= october.from.toISOString() && shift.shiftEndAt <= 
 const unlinkedTrip = { status: 'COMPLETED', tripStartAt: '2026-10-25T18:20:00.000Z', tripEndAt: '2026-10-25T18:40:00.000Z' }
 const fallback = derivePhaseOnePerformanceOverview({ shifts: [], trips: [unlinkedTrip] }, mondayToday, metrics)
 assert.equal(fallback.completedRides, 1, 'legacy/unlinked trips use their event timestamp as a fallback')
+
+const historicalRange = istDateRange('2025-01-04', '2025-02-12')
+assert.ok(historicalRange, 'custom date ranges must support historical dates')
+assert.equal(historicalRange.from.toISOString(), '2025-01-03T18:30:00.000Z', 'custom start is inclusive from IST midnight')
+assert.equal(historicalRange.to.toISOString(), '2025-02-12T18:29:59.999Z', 'custom end is inclusive through IST end of day')
+assert.equal(istDateRange('2025-02-12', '2025-01-04'), null, 'reversed custom ranges are rejected')
+assert.equal(istDateRange('2025-02-30', '2025-03-01'), null, 'invalid calendar dates are rejected')
+
+const historicalShift = { id: 'before-business-start', shiftEndAt: '2025-01-15T08:00:00.000Z', revenue: 700 }
+const historicalOverview = derivePhaseOnePerformanceOverview({ shifts: [historicalShift], trips: [] }, historicalRange, metrics)
+assert.equal(historicalOverview.recordedRevenue, 700, 'custom historical periods include saved records regardless of business-start settings')
 
 console.log('Performance reporting-period boundary contract: PASS')
