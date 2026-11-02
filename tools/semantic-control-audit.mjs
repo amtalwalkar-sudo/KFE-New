@@ -392,7 +392,12 @@ try {
   await page.locator('.performance-page').waitFor({ state: 'visible', timeout: 30000 })
   assert(await page.locator('.performance-page').count() === 1, 'Performance dashboard did not render')
   assert(await page.getByRole('heading', { name: 'Performance' }).count() === 1, 'Performance title is missing')
-  assert(await page.getByRole('combobox', { name: 'Performance period' }).count() === 1, 'Performance period filter is missing')
+  assert(await page.getByLabel('Performance start date', { exact: true }).count() === 1, 'Performance start-date filter is missing')
+  assert(await page.getByLabel('Performance end date', { exact: true }).count() === 1, 'Performance end-date filter is missing')
+  await page.getByLabel('Performance start date', { exact: true }).fill('2026-01-01')
+  await page.getByLabel('Performance end date', { exact: true }).fill('2026-01-31')
+  await page.locator('.performance-period-note').toContainText('2026-01-01 to 2026-01-31 (IST)', { timeout: 10000 })
+  evidence.push({ id: 'PERFORMANCE.CUSTOM_DATE_RANGE', result: 'PASS', expected: 'inclusive historical From/To date selection refreshes the reporting period' })
   assert(await page.getByRole('navigation').getByRole('link', { name: 'Performance', exact: true }).count() === 1, 'Performance bottom-navigation entry is missing')
   evidence.push({ id: 'NAV.PERFORMANCE', result: 'PASS', expected: 'live read-only Performance dashboard with navigation entry retained', persisted: { route: '/performance' } })
 
