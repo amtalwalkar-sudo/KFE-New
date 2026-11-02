@@ -2,7 +2,7 @@ import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
-import { getKfeReferenceNow, reportingRangeFor } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { LocalityRepository } from '../../repositories/localityRepository.js'
 import { WorkService } from '../work/workService.js'
@@ -66,11 +66,12 @@ export const ActivityTimelineReadService = Object.freeze({
   subscribeDataChanges(callback) {
     return subscribeCanonicalDataChanges(callback)
   },
-  async getTimeline({ period = 'TODAY', now = getKfeReferenceNow() } = {}) {
+  async getTimeline({ period = 'TODAY', startDate, endDate, now = getKfeReferenceNow() } = {}) {
+    const hasCustomRange = startDate !== undefined || endDate !== undefined
     const reportingPeriod = PERIODS[period] || PERIODS.TODAY
-    const range = reportingRangeFor(reportingPeriod, now)
+    const range = hasCustomRange ? istDateRange(startDate, endDate) : reportingRangeFor(reportingPeriod, now)
     if (!range?.from || !range?.to || range.to < range.from) {
-      throw new Error('Timeline reporting period could not be resolved.')
+      throw new Error('Timeline date range could not be resolved.')
     }
 
     // Reconcile Android SQLite first so Timeline is correct even when it is
@@ -134,7 +135,7 @@ export const ActivityTimelineReadService = Object.freeze({
 
     const fuelSummary = calculateFuelPeriodSummary(allFuelLogs, range)
     return {
-      period,
+      period: hasCustomRange ? 'CUSTOM' : period,
       range: { from: range.from.toISOString(), to: range.to.toISOString() },
       rides,
       fuelLogs,
