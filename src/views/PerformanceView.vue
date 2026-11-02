@@ -1,11 +1,10 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { getKfeReferenceNow, istDateKey } from '../domain/time/ist.js'
 import { PhaseOnePerformanceService } from '../application/performance/phaseOnePerformanceService.js'
 import { createCoalescedRefresh } from '../application/performance/performanceRefreshCoordinator.js'
 import '../styles/performance.css'
 
-const today = istDateKey(getKfeReferenceNow())
+const today = PhaseOnePerformanceService.getTodayDateKey()
 const startDate = ref(today)
 const endDate = ref(today)
 const invalidDateRange = computed(() => !startDate.value || !endDate.value || endDate.value < startDate.value)
