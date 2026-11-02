@@ -2,7 +2,7 @@ import { ShiftTripRepository } from '../../repositories/shiftTripRepository.js'
 import { FuelRepository } from '../../repositories/fuelRepository.js'
 import { subscribeCanonicalDataChanges } from '../../repositories/canonicalDataChangeRepository.js'
 import { calculateFuelPeriodSummary } from '../../domain/math/fuel.js'
-import { getKfeReferenceNow, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
+import { getKfeReferenceNow, istDateKey, istDateRange, reportingRangeFor } from '../../domain/time/ist.js'
 import { EventLocationService } from '../location/eventLocationService.js'
 import { LocalityRepository } from '../../repositories/localityRepository.js'
 import { WorkService } from '../work/workService.js'
@@ -62,6 +62,8 @@ export const farePresentation = trip => {
  * Read-only Timeline projection over ride/fuel authorities and saved GPS snapshots.
  * Locality labels are read from permanent PWA IndexedDB records; this read model never performs network requests.
  */
+export const timelineTodayDateKey = () => istDateKey(new Date())
+
 export const ActivityTimelineReadService = Object.freeze({
   subscribeDataChanges(callback) {
     return subscribeCanonicalDataChanges(callback)
