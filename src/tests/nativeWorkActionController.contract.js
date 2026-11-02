@@ -70,5 +70,8 @@ assert.match(workView, /const nativeRecoveryReady = ref\(!nativeAndroid\)/, 'And
 assert.match(workView, /Native ride recovery is incomplete/, 'Work must surface an explicit recovery-blocked state.')
 assert.match(workView, /if \(!nativeWritesAllowed\(\)\) return/, 'Overlay synchronization must not overwrite native workflow state before recovery completes.')
 assert.match(workView, /:disabled="!nativeRecoveryReady"/, 'Primary Work controls must remain disabled while native recovery is incomplete.')
+assert.match(workView, /if \(store\.trip\?\.id === eventTripId\)[\s\S]*?return true/, 'A stale close-form UI event must be acknowledged as an idempotent no-op.')
+assert.match(workView, /OPEN_CANCEL_FORM[\s\S]*?includes\(store\.trip\.tripStage\)\) return true/, 'A stale open-form UI event must not block native recovery.')
+assert.match(workView, /RETRY NATIVE RECOVERY/, 'A user-visible retry action must be available after a transient native recovery failure.')
 
 console.log('PASS: native Work event replay is FIFO, fail-closed and compatibility-safe')

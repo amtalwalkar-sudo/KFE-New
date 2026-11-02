@@ -788,15 +788,21 @@ const handleNativeAction = async event => {
   const stage = String(event?.stage || '')
   const eventTripId = String(event?.tripId || '')
   if (stage === 'CLOSE_CANCEL_FORM') {
-    if (!store.trip?.id || store.trip.id !== eventTripId) return false
-    cancelOpen.value = false
-    error.value = ''
-    message.value = ''
+    // Closing a form is an idempotent UI command. If its originating Trip is
+    // no longer current, acknowledge it as a stale no-op instead of blocking
+    // all future Work actions behind an obsolete presentation event.
+    if (store.trip?.id === eventTripId) {
+      cancelOpen.value = false
+      error.value = ''
+      message.value = ''
+    }
     return true
   }
   if (stage === 'OPEN_CANCEL_FORM') {
+    // A delayed form-open event must never resurrect a form for an old,
+    // completed, cancelled, or otherwise non-current Trip.
     if (!store.trip?.id || store.trip.id !== eventTripId ||
-        !['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip.tripStage)) return false
+        !['PICKUP', 'GOING_TO_PICKUP'].includes(store.trip.tripStage)) return true
     await openCancel()
     return true
   }
@@ -1089,6 +1095,12 @@ onBeforeUnmount(() => {
     />
 
     <p v-if="error" class="feedback error" role="alert">{{ error }}</p>
+    <button
+      v-if="nativeAndroid && !nativeRecoveryReady"
+      class="secondary-action"
+      type="button"
+      @click="replayFailedNativeActions"
+    >RETRY NATIVE RECOVERY</button>
     <p v-if="fuelSaveConfirmation" class="feedback success fuel-save-confirmation" role="status">Fuel saved.</p>
     <p v-else-if="message" class="feedback success" role="status">{{ message }}</p>
   </main>
