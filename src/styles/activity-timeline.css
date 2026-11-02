@@ -11,7 +11,7 @@
 .activity-timeline-heading h1{margin:0;font-size:1.7rem;line-height:1.15}
 .activity-timeline-description{margin:7px 0 0;color:var(--kfe-muted-text);font-size:.92rem}
 .activity-timeline-filter{display:grid;gap:6px;min-width:132px;color:var(--kfe-muted-text);font-size:.78rem;font-weight:750}
-.activity-timeline-filter select{width:100%;min-height:46px;padding:8px 10px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface);color:var(--kfe-ui-text)}
+.activity-timeline-filter input[type="date"]{width:100%;min-width:0;min-height:46px;padding:8px 9px;border:1px solid var(--kfe-ui-border);border-radius:var(--kfe-radius-md);background:var(--kfe-ui-surface);color:var(--kfe-ui-text);font:inherit;box-sizing:border-box}.activity-timeline-filter input[aria-invalid="true"]{border-color:var(--kfe-danger)}.activity-timeline-date-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:min(100%,300px)}.activity-timeline-period-note{margin:-8px 0 0}
 .activity-timeline-section{display:grid;gap:12px;min-width:0}
 .activity-timeline-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .activity-timeline-section-heading h2{margin:0;font-size:1.15rem}
