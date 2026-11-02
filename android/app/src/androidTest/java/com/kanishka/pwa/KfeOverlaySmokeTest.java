@@ -528,8 +528,15 @@ public class KfeOverlaySmokeTest {
   }
 
   private String pendingValue() {
-    return context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE)
-      .getString("pending", "");
+    try {
+      org.json.JSONArray events = KfeNativeEventStore.get(context).pending(500);
+      if (events.length() == 0) return "";
+      JSONObject event = events.getJSONObject(events.length() - 1);
+      String input = event.optString("input", "");
+      return event.optString("stage", "") + "|" + event.optString("tripId", "") + "|" + input;
+    } catch (Exception error) {
+      throw new AssertionError("Could not read durable native event queue.", error);
+    }
   }
 
   private void acknowledgePending(String stage, String tripId) {
@@ -543,7 +550,17 @@ public class KfeOverlaySmokeTest {
     clearPending();
   }
   private void clearPending() {
-    context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE).edit().remove("pending").commit();
+    try {
+      KfeNativeEventStore events = KfeNativeEventStore.get(context);
+      org.json.JSONArray pending = events.pending(500);
+      for (int i = 0; i < pending.length(); i++) {
+        events.acknowledge(pending.getJSONObject(i).optString("eventId", ""));
+      }
+    } catch (Exception error) {
+      throw new AssertionError("Could not isolate durable native event fixtures.", error);
+    }
+    context.getSharedPreferences("kfe_native_work_actions", Context.MODE_PRIVATE).edit()
+      .remove("pending").remove("pendingEventId").commit();
   }
 
   @Test public void endRideAcknowledgementOpensNativeFareFormWithoutActivityLaunch() throws Exception {
@@ -721,7 +738,8 @@ public class KfeOverlaySmokeTest {
       .put("updatedAt", oldVersion).put("endOdometer", 1200).put("revenue", 0)
       .put("liveFareRevenue", 0).put("revenueSource", "TRIP_FARES");
     KfeCanonicalWorkStore.Outcome completed = store.putRecord(
-      "projection-end-shift-" + shiftId, "SHIFT", completedShift);
+      "projection-end-shift-" + shiftId, "SHIFT", completedShift,
+      projected.getString("updatedAt"), false);
     assertTrue("ACTIVE -> COMPLETED must not fail on a version advanced by derived revenue", completed.accepted);
     JSONObject canonical = store.getRecord("SHIFT", shiftId).getJSONObject("record");
     assertEquals("COMPLETED", canonical.getString("status"));
