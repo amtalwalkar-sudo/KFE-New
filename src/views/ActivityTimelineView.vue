@@ -1,9 +1,15 @@
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import '../styles/activity-timeline.css'
 import { ActivityTimelineReadService } from '../application/timeline/activityTimelineReadService.js'
 import { EventLocationService } from '../application/location/eventLocationService.js'
 import { EventLocalityService } from '../application/location/eventLocalityService.js'
+import { istDateKey } from '../domain/time/ist.js'
+
+const today = istDateKey(new Date())
+const startDate = ref(today)
+const endDate = ref(today)
+const invalidDateRange = computed(() => !startDate.value || !endDate.value || endDate.value < startDate.value)
 
 const period = ref('TODAY')
 const snapshot = ref({ rides: [], fuelLogs: [], fuelSummary: null, range: null })
@@ -47,7 +53,8 @@ const load = async () => {
   loading.value = true
   error.value = ''
   try {
-    const result = await ActivityTimelineReadService.getTimeline({ period: period.value })
+    if (invalidDateRange.value) throw new Error('Choose a valid date range: the end date must be on or after the start date.')
+    const result = await ActivityTimelineReadService.getTimeline({ startDate: startDate.value, endDate: endDate.value })
     if (version === requestVersion) snapshot.value = result
   } catch (cause) {
     if (version === requestVersion) error.value = cause?.message || 'Timeline could not be loaded.'
@@ -112,7 +119,17 @@ const onTouchEnd = event => {
   pullStartedAtTop = false
   if (shouldRefresh) void refreshLocationNames()
 }
-watch(period, () => { void load() })
+watch([startDate, endDate], () => {
+  if (invalidDateRange.value) {
+    requestVersion += 1
+    snapshot.value = { rides: [], fuelLogs: [], fuelSummary: null, range: null }
+    loading.value = false
+    error.value = 'Choose a valid date range: the end date must be on or after the start date.'
+    return
+  }
+  error.value = ''
+  void load()
+})
 onMounted(() => {
   void load()
   unsubscribe = ActivityTimelineReadService.subscribeDataChanges(() => { void load() })
@@ -131,18 +148,19 @@ onUnmounted(() => {
         <h1 id="activity-timeline-title">Timeline</h1>
         <p class="activity-timeline-description">Your rides and CNG refills for the selected period.</p>
       </div>
-      <div class="activity-timeline-actions">
+      <div class="activity-timeline-actions activity-timeline-date-range" aria-label="Choose Timeline date range">
         <label class="activity-timeline-filter">
-        <span>Period</span>
-        <select v-model="period" aria-label="Timeline period">
-          <option value="TODAY">Today</option>
-          <option value="WEEK">This week</option>
-          <option value="MONTH">This month</option>
-        </select>
+          <span>From</span>
+          <input v-model="startDate" type="date" aria-label="Timeline start date" :aria-invalid="invalidDateRange">
+        </label>
+        <label class="activity-timeline-filter">
+          <span>To</span>
+          <input v-model="endDate" type="date" aria-label="Timeline end date" :aria-invalid="invalidDateRange">
         </label>
       </div>
     </header>
 
+    <p v-if="snapshot.range && !error" class="activity-timeline-description activity-timeline-period-note">Showing {{ startDate }} to {{ endDate }} (IST). Records are read-only.</p>
     <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down to resolve unsaved GPS locality names from the last seven days when online.</p>
     <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
     <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
