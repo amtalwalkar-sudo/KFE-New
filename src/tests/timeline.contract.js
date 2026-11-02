@@ -27,7 +27,7 @@ assert.doesNotMatch(timeline, /businessKm|deadKm|vehicleKm|tripKm|toll|parking/,
 
 assert.match(performance, /PerformanceRepository\.getSnapshot\(\)/)
 assert.match(performance, /calculateFuelPeriodSummary/)
-assert.match(performance, /derivePhaseOnePerformanceOverview\\(snapshot, range/)
+assert.match(performance, /derivePhaseOnePerformanceOverview\(snapshot, range/)
 assert.match(performanceOverview, /recordedRevenue - fuelSpending/)
 assert.doesNotMatch(performance, /DriverTargetService|deriveOperatingKmForecast|deriveFinanceAwarePerformance|deriveFinancialFactModel|breakEvenInputs/)
 assert.doesNotMatch(performanceView, /provisionBalances|amortization|break-even|forecast|driver target/i)
