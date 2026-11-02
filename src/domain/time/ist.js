@@ -75,6 +75,13 @@ export const istCalendarDaysInclusive = (from, to) => {
   return a == null || b == null || b < a ? 0 : b - a + 1
 }
 
+export const istDateRange = (fromDate, toDate) => {
+  const from = typeof fromDate === 'string' ? istDayRange(fromDate) : null
+  const to = typeof toDate === 'string' ? istDayRange(toDate) : null
+  if (!from || !to || istDateKey(from.from) !== fromDate || istDateKey(to.from) !== toDate || to.to < from.from) return null
+  return { from: from.from, to: to.to }
+}
+
 export const istDayRange = value => {
   const p = istParts(value)
   if (!p) return null
