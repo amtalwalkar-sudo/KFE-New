@@ -56,9 +56,14 @@ const waitForSurface = async (page, route, phase) => {
     if (!(await page.getByRole('heading', { name: 'Performance' }).count())) {
       throw new Error('Performance: title is missing')
     }
-    if (!(await page.getByRole('combobox', { name: 'Performance period' }).count())) {
-      throw new Error('Performance: period filter is missing')
+    const startDate = page.getByLabel('Performance start date', { exact: true })
+    const endDate = page.getByLabel('Performance end date', { exact: true })
+    if (await startDate.count() !== 1 || await endDate.count() !== 1) {
+      throw new Error('Performance: From/To date filters are missing')
     }
+    await startDate.fill('2026-01-01')
+    await endDate.fill('2026-01-31')
+    await page.waitForFunction(() => document.querySelector('.performance-period-note')?.textContent?.includes('2026-01-01 to 2026-01-31 (IST)'), undefined, { timeout: 10000 })
   }
   if (route.path === '/admin' && await page.locator('.admin-page').count() !== 1) {
     throw new Error('Admin: full Admin workspace did not render')
