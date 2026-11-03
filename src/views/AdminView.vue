@@ -198,15 +198,13 @@ onBeforeUnmount(()=>{
 
 <template v-if="!selected&&!settingsOpen">
   <header class="admin-home-heading">
-    <div class="admin-home-title-copy">
-      <h1>Admin</h1>
-      <p>Business records and application settings</p>
-    </div>
-    <div class="admin-home-summary" aria-label="Admin workspace summary">
-      <span><strong>{{Object.values(all).reduce((count,records)=>count+records.length,0).toLocaleString('en-IN')}}</strong><small>Saved records</small></span>
-      <span><strong>{{categories.length}}</strong><small>Areas</small></span>
-    </div>
+    <h1>Admin workspace</h1>
   </header>
+  <p class="admin-home-intro">Business records and application settings</p>
+  <div class="admin-home-summary" aria-label="Admin workspace summary">
+    <span><strong>{{Object.values(all).reduce((count,records)=>count+records.length,0).toLocaleString('en-IN')}}</strong><small>Saved records</small></span>
+    <span><strong>{{categories.length}}</strong><small>Areas</small></span>
+  </div>
   <div class="admin-home-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="adminSearch" type="search" placeholder="Find an Admin area…" aria-label="Search Admin areas"></label><span class="admin-search-hint">{{visibleGroupedItems.reduce((count,group)=>count+group.items.length,0)}} of {{items.length}} destinations</span></div>
   <div v-if="!visibleGroupedItems.length" class="empty admin-no-results">No Admin areas match “{{adminSearch}}”. Try a different search.</div>
   <div class="admin-workspace">
