@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { LoanCalculationService } from '../../application/admin/loanCalculationService.js'
-import { LoanRepaymentRepository } from '../../application/admin/loanRepaymentRepository.js'
+import { LoanRepaymentRepository } from '../../application/admin/loanRepaymentRepository.js'\nimport './loan-management.css'
 const props = defineProps({ loans: { type: Array, default: () => [] }, busy: { type: Boolean, default: false } })
 const emit = defineEmits(['edit', 'refresh'])
 const selectedId = ref(''), transactions = ref([]), loading = ref(false), message = ref(''), error = ref('')
@@ -12,11 +12,11 @@ const selectedLoan = computed(() => props.loans.find(item => item.id === selecte
 const values = computed(() => selectedLoan.value?.values || {})
 const emi = computed(() => LoanCalculationService.monthlyEmi(values.value))
 const roundedEmi = computed(() => LoanCalculationService.roundedPaymentAmount(values.value))
-const schedule = computed(() => LoanCalculationService.schedule(values.value))
+const schedule = computed(() => LoanCalculationService.scheduleWithTransactions(values.value, transactions.value))
 const paidInstallments = computed(() => new Set(transactions.value.filter(item => item.type === 'EMI_PAYMENT').map(item => Number(item.installment))))
 const outstanding = computed(() => {
   const paid = paidInstallments.value
-  return Math.round((schedule.value.filter(row => !paid.has(row.installment)).reduce((sum, row) => sum + row.principal, 0) + Number.EPSILON) * 100) / 100
+  return schedule.value.at(-1)?.closingBalance || 0
 })
 const nextInstallment = computed(() => schedule.value.find(row => !paidInstallments.value.has(row.installment)) || null)
 const scheduleRows = computed(() => schedule.value.map(row => ({ ...row, paid: paidInstallments.value.has(row.installment) })))
