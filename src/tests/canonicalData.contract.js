@@ -69,7 +69,7 @@ for (const retired of ['odoGaps','days','movement_artifacts','loan_payments','pr
   assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${retired}'`), `${retired} must not be recreated.`)
 }
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
-assert.equal(BACKUP_FORMAT_VERSION, 6)
+assert.equal(BACKUP_FORMAT_VERSION, 7)
 assert.match(backupSource, /backup\.formatVersion < BACKUP_FORMAT_VERSION/)
 assert.match(backupSource, /new Set\(RETIRED_CANONICAL_STORES\)/)
 assert.match(dataContract, /retired store payloads are discarded/)
