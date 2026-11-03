@@ -28,7 +28,8 @@ export const LoanRepaymentRepository = Object.freeze({
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE, 'loans', 'pending_mutations', 'audit_history'], 'readwrite')
       const loanRequest = tx.objectStore('loans').get(loan.id)
-      let failed = false
+      const historyRequest = tx.objectStore(STORE).index('loanId').getAll(loan.id)
+      let currentLoan = null, historyRows = null, failed = false, committed = false
       const fail = error => { if (failed) return; failed = true; try { tx.abort() } catch (_) {}; reject(error) }
       loanRequest.onsuccess = () => {
         const current = loanRequest.result
@@ -39,7 +40,10 @@ export const LoanRepaymentRepository = Object.freeze({
         writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: 'loan_transaction', action: 'CREATE', payload: record, createdAt: now })
         if (transaction.type === 'PREPAYMENT') writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: loan.id, entityType: 'loan', action: 'PREPAYMENT', payload: { loanId: loan.id, amount: Number(transaction.amount), paymentDate: transaction.paymentDate }, createdAt: now })
       }
+      loanRequest.onsuccess = () => { currentLoan = loanRequest.result; if (!currentLoan) { fail(new Error('This loan no longer exists. Refresh the loan list and retry.')); return }; commit() }
+      historyRequest.onsuccess = () => { historyRows = historyRequest.result || []; commit() }
       loanRequest.onerror = () => fail(loanRequest.error || new Error('Unable to verify the selected loan.'))
+      historyRequest.onerror = () => fail(historyRequest.error || new Error('Unable to verify existing loan payments.'))
       tx.oncomplete = () => { if (!failed) { notifyCanonicalDataChanged({ stores: [STORE, 'loans'], reason: 'loan:payment-confirmed' }); resolve(record) } }
       tx.onerror = () => fail(tx.error || new Error('Unable to save the loan payment.'))
       tx.onabort = () => { if (!failed) { failed = true; reject(tx.error || new Error('Loan payment was not saved.')) } }
