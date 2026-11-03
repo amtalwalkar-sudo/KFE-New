@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
 import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
+import LoanManagementPanel from '../components/admin/LoanManagementPanel.vue'
 import '../components/admin/admin-redesign.css'
 import AdminShell from '../components/admin/AdminShell.vue'
 import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
@@ -257,11 +258,12 @@ onBeforeUnmount(()=>{
 </div>
 </template>
 <template v-else>
-<div v-if="formOpen" class="admin-record-form-screen">
+<LoanManagementPanel v-if="selected==='loan' && !formOpen" :loans="records" :busy="saving" @create="add" @edit="edit" @refresh="load"/>
+<div v-else-if="formOpen" class="admin-record-form-screen">
   <div class="detail-actions"><button class="secondary" type="button" @click="formOpen=false;editing=null">‹ Cancel and return to list</button></div>
   <AdminSourceForm :fields="activeDefinition?.fields||[]" :model-value="draft" :draft-identity="sourceFormDraftIdentity" :busy="saving" :auto-open-first="editing===null" :errors="formErrors" @field-change="onSourceFieldChange" @submit="save" @cancel="formOpen=false;editing=null" @draft-error="onDraftError" :submit-label="editing!==null?'Update record':'Save record'"/>
 </div>
-<template v-else>
+<template v-else-if="selected !== 'loan'">
 <div class="admin-list-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="recordSearch" type="search" :placeholder="'Search '+currentItem.title.toLowerCase()+' records…'" :aria-label="'Search '+currentItem.title+' records'"></label><span class="admin-search-hint">{{filteredRecords.length}} {{filteredRecords.length===1?'record':'records'}}<template v-if="recordSearch"> found</template></span></div>
 <div class="detail-actions"><button class="primary" @click="add">＋ Create {{currentDefinition?.createLabel||currentItem.title}}</button></div><div v-if="loading&&!records.length" class="empty">Loading…</div><div v-else-if="filteredRecords.length" class="record-list"><article v-for="record in filteredRecords" :key="record.id" class="clean-card record-card"><div class="record-top"><div><strong>{{label(selected,record)}}</strong><span>{{record.updatedAt||'—'}}</span></div><button class="text-button" :aria-label="`Edit ${label(selected,record)}`" @click="edit(record)">Edit</button></div><small v-if="selected==='loan'" class="loan-summary-line">₹{{Number(record.values?.principal||0).toLocaleString('en-IN')}} · {{record.values?.tenureMonths||'—'}} months · {{record.values?.annualInterestRatePercent??'—'}}% p.a. · Estimated monthly EMI {{money(loanEmi(record))}}</small><div class="record-footer"><button class="text-button" :aria-label="`Delete ${label(selected,record)}`" @click="remove(record)">Delete</button></div></article></div><div v-else-if="!loading" class="empty">{{recordSearch ? 'No '+currentItem.title.toLowerCase()+' records match your search.' : 'No records yet. Create the first record to get started.'}}</div>
 </template>
