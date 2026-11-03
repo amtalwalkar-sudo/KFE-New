@@ -190,7 +190,7 @@ onUnmounted(() => {
           </div>
           <div class="activity-timeline-ride-highlight">
             <strong class="activity-timeline-ride-fare">{{ fareText(ride) }}</strong>
-            <span>{{ ride.fareLabel }} <span class="activity-timeline-inline-dot">·</span> {{ duration(ride.durationMs) }}</span>
+            <span class="activity-timeline-ride-label">{{ ride.fareLabel }}</span><span class="activity-timeline-ride-duration">· {{ duration(ride.durationMs) }}</span>
           </div>
           <div class="activity-timeline-ride-areas">
             <div><span>Pickup</span><strong>{{ ride.pickupArea }}</strong></div>
