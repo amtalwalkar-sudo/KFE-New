@@ -27,17 +27,13 @@ export const LoanRepaymentRepository = Object.freeze({
     const record = { ...structuredClone(transaction), id, loanId: loan.id, lender: loan.values?.lender || loan.lender || '', createdAt: now, updatedAt: now, status: 'CONFIRMED' }
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE, 'loans', 'pending_mutations', 'audit_history'], 'readwrite')
-      const loanStore = tx.objectStore('loans')
-      const loanRequest = loanStore.get(loan.id)
+      const loanRequest = tx.objectStore('loans').get(loan.id)
       let failed = false
       const fail = error => { if (failed) return; failed = true; try { tx.abort() } catch (_) {}; reject(error) }
       loanRequest.onsuccess = () => {
         const current = loanRequest.result
         if (!current || current.deleted || current.deletedAt) { fail(new Error('This loan no longer exists. Refresh the loan list and retry.')); return }
         if (transaction.type === 'PREPAYMENT') {
-          const currentValues = current.values || current
-          const nextPrincipal = Math.max(0, Math.round((Number(currentValues.principal || 0) - Number(transaction.amount) + Number.EPSILON) * 100) / 100)
-          loanStore.put({ ...current, values: { ...currentValues, principal: nextPrincipal }, updatedAt: now })
         }
         tx.objectStore(STORE).add(record)
         writeMutationAndAudit(tx.objectStore('pending_mutations'), tx.objectStore('audit_history'), { entityId: id, entityType: 'loan_transaction', action: 'CREATE', payload: record, createdAt: now })
