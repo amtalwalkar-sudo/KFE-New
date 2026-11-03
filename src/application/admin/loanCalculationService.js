@@ -46,21 +46,24 @@ export const LoanCalculationService = Object.freeze({
     const paidByInstallment = new Map((transactions || []).filter(item => item.type === 'EMI_PAYMENT').map(item => [Number(item.installment), item]))
     const applied = new Set()
     let balance = Number(values.principal)
-    return base.map(row => {
+    const rows = []
+    for (const row of base) {
       for (const item of prepayments) {
         if (!applied.has(item.id) && item.paymentDate <= row.dueDate) {
           balance = money(Math.max(0, balance - Number(item.amount || 0)))
           applied.add(item.id)
         }
       }
+      if (balance <= 0.005) break
       const payment = paidByInstallment.get(row.installment)
       const interest = money(balance * rate)
       const amountPaid = payment ? Number(payment.amount) : emi
       const principalPaid = money(Math.min(balance, Math.max(0, amountPaid - interest)))
       const openingBalance = money(balance)
       balance = money(Math.max(0, balance - principalPaid))
-      return { ...row, openingBalance, emi: money(amountPaid), interest, principal: principalPaid, closingBalance: balance, paid: !!payment, paymentDate: payment?.paymentDate || null }
-    })
+      rows.push({ ...row, openingBalance, emi: money(amountPaid), interest, principal: principalPaid, closingBalance: balance, paid: !!payment, paymentDate: payment?.paymentDate || null })
+    }
+    return rows
   },
   previewPrepayment(values = {}, transactions = [], { amount, paymentDate } = {}) {
     if (!validTerms(values) || !paymentDate || !Number.isFinite(Number(amount)) || Number(amount) <= 0) throw new Error('Enter a valid prepayment amount and date.')
