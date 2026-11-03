@@ -194,3 +194,5 @@
  .admin-page .admin-home-summary>span{flex:1}
  .admin-page .detail-count-chip{max-width:82px;text-align:center;white-space:normal}
 }
+
+.admin-page .admin-home-intro{margin:-5px 0 10px;color:var(--kfe-muted-text);font-size:.78rem;line-height:1.4}
