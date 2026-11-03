@@ -198,6 +198,212 @@ onBeforeUnmount(()=>{
 
 <template v-if="!selected&&!settingsOpen">
   <header class="admin-home-heading">
+    <h1>Admin workspace</h1>
+  </header>
+  <p class="admin-home-intro">Business records and application settings</p>
+  <div class="admin-home-summary" aria-label="Admin workspace summary">
+    <span><strong>{{Object.values(all).reduce((count,records)=>count+records.length,0).toLocaleString('en-IN')}}</strong><small>Saved records</small></span>
+    <span><strong>{{categories.length}}</strong><small>Areas</small></span>
+  </div>pt setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
+import AdminSourceForm from '../components/admin/AdminSourceForm.vue'
+import '../components/admin/admin-redesign.css'
+import AdminShell from '../components/admin/AdminShell.vue'
+import BackupRestorePanel from '../components/admin/BackupRestorePanel.vue'
+import { ADMIN_FORM_DEFINITIONS } from '../application/admin/adminFormDefinitions.js'
+import { AdminService } from '../application/admin/adminService.js'
+import { LoanCalculationService } from '../application/admin/loanCalculationService.js'
+import { FormDraftService } from '../application/forms/formDraftService.js'
+import { BackupService } from '../application/backup/backupService.js'
+import { ApplicationSettingsService } from '../presentation/settings/settingsPreferenceService.js'
+
+import {
+  ADMIN_NAVIGATION_ITEMS as items,
+  ADMIN_NAVIGATION_CATEGORIES as categories,
+  getAdminSettingsKey,
+  isAdminSettingsItem,
+  groupAdminNavigationItems,
+} from '../presentation/admin/adminNavigation.js'
+const selected=ref(null),settingsOpen=ref(false),settingsSelected=ref('backup'),masterSelected=ref(null)
+const adminSearch=ref(''),recordSearch=ref('')
+const records=ref([]),all=ref({vehicle:[],driver:[],loan:[],compliance:[],maintenance:[]})
+const loading=ref(false),saving=ref(false),error=ref(''),notice=ref('')
+let loadGeneration = 0
+const formOpen=ref(false),editing=ref(null),draft=ref({}),formErrors=ref({})
+const draftWorkflowIds = ref({})
+const draftWorkflowResolutions = new Map()
+const draftWorkflowKey = (formId, workflowStep, parentId = null) => [formId, workflowStep, parentId || ''].join(':')
+async function beginDraftWorkflow(formId, workflowStep, parentId = null) {
+  const key = draftWorkflowKey(formId, workflowStep, parentId)
+  const pending = draftWorkflowResolutions.get(key)
+  if (pending) return pending
+  const resolution = (async () => {
+    try {
+      const parentType = parentId ? 'ADMIN_RECORD' : 'WORKFLOW'
+      const existing = await FormDraftService.latestWorkflow('admin-' + formId, workflowStep, parentType, parentId)
+      const workflowId = parentId ? null : (existing?.workflowId || FormDraftService.newWorkflowId())
+      draftWorkflowIds.value = { ...draftWorkflowIds.value, [key]: workflowId }
+      return true
+    } catch (cause) {
+      error.value = cause?.message || 'Unable to recover the unfinished Admin form. Try again before entering data.'
+      return false
+    }
+  })()
+  draftWorkflowResolutions.set(key, resolution)
+  try { return await resolution }
+  finally { if (draftWorkflowResolutions.get(key) === resolution) draftWorkflowResolutions.delete(key) }
+}
+const buildDraftIdentity = (formId, parentId = null, workflowStep = 'EDIT') => {
+  const workflowId = draftWorkflowIds.value[draftWorkflowKey(formId, workflowStep, parentId)]
+  if (!workflowId && !parentId) return null
+  return {
+    formId: 'admin-' + formId, workflowStep,
+    parentType: parentId ? 'ADMIN_RECORD' : 'WORKFLOW',
+    parentId: parentId || null,
+    workflowId
+  }
+}
+const sourceFormDraftIdentity = computed(() => buildDraftIdentity(selected.value || 'source', editing.value, editing.value !== null ? 'EDIT' : 'CREATE'))
+async function clearFormDraft(identity) {
+  if (!identity) return
+  try { await FormDraftService.clear(identity, { committed: true }) }
+  catch (_) { notice.value = (notice.value ? notice.value + ' ' : '') + 'Saved successfully; an unfinished draft could not be cleared. Reopen the form and verify before continuing.' }
+}
+const money=v=>v===null||v===undefined||v===''?'—':Number.isFinite(Number(v))?'₹'+Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}):'—'
+const loanEmi = record => LoanCalculationService.monthlyEmi(record?.values || record || {})
+const clone=v=>structuredClone(toRaw(v))
+function label(key,record){const v=record?.values||record||{};if(key==='businessSetup')return v.businessStartDate ? `Business start · ${v.businessStartDate}` : 'Business Setup';if(key==='vehicle')return [v.registrationNumber,v.make,v.model].filter(Boolean).join(' · ')||record?.id;if(key==='driver')return v.name||record?.id;if(key==='loan')return [v.lender,v.accountReference].filter(Boolean).join(' · ')||record?.id;if(key==='compliance')return v.complianceType||record?.id;if(key==='maintenance')return v.maintenanceType||record?.id;return record?.id||'—'}
+const currentItem=computed(()=>items.find(x=>x.key===selected.value)||null)
+const masterMode=computed(()=>['vehicle','driver','compliance'].includes(selected.value))
+const masterRecord=computed(()=>masterSelected.value?records.value.find(x=>x.id===masterSelected.value)||null:null)
+const currentDefinition=computed(()=>currentItem.value?ADMIN_FORM_DEFINITIONS[currentItem.value.key]:null)
+const activeDefinition=computed(()=>{if(!currentDefinition.value)return null;const d=clone(currentDefinition.value);for(const f of d.fields||[]){if(f.key==='vehicleId')f.options=all.value.vehicle.map(x=>({value:x.id,label:label('vehicle',x)}));if(f.key==='driverId')f.options=all.value.driver.map(x=>({value:x.id,label:label('driver',x)}));if(f.key==='loanId')f.options=all.value.loan.map(x=>({value:x.id,label:label('loan',x)}))}return d})
+const groupedItems=computed(()=>groupAdminNavigationItems(items,categories))
+const visibleGroupedItems=computed(()=>{const q=adminSearch.value.trim().toLowerCase();return groupedItems.value.map(group=>({...group,items:group.items.filter(item=>!q||`${item.title} ${item.category} ${item.key}`.toLowerCase().includes(q))})).filter(group=>group.items.length)})
+const filteredRecords=computed(()=>{const q=recordSearch.value.trim().toLowerCase();return records.value.filter(record=>!q||`${label(selected.value,record)} ${JSON.stringify(record.values||{})}`.toLowerCase().includes(q))})
+function clearMessages(){error.value='';notice.value=''}
+function onDraftError(cause){error.value=cause?.message||'Unable to preserve unfinished form draft.'}
+async function openItem(key){
+  if(isAdminSettingsItem(key)){clearMessages();selected.value=null;settingsOpen.value=true;settingsSelected.value=getAdminSettingsKey(key);return}
+  clearMessages()
+  settingsOpen.value=false;selected.value=key;masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}
+  load()
+}
+function openMasterRecord(record){clearMessages();masterSelected.value=record.id;formOpen.value=false;editing.value=null;draft.value={}}
+function backMasterList(){clearMessages();masterSelected.value=null;formOpen.value=false;editing.value=null;draft.value={}}
+function masterFieldValue(field,record){const v=record?.values?.[field.key];if(v===undefined||v===null||v==='')return '—';if(field.type==='checkbox')return v?'Yes':'No';if(field.type==='select'){if(field.key==='vehicleId')return label('vehicle',all.value.vehicle.find(x=>x.id===v));if(field.key==='driverId')return label('driver',all.value.driver.find(x=>x.id===v));const opts=field.options||[];const found=opts.find(x=>x?.value===v);return found?.label||v}return String(v)}
+function resetAdminSelection(){selected.value=null;settingsOpen.value=false;formOpen.value=false;editing.value=null;draft.value={};clearMessages()}
+function back(){
+  if(adminBackEntryActive && window.history.state?.kfeAdminDetail){
+    window.history.back()
+    return
+  }
+  resetAdminSelection()
+}
+function chooseSetting(key){settingsSelected.value=key;clearMessages()}
+async function add(){
+  if(saving.value)return
+  clearMessages();formErrors.value={}
+  if(!await beginDraftWorkflow(selected.value||'source','CREATE'))return
+  editing.value=null;draft.value=Object.fromEntries((currentDefinition.value?.fields||[]).map(field=>[field.key,field.defaultValue]));formOpen.value=true
+}
+async function edit(record){
+  if(saving.value)return
+  formErrors.value={}
+  if(!await beginDraftWorkflow(selected.value||'source','EDIT',record.id))return
+  editing.value=record.id;draft.value=clone(record.values||{});formOpen.value=true
+}
+function updateDraft(v){draft.value={...v}}
+function clearFieldError({key}){if(!(key in formErrors.value))return;const next={...formErrors.value};delete next[key];formErrors.value=next}
+function onSourceFieldChange(change){draft.value={...draft.value,[change.key]:change.value};clearFieldError(change)}
+async function save(values){if(saving.value)return;clearMessages();formErrors.value={};saving.value=true;try{
+  const id=editing.value
+  const draftIdentity = sourceFormDraftIdentity.value
+  const payload=(selected.value==='compliance'||selected.value==='maintenance')?{...values,cost:Number(values.cost)||0}:values
+   const saved=await AdminService.save(selected.value,payload,id)
+   if(!saved?.id)throw new Error('The record was not confirmed by the canonical repository.')
+   await clearFormDraft(draftIdentity)
+   notice.value=(id!==null?'Record updated.':'Record created.');formOpen.value=false;editing.value=null;await load()
+}catch(e){formErrors.value=e.validation&&typeof e.validation==='object'?e.validation:{};error.value=e.validation?Object.values(e.validation).flat().join(' '):e.message||'Save failed.'}finally{saving.value=false}}
+async function remove(record){if(!confirm('Delete this record? Related records may prevent deletion.'))return;clearMessages();loading.value=true;try{await AdminService.remove(selected.value,record.id);notice.value='Record deleted.';await load()}catch(e){error.value=e.message||'Delete failed.'}finally{loading.value=false}}
+async function resetData(){if(!confirm('Reset all KFE data? Business records will be erased and application preferences restored to defaults. A recovery checkpoint will be retained.'))return;if(!confirm('Final confirmation: erase all current KFE business records and reset application preferences to defaults? A recovery checkpoint will be retained.'))return;loading.value=true;clearMessages();try{await BackupService.resetData();ApplicationSettingsService.resetPreferences();notice.value='All canonical KFE data has been reset. Application preferences restored to defaults.'}catch(e){error.value=e.message||'Data reset failed.'}finally{loading.value=false}}
+async function load(){
+  const generation = ++loadGeneration
+  const section = selected.value
+  loading.value = true
+  error.value = ''
+  try {
+    const entries = await Promise.all(Object.keys(all.value).map(async key => [key, await AdminService.list(key)]))
+    const sectionRecords = section ? await AdminService.list(section) : []
+    if (generation !== loadGeneration) return
+    all.value = Object.fromEntries(entries)
+    records.value = sectionRecords
+  } catch (cause) {
+    if (generation === loadGeneration) error.value = cause.message || 'Unable to load Admin data.'
+  } finally {
+    if (generation === loadGeneration) loading.value = false
+  }
+}
+// The Android system Back button must unwind Admin's in-view selection before the WebView exits.
+let stopAdminBackStateWatch = null
+let adminBackEntryActive = false
+function handleAdminPopState() {
+  if (adminBackEntryActive || selected.value || settingsOpen.value) {
+    adminBackEntryActive = false
+    resetAdminSelection()
+  }
+}
+function resetAdminViewport() {
+  // KFE scrolls inside the shell's main region, not the document body.
+  // Reset both so restored scroll from another menu cannot hide the Admin header.
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  window.dispatchEvent(new Event('kfe:shell-scroll-top'))
+}
+onMounted(()=>{
+  // A route return may restore the old history entry while Admin itself starts
+  // on its home screen. Clear that stale detail marker before accepting input.
+  if (window.history.state?.kfeAdminDetail && !selected.value && !settingsOpen.value) {
+    const state = { ...window.history.state }
+    delete state.kfeAdminDetail
+    window.history.replaceState(state, '', window.location.href)
+  }
+  load()
+  window.addEventListener('popstate', handleAdminPopState)
+  stopAdminBackStateWatch = watch([selected, settingsOpen], ([section, settings]) => {
+    if ((section || settings) && !adminBackEntryActive) {
+      window.history.pushState(
+        { ...(window.history.state && typeof window.history.state === 'object' ? window.history.state : {}), kfeAdminDetail: true },
+        '',
+        window.location.href
+      )
+      adminBackEntryActive = true
+    }
+  })
+})
+// All Admin destinations share the same shell. Reset its scroll position after
+// navigation so every menu opens with the full Administration bar visible.
+const stopAdminViewportWatch = watch([selected, settingsOpen, masterSelected], async () => {
+  await nextTick()
+  requestAnimationFrame(resetAdminViewport)
+}, { flush: 'post' })
+onBeforeUnmount(()=>{
+  window.removeEventListener('popstate', handleAdminPopState)
+  stopAdminBackStateWatch?.()
+  stopAdminBackStateWatch = null
+  stopAdminViewportWatch()
+})
+</script>
+
+<template>
+<AdminShell
+  :show-back="Boolean(selected || settingsOpen)"
+  :title="settingsOpen ? 'Settings' : selected ? (currentItem?.title || 'Admin') : 'Admin'"
+  @back="back"
+>
+
+
+<template v-if="!selected&&!settingsOpen">
+  <header class="admin-home-heading">
     <div class="admin-home-title-copy">
       <h1>Admin</h1>
       <p>Business records and application settings</p>
