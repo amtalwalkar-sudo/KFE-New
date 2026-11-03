@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { LoanCalculationService } from '../../application/admin/loanCalculationService.js'
-import { LoanRepaymentRepository } from '../../application/admin/loanRepaymentRepository.js'\nimport './loan-management.css'
+import { LoanRepaymentRepository } from '../../application/admin/loanRepaymentRepository.js'
+import './loan-management.css'
 const props = defineProps({ loans: { type: Array, default: () => [] }, busy: { type: Boolean, default: false } })
 const emit = defineEmits(['edit', 'refresh'])
 const selectedId = ref(''), transactions = ref([]), loading = ref(false), message = ref(''), error = ref('')
@@ -67,7 +68,7 @@ async function recordEmi() {
 <section class="loan-workspace" aria-label="Loan repayments and history">
   <div v-if="loans.length" class="loan-picker">
     <label class="loan-field"><span>Select loan</span><select v-model="selectedId"><option v-for="loan in loans" :key="loan.id" :value="loan.id">{{ loan.values?.lender || 'Loan' }} · {{ loan.values?.accountReference || loan.id.slice(0,8) }}</option></select></label>
-    <button class="loan-secondary" type="button" :disabled="!selectedLoan || busy" @click="emit('edit', selectedLoan)">Edit loan details</button>
+    <div class="loan-picker-actions"><button class="loan-secondary" type="button" :disabled="busy" @click="emit('create')">＋ Add loan</button><button class="loan-secondary" type="button" :disabled="!selectedLoan || busy" @click="emit('edit', selectedLoan)">Edit loan details</button></div>
   </div>
   <div v-if="!loans.length" class="loan-empty">Create a loan to start tracking its EMI schedule and repayments.</div>
   <template v-else-if="selectedLoan">
