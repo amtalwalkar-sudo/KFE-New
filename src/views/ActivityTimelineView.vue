@@ -147,6 +147,7 @@ onUnmounted(() => {
         <h1 id="activity-timeline-title">Timeline</h1>
         <p class="activity-timeline-description">{{ startDate === endDate ? startDate : `${startDate} — ${endDate}` }} <span>· IST</span></p>
       </div>
+      <span class="activity-timeline-screen-reader-only">Showing {{ startDate }} to {{ endDate }} (IST)</span>
       <div class="activity-timeline-actions activity-timeline-date-range" aria-label="Choose Timeline date range">
         <label class="activity-timeline-filter">
           <span>From</span>
@@ -159,6 +160,7 @@ onUnmounted(() => {
       </div>
     </header>
 
+    <p class="activity-timeline-refresh-hint" title="Pull down to resolve unsaved GPS locality names from the last seven days when online">Pull down to update area names</p>
     <div class="activity-timeline-overview" aria-label="Period overview">
       <article class="activity-timeline-overview-card">
         <span>Rides</span>
