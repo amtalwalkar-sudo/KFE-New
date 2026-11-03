@@ -1,5 +1,5 @@
 /** Shared schema-version contract used by storage and backup validation. */
-export const CANONICAL_DB_VERSION = 18
+export const CANONICAL_DB_VERSION = 19
 
 /** Object stores retired from the active KFE data model. */
 export const RETIRED_CANONICAL_STORES = Object.freeze([
