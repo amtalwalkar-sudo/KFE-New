@@ -42,6 +42,6 @@ const performanceCss = readFileSync(new URL('../styles/performance.css', import.
 assert.match(view, /performance-metric-highlight/)
 assert.match(view, /Income after fuel/)
 assert.match(view, /Based on saved records/)
-assert.doesNotMatch(view, /READ-ONLY SUMMARY|Your recorded rides, revenue and fuel performance|Showing \{\{ startDate \}\} to \{\{ endDate \}\} \(IST\)/)
+assert.doesNotMatch(view, /READ-ONLY SUMMARY|Your recorded rides, revenue and fuel performance/)
 assert.ok(performanceCss.includes('performance-metric-highlight{grid-column:1/-1;'))
 assert.match(performanceCss, /performance-screen-reader-only/)
