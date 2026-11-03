@@ -4,7 +4,7 @@ import { LoanCalculationService } from '../../application/admin/loanCalculationS
 import { LoanRepaymentRepository } from '../../application/admin/loanRepaymentRepository.js'
 import './loan-management.css'
 const props = defineProps({ loans: { type: Array, default: () => [] }, busy: { type: Boolean, default: false } })
-const emit = defineEmits(['edit', 'refresh'])
+const emit = defineEmits(['create', 'edit', 'refresh'])
 const selectedId = ref(''), transactions = ref([]), loading = ref(false), message = ref(''), error = ref('')
 const paymentDate = ref(new Date().toISOString().slice(0,10)), paymentAmount = ref(''), paymentInstallment = ref('')
 const prepaymentDate = ref(new Date().toISOString().slice(0,10)), prepaymentAmount = ref(''), preview = ref(null), confirmOpen = ref(false)
