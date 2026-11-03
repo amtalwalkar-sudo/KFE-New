@@ -40,6 +40,8 @@ const duration = value => {
   const minutes = totalMinutes % 60
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`
 }
+const rideIncome = computed(() => snapshot.value.rides.reduce((sum, ride) => sum + (ride.fareState === 'recorded' && ride.fareValue != null ? Number(ride.fareValue) : 0), 0))
+const recordedRideIncomeCount = computed(() => snapshot.value.rides.filter(ride => ride.fareState === 'recorded' && ride.fareValue != null).length)
 const fareText = ride => {
   if (ride.fareState === 'skipped') return 'Fare skipped'
   if (ride.fareState === 'pending') return 'Fare pending'
@@ -141,11 +143,11 @@ onUnmounted(() => {
 <template>
   <section class="activity-timeline-page" aria-labelledby="activity-timeline-title" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd" @touchcancel.passive="resetPull">
     <header class="activity-timeline-heading">
-      <div>
-        <p class="activity-timeline-eyebrow">READ-ONLY RECORDS</p>
+      <div class="activity-timeline-title-group">
         <h1 id="activity-timeline-title">Timeline</h1>
-        <p class="activity-timeline-description">Your rides and CNG refills for the selected period.</p>
+        <p class="activity-timeline-description">{{ startDate === endDate ? startDate : `${startDate} — ${endDate}` }} <span>· IST</span></p>
       </div>
+      <span class="activity-timeline-screen-reader-only">Showing {{ startDate }} to {{ endDate }} (IST)</span>
       <div class="activity-timeline-actions activity-timeline-date-range" aria-label="Choose Timeline date range">
         <label class="activity-timeline-filter">
           <span>From</span>
@@ -158,8 +160,17 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <p v-if="snapshot.range && !error" class="activity-timeline-description activity-timeline-period-note">Showing {{ startDate }} to {{ endDate }} (IST). Records are read-only.</p>
-    <p class="activity-timeline-description activity-timeline-refresh-hint">Pull down to resolve unsaved GPS locality names from the last seven days when online.</p>
+    <p class="activity-timeline-refresh-hint" title="Pull down to resolve unsaved GPS locality names from the last seven days when online">Pull down to update area names</p>
+    <div class="activity-timeline-overview" aria-label="Period overview">
+      <article class="activity-timeline-overview-card">
+        <span>Rides</span>
+        <strong>{{ snapshot.rides.length }}</strong>
+      </article>
+      <article class="activity-timeline-overview-card">
+        <span>Recorded ride income <small>({{ recordedRideIncomeCount }})</small></span>
+        <strong>{{ money(rideIncome) }} total</strong>
+      </article>
+    </div>
     <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
     <p v-else-if="refreshMessage" class="activity-timeline-message" role="status">{{ refreshMessage }}</p>
     <p v-if="error" class="activity-timeline-message activity-timeline-error" role="alert">{{ error }}</p>
@@ -168,7 +179,7 @@ onUnmounted(() => {
     <section class="activity-timeline-section" aria-labelledby="timeline-rides-heading">
       <div class="activity-timeline-section-heading">
         <h2 id="timeline-rides-heading">Rides</h2>
-        <span>{{ snapshot.rides.length }} records</span>
+        <span>{{ snapshot.rides.length }}</span>
       </div>
       <div v-if="!loading && !error && snapshot.rides.length === 0" class="activity-timeline-empty">No rides recorded for this period.</div>
       <ol v-else-if="!error" class="activity-timeline-list">
@@ -177,11 +188,13 @@ onUnmounted(() => {
             <strong>{{ ride.timeLabel }} · {{ dateTime(ride.timeAt) }}</strong>
             <span class="activity-timeline-status" :class="{ 'is-cancelled': ride.status === 'CANCELLED' }">{{ ride.statusLabel }}</span>
           </div>
-          <div class="activity-timeline-record-grid">
-            <div><span>Duration</span><strong>{{ duration(ride.durationMs) }}</strong></div>
-            <div><span>{{ ride.fareLabel }}</span><strong>{{ fareText(ride) }}</strong></div>
-            <div><span>Pickup area</span><strong>{{ ride.pickupArea }}</strong></div>
-            <div><span>Drop area</span><strong>{{ ride.dropArea }}</strong></div>
+          <div class="activity-timeline-ride-highlight">
+            <strong class="activity-timeline-ride-fare">{{ fareText(ride) }}</strong>
+            <span class="activity-timeline-ride-label">{{ ride.fareLabel }}</span><span class="activity-timeline-ride-duration">· {{ duration(ride.durationMs) }}</span>
+          </div>
+          <div class="activity-timeline-ride-areas">
+            <div><span>Pickup</span><strong>{{ ride.pickupArea }}</strong></div>
+            <div><span>Drop</span><strong>{{ ride.dropArea }}</strong></div>
           </div>
         </li>
       </ol>
@@ -190,7 +203,7 @@ onUnmounted(() => {
     <section class="activity-timeline-section" aria-labelledby="timeline-fuel-heading">
       <div class="activity-timeline-section-heading">
         <h2 id="timeline-fuel-heading">Fuel</h2>
-        <span>{{ snapshot.fuelLogs.length }} records</span>
+        <span>{{ snapshot.fuelLogs.length }}</span>
       </div>
       <div class="activity-timeline-summary" aria-label="Fuel summary">
         <article class="activity-timeline-metric">
@@ -210,10 +223,10 @@ onUnmounted(() => {
             <strong>{{ dateTime(fuel.timeAt) }}</strong>
             <span class="activity-timeline-status">{{ fuel.isFullTank ? 'Full tank' : 'Partial fill' }}</span>
           </div>
-          <div class="activity-timeline-record-grid">
-            <div><span>Amount paid</span><strong>{{ money(fuel.amount) }}</strong></div>
-            <div><span>Quantity</span><strong>{{ fuel.quantityKg == null ? 'Unavailable' : `${fuel.quantityKg.toFixed(2)} kg` }}</strong></div>
-            <div><span>Odometer</span><strong>{{ fuel.odometer == null ? 'Unavailable' : `${fuel.odometer.toLocaleString('en-IN')} km` }}</strong></div>
+          <div class="activity-timeline-fuel-details">
+            <div><span>Paid</span><strong>{{ money(fuel.amount) }}</strong></div>
+            <div><span>Quantity</span><strong>{{ fuel.quantityKg == null ? '—' : `${fuel.quantityKg.toFixed(2)} kg` }}</strong></div>
+            <div><span>Odometer</span><strong>{{ fuel.odometer == null ? '—' : `${fuel.odometer.toLocaleString('en-IN')} km` }}</strong></div>
           </div>
         </li>
       </ol>
