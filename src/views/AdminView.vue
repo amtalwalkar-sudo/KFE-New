@@ -198,7 +198,14 @@ onBeforeUnmount(()=>{
 
 <template v-if="!selected&&!settingsOpen">
   <header class="admin-home-heading">
-    <h1>Admin workspace</h1>
+    <div class="admin-home-title-copy">
+      <h1>Admin</h1>
+      <p>Business records and application settings</p>
+    </div>
+    <div class="admin-home-summary" aria-label="Admin workspace summary">
+      <span><strong>{{Object.values(all).reduce((count,records)=>count+records.length,0).toLocaleString('en-IN')}}</strong><small>Saved records</small></span>
+      <span><strong>{{categories.length}}</strong><small>Areas</small></span>
+    </div>
   </header>
   <div class="admin-home-tools"><label class="admin-search-field"><span aria-hidden="true">⌕</span><input v-model="adminSearch" type="search" placeholder="Find an Admin area…" aria-label="Search Admin areas"></label><span class="admin-search-hint">{{visibleGroupedItems.reduce((count,group)=>count+group.items.length,0)}} of {{items.length}} destinations</span></div>
   <div v-if="!visibleGroupedItems.length" class="empty admin-no-results">No Admin areas match “{{adminSearch}}”. Try a different search.</div>
@@ -222,7 +229,7 @@ onBeforeUnmount(()=>{
 
 
 <template v-else-if="selected">
-<section class="detail-screen" :aria-busy="loading" aria-labelledby="admin-detail-title"><div class="detail-title"><span class="item-icon" aria-hidden="true">{{currentItem.icon}}</span><div><div class="category-label">{{currentItem.category}}</div><h1 id="admin-detail-title">{{currentItem.title}}</h1></div></div><p class="detail-intro">{{selected==='businessSetup'?'Set the business start date used by KFE planning.':selected==='vehicle'?'Maintain the vehicle identity and lifecycle details used across KFE.':selected==='driver'?'Manage driver identity and assignment details.':selected==='compliance'?'Track compliance validity and recorded cost.':selected==='maintenance'?'Record actual maintenance details.':selected==='loan'?'Maintain saved loan details.':'Review and manage the selected Admin records.'}}</p><p v-if="error" class="message error" role="alert" aria-live="assertive">{{error}}</p><p v-if="notice" class="message notice" role="status" aria-live="polite">✓ {{notice}}</p>
+<section class="detail-screen" :aria-busy="loading" aria-labelledby="admin-detail-title"><div class="detail-title"><span class="item-icon" aria-hidden="true">{{currentItem.icon}}</span><div class="detail-title-copy"><div class="category-label">{{currentItem.category}}</div><h1 id="admin-detail-title">{{currentItem.title}}</h1></div><span v-if="!loading" class="detail-count-chip">{{filteredRecords.length}} {{filteredRecords.length===1?'record':'records'}}</span></div><p class="detail-intro">{{selected==='businessSetup'?'Set the business start date used by KFE planning.':selected==='vehicle'?'Maintain the vehicle identity and lifecycle details used across KFE.':selected==='driver'?'Manage driver identity and assignment details.':selected==='compliance'?'Track compliance validity and recorded cost.':selected==='maintenance'?'Record actual maintenance details.':selected==='loan'?'Maintain saved loan details.':'Review and manage the selected Admin records.'}}</p><p v-if="error" class="message error" role="alert" aria-live="assertive">{{error}}</p><p v-if="notice" class="message notice" role="status" aria-live="polite">✓ {{notice}}</p>
 
 <template v-if="masterMode">
 <div v-if="!masterSelected && formOpen" class="admin-record-form-screen">
