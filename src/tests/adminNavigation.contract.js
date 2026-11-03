@@ -80,7 +80,7 @@ assert.match(adminLayoutCss, /\.admin-page \{ box-sizing:border-box; width:100%;
 const adminSourceForm = await readFile(new URL('../components/admin/AdminSourceForm.vue', import.meta.url), 'utf8')
 const sharedUiCss = await readFile(new URL('../styles/kfe-ui.css', import.meta.url), 'utf8')
 assert.match(adminView, /v-if="!masterSelected && formOpen" class="admin-record-form-screen"/)
-assert.match(adminView, /v-if="formOpen" class="admin-record-form-screen"/)
+assert.match(adminView, /v-else-if="formOpen" class="admin-record-form-screen"/)
 assert.match(adminView, /Cancel and return to list/)
 assert.match(adminLayoutCss, /\.admin-page \.admin-record-form-screen \{ display:block; width:100%; min-width:0;/)
 assert.match(sharedUiCss, /grid-template-columns:minmax\(0,\.85fr\) minmax\(0,1\.15fr\)/)

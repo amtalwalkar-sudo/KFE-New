@@ -73,6 +73,7 @@ export const ADMIN_FORM_DEFINITIONS={
       number('principal','Loan amount',{section:'Contractual terms',required:true,min:0,exclusiveMin:true,step:0.01}),
       number('tenureMonths','Tenure (months)',{section:'Contractual terms',required:true,min:1,step:1}),
       date('startDate','Loan start date',{section:'Contractual terms',required:true}),
+      date('firstEmiDueDate','First EMI due date',{section:'Repayment schedule',required:true,help:'The first scheduled EMI date. Later instalments follow this monthly date.'}),
       number('annualInterestRatePercent','Annual interest rate (%)',{section:'Contractual terms',required:true,min:0,step:0.01,help:'Explicit for this loan; KFE does not assume a global interest rate.'}),
       select('status','Loan status',['Active','Closed','Settled'],{section:'Lifecycle',required:true,defaultValue:'Active'}),
       textarea('notes','Notes',{section:'Additional context'})

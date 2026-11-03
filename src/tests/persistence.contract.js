@@ -22,10 +22,10 @@ assert(db.includes('onupgradeneeded'), 'Migration hook missing')
 assert(db.includes('initializationPromise'), 'Initialization guard missing')
 assert(db.includes('dbInstance.onversionchange'), 'Version-change lifecycle handling missing')
 const version = Number(db.match(/CANONICAL_DB_VERSION\s*=\s*(\d+)/)?.[1])
-assert(version === 18, 'Canonical DB must be version 18 after retired-store removal.')
+assert(version === 19, 'Canonical DB must be version 19 with durable loan transaction history.')
 assert(contract.includes('cloud service must not be required'), 'Local-first boundary missing')
 
-const stores = ['canonical_operations','shifts','trips','fuel_logs','gps_snapshots','locality_labels','vehicles','drivers','compliance_records','maintenance_records','loans','settings','pending_mutations','audit_history','form_drafts']
+const stores = ['canonical_operations','shifts','trips','fuel_logs','gps_snapshots','locality_labels','vehicles','drivers','compliance_records','maintenance_records','loans','loan_transactions','settings','pending_mutations','audit_history','form_drafts']
 for (const store of stores) assert(db.includes(`'${store}'`), `Canonical store missing: ${store}`)
 assert(!db.includes("createSimpleStore(db, 'driver_collected_data'"), 'Removed driver-collected store must not be recreated')
 assert(db.includes('db.deleteObjectStore(retiredStore)'), 'Retired object stores must be dropped by the schema migration.')

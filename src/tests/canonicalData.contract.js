@@ -69,7 +69,7 @@ for (const retired of ['odoGaps','days','movement_artifacts','loan_payments','pr
   assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${retired}'`), `${retired} must not be recreated.`)
 }
 assert.equal(CANONICAL_BACKUP_STORES.includes('driver_collected_data'), false)
-assert.equal(BACKUP_FORMAT_VERSION, 6)
+assert.equal(BACKUP_FORMAT_VERSION, 7)
 assert.match(backupSource, /backup\.formatVersion < BACKUP_FORMAT_VERSION/)
 assert.match(backupSource, /new Set\(RETIRED_CANONICAL_STORES\)/)
 assert.match(dataContract, /retired store payloads are discarded/)
@@ -79,7 +79,7 @@ assert.doesNotMatch(dataContract, /deriveAuthoritativeBreakEven|Driver Target do
 const legacyStores = ['shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots','movement_artifacts','vehicles','drivers','compliance_records','maintenance_records','loans','loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history']
 const stores = Object.fromEntries([...legacyStores.map(store => [store, []]), ['driver_collected_data', []]])
 const migrated = validateBackup({ format: 'KFE_BACKUP', formatVersion: 2, source: { dbName: 'kanishka_kfe_canonical_db', dbVersion: 9 }, exportedAt: new Date().toISOString(), stores })
-assert.equal(migrated.formatVersion, 6); assert.equal('driver_collected_data' in migrated.stores, false)
+assert.equal(migrated.formatVersion, 7); assert.equal('driver_collected_data' in migrated.stores, false)
 for (const retired of ['days','odoGaps','movement_artifacts','loan_payments','prepayments','driver_targets','break_even_inputs','settlements','financial_period_snapshots']) assert.equal(retired in migrated.stores, false, retired + ' must not survive backup migration.')
 for (const store of ['days','odoGaps','movement_artifacts']) assert.doesNotMatch(indexedDB, new RegExp(`createSimpleStore\\(db, '${store}'`))
 assert.match(indexedDB, /createObjectStore\('gps_snapshots'/)

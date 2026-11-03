@@ -3,14 +3,14 @@ import { WorkRuntimePorts } from '../work/workRuntimePorts.js'
 import { CanonicalWorkBoundary } from '../work/canonicalWorkBoundary.js'
 import { CANONICAL_DB_VERSION, RETIRED_CANONICAL_STORES } from '../../constants/canonicalDatabase.js'
 export const BACKUP_FORMAT = 'KFE_BACKUP'
-export const BACKUP_FORMAT_VERSION = 6
+export const BACKUP_FORMAT_VERSION = 7
 
 // Current backup contains only live canonical business facts and the recovery
 // records required by the current product. Retired workflow stores are excluded.
 export const CANONICAL_BACKUP_STORES = Object.freeze([
   'shifts', 'fuel_logs', 'pending_mutations', 'trips', 'gps_snapshots',
   'vehicles', 'drivers', 'compliance_records', 'maintenance_records',
-  'loans', 'settings', 'audit_history', 'locality_labels',
+  'loans', 'loan_transactions', 'settings', 'audit_history', 'locality_labels',
 ])
 
 // Format 5 and earlier remain readable as migration inputs. Retired day,
@@ -23,6 +23,7 @@ const V4_BACKUP_STORES = Object.freeze([
   'loan_payments','prepayments','driver_targets','break_even_inputs','settings','audit_history',
 ])
 const V5_BACKUP_STORES = Object.freeze([...V4_BACKUP_STORES, 'locality_labels'])
+const V6_BACKUP_STORES = Object.freeze(['shifts','fuel_logs','pending_mutations','trips','gps_snapshots','vehicles','drivers','compliance_records','maintenance_records','loans','settings','audit_history','locality_labels'])
 const V3_BACKUP_STORES = Object.freeze(V4_BACKUP_STORES.filter(name => name !== 'settlements'))
 const PRE_FA4_BACKUP_STORES = Object.freeze([
   'shifts','fuel_logs','odoGaps','pending_mutations','days','trips','gps_snapshots',
@@ -38,16 +39,18 @@ export const validateBackup = input => {
   if (typeof input === 'string') { try { backup = JSON.parse(input) } catch (_) { throw new Error('Backup file is not valid JSON.') } }
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Backup must be a JSON object.')
   if (backup.format !== BACKUP_FORMAT) throw new Error('Unsupported KFE backup format.')
-  if (![1, 2, 3, 4, 5, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
+  if (![1, 2, 3, 4, 5, 6, BACKUP_FORMAT_VERSION].includes(backup.formatVersion)) throw new Error(`Unsupported backup format version: ${backup.formatVersion}.`)
   const sourceVersion = backup.source?.dbVersion
-  const supportedSourceVersions = backup.formatVersion === 6 ? [CANONICAL_DB_VERSION]
+  const supportedSourceVersions = backup.formatVersion === 7 ? [CANONICAL_DB_VERSION]
+    : backup.formatVersion === 6 ? [18]
     : backup.formatVersion === 5 ? [13, 15, 16, 17]
     : backup.formatVersion === 4 ? [12, 13, 15, 16]
     : backup.formatVersion === 3 ? [11, 12] : [8, 9]
   if (!backup.source || backup.source.dbName !== 'kanishka_kfe_canonical_db' || !supportedSourceVersions.includes(sourceVersion)) throw new Error('Backup source does not match a supported canonical KFE database version.')
   if (typeof backup.exportedAt !== 'string' || Number.isNaN(Date.parse(backup.exportedAt))) throw new Error('Backup exportedAt timestamp is invalid.')
   if (!backup.stores || typeof backup.stores !== 'object' || Array.isArray(backup.stores)) throw new Error('Backup stores section is missing.')
-  const expectedStores = backup.formatVersion === 6 ? CANONICAL_BACKUP_STORES
+  const expectedStores = backup.formatVersion === 7 ? CANONICAL_BACKUP_STORES
+    : backup.formatVersion === 6 ? V6_BACKUP_STORES
     : backup.formatVersion === 5 ? V5_BACKUP_STORES
     : backup.formatVersion === 4 && sourceVersion === 12 ? V3_BACKUP_STORES
     : backup.formatVersion === 4 ? V4_BACKUP_STORES
@@ -77,6 +80,7 @@ export const validateBackup = input => {
     )
     if (backup.formatVersion === 1) activeStores.audit_history = []
     if (!activeStores.locality_labels) activeStores.locality_labels = []
+    if (!activeStores.loan_transactions) activeStores.loan_transactions = []
     backup = { ...backup, formatVersion: BACKUP_FORMAT_VERSION, source: { ...backup.source, dbVersion: CANONICAL_DB_VERSION }, stores: activeStores }
   }
   return backup
