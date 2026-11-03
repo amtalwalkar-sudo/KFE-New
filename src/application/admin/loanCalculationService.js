@@ -37,17 +37,43 @@ export const LoanCalculationService = Object.freeze({
     if (!validTerms({ ...values, principal, tenureMonths }) || !firstEmiDueDate) return []
     return buildSchedule({ principal: Number(principal), annualInterestRatePercent: Number(values.annualInterestRatePercent), tenureMonths: Number(tenureMonths), firstEmiDueDate, emiAmount })
   },
+  scheduleWithTransactions(values = {}, transactions = []) {
+    const base = this.schedule(values)
+    if (!base.length) return []
+    const rate = Number(values.annualInterestRatePercent) / 1200
+    const emi = this.monthlyEmi(values)
+    const rows = []
+    const events = [...(transactions || [])].sort((a, b) => String(a.paymentDate).localeCompare(String(b.paymentDate)))
+    let eventIndex = 0, balance = Number(values.principal)
+    for (const row of base) {
+      while (eventIndex < events.length && events[eventIndex].paymentDate <= row.dueDate && events[eventIndex].type === 'PREPAYMENT') {
+        balance = money(Math.max(0, balance - Number(events[eventIndex].amount || 0)))
+        eventIndex++
+      }
+      const payment = events.find(item => item.type === 'EMI_PAYMENT' && Number(item.installment) === row.installment)
+      const interest = money(balance * rate)
+      const amountPaid = payment ? Number(payment.amount) : emi
+      const principalPaid = money(Math.min(balance, Math.max(0, amountPaid - interest)))
+      const openingBalance = money(balance)
+      balance = money(Math.max(0, balance - principalPaid))
+      rows.push({ ...row, openingBalance, emi: money(amountPaid), interest, principal: principalPaid, closingBalance: balance, paid: !!payment, paymentDate: payment?.paymentDate || null })
+    }
+    return rows
+  },
   previewPrepayment(values = {}, transactions = [], { amount, paymentDate } = {}) {
     if (!validTerms(values) || !paymentDate || !Number.isFinite(Number(amount)) || Number(amount) <= 0) throw new Error('Enter a valid prepayment amount and date.')
     const firstDate = values.firstEmiDueDate || values.startDate
     const baseSchedule = this.schedule(values)
-    const priorPayments = (transactions || []).filter(item => item.type === 'EMI_PAYMENT' && item.paymentDate < paymentDate)
-    const paidInstallments = new Set(priorPayments.map(item => Number(item.installment)).filter(Number.isInteger))
+    const priorEvents = (transactions || []).filter(item => item.paymentDate < paymentDate).sort((a, b) => String(a.paymentDate).localeCompare(String(b.paymentDate)))
+    const paidInstallments = new Set(priorEvents.filter(item => item.type === 'EMI_PAYMENT').map(item => Number(item.installment)).filter(Number.isInteger))
     let outstanding = Number(values.principal)
     for (const row of baseSchedule) {
       if (row.dueDate >= paymentDate) break
-      if (paidInstallments.has(row.installment)) outstanding = money(Math.max(0, outstanding - row.principal))
+      const payment = priorEvents.find(item => item.type === 'EMI_PAYMENT' && Number(item.installment) === row.installment)
+      if (payment) outstanding = money(Math.max(0, outstanding - Math.max(0, Number(payment.amount) - row.interest)))
+      for (const prepayment of priorEvents.filter(item => item.type === 'PREPAYMENT' && item.paymentDate >= row.dueDate && item.paymentDate < paymentDate)) outstanding = money(Math.max(0, outstanding - Number(prepayment.amount || 0)))
     }
+    for (const prepayment of priorEvents.filter(item => item.type === 'PREPAYMENT' && !baseSchedule.some(row => row.dueDate <= item.paymentDate && row.dueDate < paymentDate))) outstanding = money(Math.max(0, outstanding - Number(prepayment.amount || 0)))
     const outstandingBefore = money(outstanding)
     const prepayment = money(Math.min(Number(amount), outstandingBefore))
     const outstandingAfter = money(Math.max(0, outstandingBefore - prepayment))
