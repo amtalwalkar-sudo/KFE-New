@@ -168,7 +168,7 @@ onUnmounted(() => {
       </article>
       <article class="activity-timeline-overview-card">
         <span>Recorded ride income <small>({{ recordedRideIncomeCount }})</small></span>
-        <strong>{{ money(rideIncome) }}</strong>
+        <strong>{{ money(rideIncome) }} total</strong>
       </article>
     </div>
     <p v-if="refreshing" class="activity-timeline-message" role="status">Refreshing area names…</p>
