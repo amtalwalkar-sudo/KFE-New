@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { LoanCalculationService } from '../../application/admin/loanCalculationService.js'
-import { LoanRepaymentRepository } from '../../repositories/loanRepaymentRepository.js'
+import { LoanRepaymentService } from '../../application/admin/loanRepaymentService.js'
 import './loan-management.css'
 const props = defineProps({ loans: { type: Array, default: () => [] }, busy: { type: Boolean, default: false } })
 const emit = defineEmits(['create', 'edit', 'refresh'])
