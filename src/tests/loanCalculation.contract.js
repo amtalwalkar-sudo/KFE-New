@@ -11,7 +11,7 @@ assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 12, annualInter
 assert.equal(calculateLoanEmi({ principal: 100000, tenureMonths: 12, annualInterestRatePercent: null }), null)
 const terms = { principal: 100000, tenureMonths: 12, annualInterestRatePercent: 12, startDate: '2025-01-01', firstEmiDueDate: '2025-01-15' }
 assert.equal(LoanCalculationService.monthlyEmi({ principal: 120000, tenureMonths: 12, annualInterestRatePercent: 0 }), 10000)
-assert.equal(LoanCalculationService.roundedPaymentAmount({ principal: 127000, tenureMonths: 12, annualInterestRatePercent: 12 }), 11299)
+assert.equal(LoanCalculationService.roundedPaymentAmount({ principal: 127000, tenureMonths: 12, annualInterestRatePercent: 12 }), 11284)
 const schedule = LoanCalculationService.schedule(terms)
 assert.equal(schedule.length, 12)
 assert.equal(schedule[0].dueDate, '2025-01-15')
