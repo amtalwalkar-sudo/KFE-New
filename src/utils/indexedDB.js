@@ -103,7 +103,8 @@ const openDatabase = name => new Promise((resolve, reject) => {
     if (!db.objectStoreNames.contains('locality_labels')) { const store = db.createObjectStore('locality_labels', { keyPath: 'snapshotId' }); store.createIndex('resolvedAt', 'resolvedAt', { unique: false }) }
     createSimpleStore(db, 'vehicles', ['registrationNumber', 'active']); createSimpleStore(db, 'drivers', ['status', 'name'])
     createSimpleStore(db, 'compliance_records', ['vehicleId', 'complianceType', 'validUntil']); createSimpleStore(db, 'maintenance_records', ['vehicleId', 'performedOn'])
-    createSimpleStore(db, 'loans', ['status', 'startDate'])\n    createSimpleStore(db, 'loan_transactions', ['loanId', 'paymentDate', 'type'])
+    createSimpleStore(db, 'loans', ['status', 'startDate'])
+    createSimpleStore(db, 'loan_transactions', ['loanId', 'paymentDate', 'type'])
     createSimpleStore(db, 'form_drafts', ['formId', 'parentId', 'ownerId', 'updatedAt']); createSimpleStore(db, 'canonical_operations', ['entityType', 'createdAt']); createSimpleStore(db, 'settings', ['settingKey', 'updatedAt']); createSimpleStore(db, 'audit_history', ['entityId', 'entityType', 'action', 'createdAt'])
     if (db.objectStoreNames.contains('trips')) {
       const trips = e.target.transaction.objectStore('trips')
