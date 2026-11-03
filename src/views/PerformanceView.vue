@@ -118,7 +118,7 @@ onUnmounted(() => {
           <small>{{ overview.fuelCostPerKmSource === 'FULL_TANK_INTERVAL' ? 'Full-tank odometer intervals' : 'Needs two valid full-tank readings' }}</small>
         </article>
       </section>
-      <p class="performance-footnote">Read-only totals from saved records. Maintenance and EMI costs are not included.</p>
+      <p class="performance-footnote">Read-only totals from saved records. Maintenance and EMI costs are not included in Phase 1.</p>
     </template>
   </section>
 </template>
