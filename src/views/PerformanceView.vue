@@ -66,7 +66,7 @@ onUnmounted(() => {
     <header class="performance-heading">
       <div class="performance-title-group">
         <h1 id="performance-title">Performance</h1>
-        <p class="performance-description">{{ startDate === endDate ? startDate : `${startDate} — ${endDate}` }} <span>· IST</span></p>
+        
       </div>
       <div class="performance-period performance-date-range" aria-label="Choose Performance date range">
         <label>
@@ -85,7 +85,7 @@ onUnmounted(() => {
     <p v-else-if="loading && !overview" class="performance-message" role="status">Loading performance…</p>
 
     <template v-if="overview && !error">
-      <p class="performance-period-note">Based on saved records</p>
+      <p class="performance-period-note">{{ startDate }} to {{ endDate }} (IST) · Based on saved records</p>
       <section class="performance-metric-grid" aria-label="Performance metrics">
         <article class="performance-metric performance-metric-highlight">
           <span>Income after fuel</span>
